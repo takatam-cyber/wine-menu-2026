@@ -22,15 +22,14 @@ function getAIClient() {
     // 優先的に MY_SOMMELIER_KEY を参照し、(process.env as any) で型エラーを回避
     const apiKey = (process.env as any).MY_SOMMELIER_KEY || process.env.MY_SOMMELIER_KEY;
 
-    if (!apiKey || apiKey === "undefined" || apiKey === "null" || apiKey === "" || apiKey === "AI Studio Free Tier") {
-      console.error(`[AI Sommelier] API Key ERROR: MY_SOMMELIER_KEY is missing or invalid. Value: ${apiKey}`);
-      throw new Error(`AIソムリエの認証情報(APIキー)が正しく設定されていません。
-アプリの[Settings]から 'MY_SOMMELIER_KEY' という名前で有効なGemini APIキーを設定してください。`);
+    if (!apiKey || apiKey === "undefined" || apiKey === "null" || apiKey === "" || apiKey === "AI Studio Free Tier" || !apiKey.startsWith("AI") || apiKey.length < 39) {
+      console.error(`[AI Sommelier] API Key ERROR: MY_SOMMELIER_KEY is missing or invalid.`);
+      throw new Error("APIキーの設定(MY_SOMMELIER_KEY)が不完全です。管理者メニューの[Settings]から、'AI'で始まる39文字以上の有効なGemini APIキーを設定してください。");
     }
 
     // Mask key for safety but log details for debugging
     const maskedKey = `${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}`;
-    console.log(`[AI Sommelier] Initializing Gemini AI (Model: gemini-1.5-flash-latest)
+    console.log(`[AI Sommelier] Initializing Gemini AI (Model: gemini-3-flash-preview)
     Source: MY_SOMMELIER_KEY (Hint: ${maskedKey})`);
 
     genAI = new GoogleGenAI({ apiKey });
@@ -99,22 +98,42 @@ ${wineContext}
 
   try {
     const ai = getAIClient();
+    
+    // トークン節約のため、シンプルな文字列でプロンプトを送信
     const result = await ai.models.generateContent({
-      model: "gemini-1.5-flash-latest",
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: {
+      model: "gemini-3-flash-preview",
+      contents: prompt,
+      config: {
         maxOutputTokens: 300,
         temperature: 0.7,
       }
     });
     
-    const answer = result.text;
-    if (!answer) throw new Error("No response text generated");
+    if (!result || !result.text) {
+      throw new Error("AIからの応答が空でした。");
+    }
     
-    return answer;
+    return result.text;
   } catch (error: any) {
     console.error("AI Sommelier Error:", error);
-    return "申し訳ございません。現在ソムリエが席を外しております。少々お時間をおいてから再度お声がけください。";
+    
+    // エラーの詳細をユーザーに表示して原因特定を助ける
+    const detail = error.message || String(error);
+    
+    // 特徴的なキーワードでエラーを分類
+    if (detail.includes("API_KEY_INVALID") || detail.includes("API key not valid")) {
+      return "【認証エラー】APIキーが無効です。管理者メニューの[Settings]から正しい MY_SOMMELIER_KEY を設定してください。";
+    }
+    if (detail.includes("404") || detail.includes("model not found")) {
+      return "【モデルエラー】選択されたAIモデルが見つかりません。設定を確認してください。";
+    }
+    if (detail.includes("429") || detail.includes("quota")) {
+      return "【制限エラー】AIの利用制限に達しました。しばらく時間をおいてから再度お試しください。";
+    }
+
+    return `申し訳ございません。現在ソムリエが席を外しております。
+(詳細エラー: ${detail})
+少々お時間をおいてから再度お声がけください。`;
   }
 }
 
@@ -134,17 +153,17 @@ The script should be:
     try {
       const ai = getAIClient();
       const result = await ai.models.generateContent({
-        model: "gemini-1.5-flash-latest",
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: {
+        model: "gemini-3-flash-preview",
+        contents: prompt,
+        config: {
           maxOutputTokens: 500,
           temperature: 0.8,
         }
       });
       return result.text || "このワインは非常にバランスが良く、お食事にぴったりです。";
-    } catch (error) {
+    } catch (error: any) {
       console.error("Staff talk generation error:", error);
-      return "このワインは非常にバランスが良く、お食事にぴったりです。";
+      return `【生成エラー】${error.message || "お食事にぴったりのワインです。"}`;
     }
   });
 }
@@ -160,17 +179,17 @@ Language: Japanese.`;
     try {
       const ai = getAIClient();
       const result = await ai.models.generateContent({
-        model: "gemini-1.5-flash-latest",
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: {
+        model: "gemini-3-flash-preview",
+        contents: prompt,
+        config: {
           maxOutputTokens: 500,
           temperature: 0.8,
         }
       });
       return result.text || "優雅なひとときを。 #Wine #SommelierSelection";
-    } catch (error) {
+    } catch (error: any) {
       console.error("Social post generation error:", error);
-      return "優雅なひとときを。 #Wine #SommelierSelection";
+      return `【生成エラー】${error.message || "優雅なひとときを。 #Wine"}`;
     }
   });
 }

@@ -9,13 +9,17 @@ interface AISommelierProps {
   availableWines: WineMaster[];
   cuisineType?: string;
   onSelectWine?: (id: string) => void;
+  isOpen: boolean;
+  setIsOpen: (open: boolean) => void;
 }
 
-export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, cuisineType, onSelectWine }) => {
-  const [isOpen, setIsOpen] = useState(false);
+export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, cuisineType, onSelectWine, isOpen, setIsOpen }) => {
   const [query, setQuery] = useState('');
-  const [messages, setMessages] = useState<{ role: 'user' | 'ai'; content: string }[]>([]);
+  const [messages, setMessages] = useState<{ role: 'user' | 'ai'; content: string }[]>([
+    { role: 'ai', content: 'いらっしゃいませ。本日のお料理に合うワインをお探しですか？' }
+  ]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -31,11 +35,16 @@ export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, cuisin
     setMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
     setQuery('');
     setLoading(true);
+    setError(null);
 
-    const response = await getSommelierAdvice(userMessage, availableWines, { cuisine: cuisineType });
-    
-    setMessages((prev) => [...prev, { role: 'ai', content: response }]);
-    setLoading(false);
+    try {
+      const response = await getSommelierAdvice(userMessage, availableWines, { cuisine: cuisineType });
+      setMessages((prev) => [...prev, { role: 'ai', content: response }]);
+    } catch (err: any) {
+      setError(err.message || 'エラーが発生しました');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const renderMessageContent = (content: string) => {
@@ -70,21 +79,6 @@ export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, cuisin
 
   return (
     <>
-      {/* Floating Trigger Icon */}
-      <motion.button
-        id="sommelier-trigger"
-        initial={{ scale: 0, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.9 }}
-        onClick={() => setIsOpen(true)}
-        className="fixed bottom-24 right-6 z-50 w-16 h-16 bg-brand-wine text-brand-gold rounded-full shadow-[0_10px_30px_rgba(45,15,15,0.4)] flex items-center justify-center border-2 border-brand-gold/50 cursor-pointer backdrop-blur-sm"
-      >
-        <div className="absolute inset-0 rounded-full animate-ping bg-brand-gold/20" />
-        <Sparkles className="w-8 h-8" />
-        <span className="absolute -top-1 -right-1 bg-brand-gold text-brand-wine text-[10px] font-bold px-2 py-0.5 rounded-full border border-brand-wine shadow-sm">AI</span>
-      </motion.button>
-
       {/* Bottom Sheet Drawer */}
       <AnimatePresence>
         {isOpen && (
@@ -129,6 +123,13 @@ export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, cuisin
                 ref={scrollRef}
                 className="flex-1 overflow-y-auto px-8 py-10 space-y-8 scroll-smooth bg-gradient-to-b from-white to-brand-gold/10"
               >
+                {error && (
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-red-600 text-xs text-center flex flex-col gap-2 shadow-sm animate-in fade-in zoom-in">
+                    <p className="font-bold">⚠️ Sommelier Warning</p>
+                    <p>{error}</p>
+                  </div>
+                )}
+                
                 {messages.length === 0 && (
                   <div className="text-center py-20 space-y-4">
                     <motion.div

@@ -6,7 +6,7 @@ import { AISommelier } from '../components/AISommelier';
 import { db } from '../lib/firebase';
 import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
-import { ChevronRight, Info, Wine, Utensils, Award, Loader2 } from 'lucide-react';
+import { ChevronRight, Info, Wine, Utensils, Award, Loader2, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export const CustomerView: React.FC = () => {
@@ -17,6 +17,7 @@ export const CustomerView: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [showReturnToAI, setShowReturnToAI] = useState(false);
+  const [isSommelierOpen, setIsSommelierOpen] = useState(false);
 
   // スクロール監視
   useEffect(() => {
@@ -122,9 +123,21 @@ export const CustomerView: React.FC = () => {
 
         <div className="flex-1 mt-0 md:mt-8 flex flex-col overflow-hidden">
           {/* Header */}
-          <header className="p-6 text-center border-b border-brand-gold/30 shrink-0 bg-black/40 backdrop-blur-md sticky top-0 z-50">
-            <h4 className="serif text-brand-gold italic text-[10px] mb-1 tracking-[0.2em] opacity-80 font-light">{store.name}</h4>
-            <h3 className="text-xl font-serif tracking-[0.4em] text-brand-gold uppercase">蔵出しワインリスト</h3>
+          <header className="p-6 flex items-center justify-between border-b border-brand-gold/30 shrink-0 bg-black/40 backdrop-blur-md sticky top-0 z-50">
+            <div className="w-10" /> {/* Spacer for balance */}
+            <div className="text-center">
+              <h4 className="serif text-brand-gold italic text-[10px] mb-0.5 tracking-[0.2em] opacity-80 font-light">{store.name}</h4>
+              <h3 className="text-lg font-serif tracking-[0.3em] text-brand-gold uppercase">蔵出しワインリスト</h3>
+            </div>
+            <button 
+              onClick={() => setIsSommelierOpen(true)}
+              className="flex flex-col items-center gap-1 text-brand-gold hover:opacity-80 transition-all group"
+            >
+              <div className="w-10 h-10 rounded-full bg-brand-gold/10 flex items-center justify-center border border-brand-gold/20 group-hover:scale-110 transition-transform">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <span className="text-[8px] font-bold tracking-tighter">AIソムリエ</span>
+            </button>
           </header>
 
           {/* Scrollable Content */}
@@ -151,6 +164,8 @@ export const CustomerView: React.FC = () => {
               availableWines={inventory} 
               cuisineType={store.cuisine_type} 
               onSelectWine={handleSelectWine}
+              isOpen={isSommelierOpen}
+              setIsOpen={setIsSommelierOpen}
             />
 
             <div className="space-y-6">
@@ -224,8 +239,8 @@ export const CustomerView: React.FC = () => {
                    initial={{ opacity: 0, y: 20 }}
                    animate={{ opacity: 1, y: 0 }}
                    exit={{ opacity: 0, y: 20 }}
-                   onClick={scrollToSommelier}
-                   className="w-full bg-white/90 backdrop-blur-md text-brand-wine py-3 rounded-2xl font-bold text-[10px] tracking-[0.2em] uppercase border border-brand-gold/30 shadow-lg flex items-center justify-center gap-2 hover:bg-white transition-all"
+                   onClick={() => setIsSommelierOpen(true)}
+                   className="w-full bg-white/90 backdrop-blur-md text-brand-wine py-3 rounded-2xl font-bold text-[10px] tracking-[0.2em] uppercase border border-brand-gold/30 shadow-lg flex items-center justify-center gap-2 hover:bg-white transition-all shadow-[0_4px_20px_rgba(212,175,55,0.2)]"
                  >
                    <Sparkles className="w-3 h-3 text-brand-gold" />
                    ソムリエに相談する
