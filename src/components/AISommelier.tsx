@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { WineMaster } from '../types';
 import { getSommelierAdvice } from '../lib/ai-service';
-import { Send, Sparkles, Loader2 } from 'lucide-react';
+import { Send, Sparkles, Loader2, X, MessageSquare, Wine, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
 
@@ -12,9 +12,17 @@ interface AISommelierProps {
 }
 
 export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, cuisineType, onSelectWine }) => {
+  const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [messages, setMessages] = useState<{ role: 'user' | 'ai'; content: string }[]>([]);
   const [loading, setLoading] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages, loading]);
 
   const handleSend = async () => {
     if (!query.trim()) return;
@@ -31,29 +39,27 @@ export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, cuisin
   };
 
   const renderMessageContent = (content: string) => {
-    // [SELECT:ID] を検出するための正規表現
     const selectRegex = /\[SELECT:(\d+)\]/g;
-    const parts = content.split(selectRegex);
-    
-    // parts は [text, id, text, id, ...] の形式になる
     return (
       <div className="space-y-4">
-        <div className="markdown-body">
+        <div className="markdown-body text-[13px] leading-relaxed">
           <ReactMarkdown>{content.replace(selectRegex, '')}</ReactMarkdown>
         </div>
         
-        {/* ボタンだけをメッセージの下部にまとめて表示 */}
         <div className="flex flex-wrap gap-2 pt-2">
           {Array.from(content.matchAll(selectRegex)).map((match, idx) => {
             const wineId = match[1];
             return (
               <button
                 key={`${wineId}-${idx}`}
-                onClick={() => onSelectWine?.(wineId)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-gold text-brand-wine text-[10px] font-bold uppercase tracking-wider rounded-lg border border-brand-wine/10 shadow-sm hover:brightness-110 active:scale-95 transition-all animate-in fade-in slide-in-from-bottom-1 duration-500"
+                onClick={() => {
+                  onSelectWine?.(wineId);
+                  setIsOpen(false);
+                }}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-gold text-brand-wine text-[11px] font-bold uppercase tracking-[0.1em] rounded-full border border-brand-wine/10 shadow-lg hover:brightness-110 active:scale-95 transition-all animate-in fade-in slide-in-from-bottom-2 duration-700"
               >
-                <Wine className="w-3 h-3" />
-                このワインの詳細を見る
+                <Wine className="w-3.5 h-3.5" />
+                このワインを詳しく
               </button>
             );
           })}
@@ -63,77 +69,141 @@ export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, cuisin
   };
 
   return (
-    <div id="ai-sommelier" className="flex flex-col h-[500px] bg-white rounded-xl shadow-2xl border border-brand-gold/20 overflow-hidden mb-12">
-      <div className="bg-brand-wine px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Sparkles className="text-brand-gold w-5 h-5" />
-          <h3 className="serif text-brand-ivory text-xl">AI Sommelier</h3>
-        </div>
-      </div>
+    <>
+      {/* Floating Trigger Icon */}
+      <motion.button
+        id="sommelier-trigger"
+        initial={{ scale: 0, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+        onClick={() => setIsOpen(true)}
+        className="fixed bottom-24 right-6 z-50 w-16 h-16 bg-brand-wine text-brand-gold rounded-full shadow-[0_10px_30px_rgba(45,15,15,0.4)] flex items-center justify-center border-2 border-brand-gold/50 cursor-pointer backdrop-blur-sm"
+      >
+        <div className="absolute inset-0 rounded-full animate-ping bg-brand-gold/20" />
+        <Sparkles className="w-8 h-8" />
+        <span className="absolute -top-1 -right-1 bg-brand-gold text-brand-wine text-[10px] font-bold px-2 py-0.5 rounded-full border border-brand-wine shadow-sm">AI</span>
+      </motion.button>
 
-      <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-brand-ivory/30 scroll-smooth">
-        {messages.length === 0 && (
-          <div className="text-center py-12 text-gray-400">
-            <p className="serif italic text-lg text-brand-wine/60">
-              "本日の気分や、ご注文のお料理をお聞かせください。"
-            </p>
-          </div>
-        )}
-        {messages.map((msg, i) => (
-          <motion.div
-            key={i}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
-            <div
-              className={`max-w-[85%] rounded-2xl p-4 text-sm leading-relaxed ${
-                msg.role === 'user'
-                  ? 'bg-brand-wine text-white rounded-tr-none shadow-lg'
-                  : 'bg-white text-gray-800 shadow-xl border border-brand-gold/10 rounded-tl-none'
-              }`}
+      {/* Bottom Sheet Drawer */}
+      <AnimatePresence>
+        {isOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsOpen(false)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60]"
+            />
+            
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed bottom-0 inset-x-0 bg-brand-ivory z-[70] rounded-t-[40px] shadow-[0_-20px_50px_rgba(0,0,0,0.3)] border-t border-brand-gold/20 flex flex-col max-h-[85vh]"
             >
-              {msg.role === 'ai' ? (
-                renderMessageContent(msg.content)
-              ) : (
-                <div className="markdown-body">
-                  <ReactMarkdown>{msg.content}</ReactMarkdown>
+              <div className="w-12 h-1.5 bg-brand-gold/30 rounded-full mx-auto my-4 shrink-0" />
+              
+              <div className="px-8 pb-6 border-b border-brand-gold/10 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-brand-wine flex items-center justify-center border border-brand-gold/30">
+                    <Sparkles className="text-brand-gold w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="serif text-brand-wine text-xl font-medium tracking-wide">AI Sommelier</h3>
+                    <p className="text-[10px] text-brand-wine/60 uppercase tracking-[0.2em] font-medium">Exclusive Guidance</p>
+                  </div>
                 </div>
-              )}
-            </div>
-          </motion.div>
-        ))}
-        {loading && (
-          <div className="flex justify-start">
-            <div className="bg-white p-4 rounded-2xl shadow-md border border-brand-gold/10 flex items-center gap-2">
-              <Loader2 className="w-4 h-4 animate-spin text-brand-wine" />
-              <span className="text-xs italic text-gray-500">Selectioning the perfect vintage...</span>
-            </div>
-          </div>
-        )}
-      </div>
+                <button 
+                  onClick={() => setIsOpen(false)}
+                  className="p-2 rounded-full hover:bg-brand-wine/5 text-brand-wine transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
 
-      <div className="p-4 bg-white border-t border-brand-gold/10">
-        <div className="relative">
-          <input
-            type="text"
-            id="sommelier-input"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="魚料理に合う、キリッとした白はありますか？"
-            className="w-full pl-4 pr-12 py-3 rounded-full border border-brand-gold/30 focus:outline-none focus:ring-2 focus:ring-brand-gold/20 text-sm"
-          />
-          <button
-            id="sommelier-send"
-            onClick={handleSend}
-            disabled={loading}
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-brand-wine text-brand-gold hover:opacity-90 disabled:opacity-50 transition-all"
-          >
-            <Send className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-    </div>
+              <div 
+                ref={scrollRef}
+                className="flex-1 overflow-y-auto p-8 space-y-6 scroll-smooth bg-gradient-to-b from-transparent to-brand-gold/5"
+              >
+                {messages.length === 0 && (
+                  <div className="text-center py-20 space-y-4">
+                    <motion.div
+                      animate={{ y: [0, -10, 0] }}
+                      transition={{ duration: 4, repeat: Infinity }}
+                    >
+                      <Wine className="w-12 h-12 text-brand-gold mx-auto opacity-40" />
+                    </motion.div>
+                    <p className="serif italic text-xl text-brand-wine/80 max-w-[280px] mx-auto leading-relaxed">
+                      "本日の気分や、ご注文のお料理をお聞かせください。最高の1本を店舗リストからお選びいたします。"
+                    </p>
+                  </div>
+                )}
+                
+                {messages.map((msg, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div
+                      className={`max-w-[85%] rounded-[24px] p-5 shadow-sm ${
+                        msg.role === 'user'
+                          ? 'bg-brand-wine text-brand-ivory rounded-tr-none'
+                          : 'bg-white text-gray-800 shadow-xl border border-brand-gold/10 rounded-tl-none'
+                      }`}
+                    >
+                      {msg.role === 'ai' ? (
+                        renderMessageContent(msg.content)
+                      ) : (
+                        <p className="text-sm font-medium">{msg.content}</p>
+                      )}
+                    </div>
+                  </motion.div>
+                ))}
+                
+                {loading && (
+                  <div className="flex justify-start">
+                    <div className="bg-white px-6 py-4 rounded-[24px] shadow-lg border border-brand-gold/10 flex items-center gap-3">
+                      <div className="flex gap-1">
+                        <motion.div animate={{ scale: [1, 1.2, 1] }} transition={{ repeat: Infinity, duration: 1 }} className="w-2 h-2 rounded-full bg-brand-wine/40" />
+                        <motion.div animate={{ scale: [1, 1.2, 1] }} transition={{ repeat: Infinity, duration: 1, delay: 0.2 }} className="w-2 h-2 rounded-full bg-brand-wine/70" />
+                        <motion.div animate={{ scale: [1, 1.2, 1] }} transition={{ repeat: Infinity, duration: 1, delay: 0.4 }} className="w-2 h-2 rounded-full bg-brand-wine" />
+                      </div>
+                      <span className="text-xs serif italic text-brand-wine/70">ソムリエが在庫を確認中...</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="p-6 bg-white/80 backdrop-blur-md border-t border-brand-gold/10 pb-10">
+                <div className="relative group">
+                  <input
+                    type="text"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+                    placeholder="お料理に合う1本を提案します..."
+                    className="w-full pl-6 pr-14 py-4 rounded-full border border-brand-gold/20 focus:border-brand-gold/50 focus:outline-none focus:ring-4 focus:ring-brand-gold/10 text-sm transition-all bg-brand-ivory/20"
+                  />
+                  <button
+                    onClick={handleSend}
+                    disabled={loading}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-3 rounded-full bg-brand-wine text-brand-gold hover:brightness-125 disabled:opacity-50 transition-all shadow-md group-hover:scale-105"
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </>
   );
 };
+

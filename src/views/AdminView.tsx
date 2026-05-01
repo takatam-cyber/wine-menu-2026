@@ -157,28 +157,15 @@ export const AdminView: React.FC = () => {
     }
 
     setIsCreatingOwner(true);
-    const emailToUse = ownerEmail.includes('@') ? ownerEmail : `${ownerEmail}@pieroth-stores.app`;
+    const emailToUse = ownerEmail.includes('@') ? ownerEmail : `${ownerEmail}@wine-menu.app`;
 
     try {
       if (isEditingOwner && selectedStore?.ownerId) {
         // --- EDIT MODE ---
-        // 1. Update User Profile Name/Email
         await updateDoc(doc(db, 'users', selectedStore.ownerId), {
           email: emailToUse,
           name: selectedStore?.name || 'Store Owner'
         });
-
-        // 2. Update Password if provided
-        if (ownerPassword) {
-          const secondaryAppName = `update-pw-${Math.random().toString(36).substr(2, 9)}`;
-          const secondaryApp = initializeApp(firebaseConfig, secondaryAppName);
-          const secondaryAuth = getAuth(secondaryApp);
-          
-          // Note: In a real app, updating another user's password usually requires admin SDK on backend.
-          // In this client-side demo environment, we check if we can simulate it or guide the user.
-          // For now, we update the store reference.
-          await deleteApp(secondaryApp);
-        }
 
         await updateDoc(doc(db, 'stores', selectedStoreId), {
           owner_email: emailToUse
@@ -187,8 +174,15 @@ export const AdminView: React.FC = () => {
         setImportStatus({ type: 'success', message: 'オーナー情報を更新しました' });
       } else {
         // --- CREATE MODE ---
-        const secondaryAppName = `secondary-${Math.random().toString(36).substr(2, 9)}`;
-        const secondaryApp = initializeApp(firebaseConfig, secondaryAppName);
+        // Using a unique name for secondary app to avoid collisions
+        const secondaryAppName = `secondary-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+        let secondaryApp;
+        try {
+          secondaryApp = initializeApp(firebaseConfig, secondaryAppName);
+        } catch (e) {
+          secondaryApp = getApp(secondaryAppName);
+        }
+        
         const secondaryAuth = getAuth(secondaryApp);
         
         const userCredential = await createUserWithEmailAndPassword(secondaryAuth, emailToUse, ownerPassword);

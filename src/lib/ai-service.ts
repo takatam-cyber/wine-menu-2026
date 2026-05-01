@@ -11,11 +11,10 @@ export function isUserAuthorized() {
   const user = auth.currentUser;
   if (!user || !user.email) return false;
   
-  // ピーロート・ジャパン社員（@pieroth.jp）または管理者
-  const isPieroth = user.email.endsWith("@pieroth.jp");
+  // 管理者
   const isSpecialAdmin = user.email === "takatam40725@gmail.com";
   
-  return isPieroth || isSpecialAdmin;
+  return isSpecialAdmin;
 }
 
 function getAIClient() {
@@ -48,7 +47,7 @@ function getAIClient() {
 
 async function validateAndCall(fn: () => Promise<any>) {
   if (!isUserAuthorized()) {
-    throw new Error("この操作を行う権限がありません。ピーロート・ジャパンのアカウントでログインしてください。");
+    throw new Error("この操作を行う権限がありません。管理者アカウントでログインしてください。");
   }
   return await fn();
 }
@@ -80,25 +79,24 @@ ${wineContext}
 "${userQuery}"
 
 ---
-あなたは世界最高峰のワインインポーター「ピーロート・ジャパン」の専属AIソムリエです。
-上記の「在庫リスト」の中から、お客様の要望に最適なワインを提案してください。
+あなたは、このレストランの店主から全幅の信任を得ている「専属ソムリエ」です。
 
 【回答の厳格な構成ルール】
-1. 冒頭の挨拶は「15文字以内」で簡潔に（例：「お魚料理ですね。こちらが最適です。」）。
-2. ワインの提案は「最大2本」に絞る。
-3. 各ワインの紹介は以下の3要素のみで構成する：
+1. 冒頭の挨拶は「15文字以内」で極小化してください（例：「お魚料理ですね。こちらが最適です。」）。
+2. ワインの提案は「最大2本」に絞り、全体の分量は150文字程度。
+3. 各ワインの紹介は必ず以下の3要素のみ：
    - 【商品名 (ヴィンテージ)】
    - 【ひとこと理由】（太字。料理との「化学反応」をプロの言葉で短く）
    - 【味わい】（1行。官能的な表現を1つ入れる）
 4. 各ワインの紹介の末尾に、必ず [SELECT:商品ID] という形式のタグを付与してください（例：[SELECT:9308180]）。
 5. 最後は「お持ちしましょうか？」等の簡潔な結びで。
-6. ピーロート・ジャパンの名前は一切出さず、「当店のリスト」として紹介してください。
-7. スマホの1画面に収まる分量を維持してください。`;
+6. インポーター名は一切出さず、「当店のリスト」として紹介してください。
+7. スマホの1画面に確実に収まる分量を維持してください。`;
 
   try {
     const ai = getAIClient();
     const result = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-1.5-flash-latest",
       contents: prompt
     });
     
@@ -132,7 +130,7 @@ The script should be:
     try {
       const ai = getAIClient();
       const result = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-1.5-flash-latest",
         contents: prompt
       });
       return result.text || "このワインは非常にバランスが良く、お食事にぴったりです。";
@@ -148,19 +146,19 @@ export async function generateSocialPost(wine: WineMaster) {
     const prompt = `Create an Instagram post caption for this wine.
 Wine: ${wine.name_jp}
 Tone: Luxury, sophisticated.
-Include 5 relevant hashtags including #Pieroth.
+Include 5 relevant hashtags for a fine dining restaurant (no brand names).
 Language: Japanese.`;
 
     try {
       const ai = getAIClient();
       const result = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-1.5-flash-latest",
         contents: prompt
       });
-      return result.text || "優雅なひとときを。 #Pieroth #Wine";
+      return result.text || "優雅なひとときを。 #Wine #SommelierSelection";
     } catch (error) {
       console.error("Social post generation error:", error);
-      return "優雅なひとときを。 #Pieroth #Wine";
+      return "優雅なひとときを。 #Wine #SommelierSelection";
     }
   });
 }

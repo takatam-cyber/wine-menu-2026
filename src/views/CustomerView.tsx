@@ -127,6 +127,23 @@ export const CustomerView: React.FC = () => {
 
           {/* Scrollable Content */}
           <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-8 pb-40 scroll-smooth">
+            {/* Floating Proposal Banner (Check context) */}
+            <AnimatePresence>
+              {highlightedId && (
+                <motion.div
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="fixed top-24 inset-x-4 z-[55] flex justify-center pointer-events-none"
+                >
+                  <div className="bg-brand-wine/95 backdrop-blur-xl text-brand-gold px-5 py-2.5 rounded-full shadow-2xl border border-brand-gold/40 flex items-center gap-3 text-[10px] font-bold uppercase tracking-[0.2em]">
+                    <div className="w-2 h-2 rounded-full bg-brand-gold animate-pulse" />
+                    提案されたワインを確認中
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {/* AI Sommelier Section */}
             <AISommelier 
               availableWines={inventory} 
@@ -136,8 +153,8 @@ export const CustomerView: React.FC = () => {
 
             <div className="space-y-6">
               <div className="flex items-center justify-between border-b border-brand-gold/30 pb-2 mb-8">
-                <h2 className="serif text-2xl text-brand-gold">ソムリエ厳選銘柄</h2>
-                <span className="text-[9px] text-brand-gold font-bold uppercase tracking-[0.3em] opacity-60">Digital List</span>
+                <h2 className="serif text-2xl text-brand-wine tracking-tight">ソムリエ厳選銘柄</h2>
+                <span className="text-[10px] font-bold text-brand-gold uppercase tracking-[0.2em]">Digital List</span>
               </div>
               
               <div className="grid gap-6">
@@ -147,30 +164,30 @@ export const CustomerView: React.FC = () => {
                     id={`wine-${wine.id}`}
                     whileTap={{ scale: 0.98 }}
                     animate={highlightedId === wine.id ? { 
-                      backgroundColor: ["rgba(255,255,255,0)", "rgba(212,175,55,0.2)", "rgba(255,255,255,0)"],
-                      scale: [1, 1.02, 1]
+                      boxShadow: ["0 0 0 0px rgba(212,175,55,0)", "0 0 0 4px rgba(212,175,55,0.4)", "0 0 0 0px rgba(212,175,55,0)"],
+                      borderColor: ["rgba(212,175,55,0.2)", "rgba(212,175,55,1)", "rgba(212,175,55,0.2)"],
+                      backgroundColor: ["rgba(212,175,55,0)", "rgba(212,175,55,0.1)", "rgba(212,175,55,0)"]
                     } : {}}
-                    transition={{ duration: 1, times: [0, 0.5, 1] }}
+                    transition={highlightedId === wine.id ? { duration: 1.5, repeat: 2 } : {}}
                     onClick={() => setSelectedWine(wine)}
-                    className={`group cursor-pointer flex gap-4 border-b border-white/5 pb-6 last:border-0 rounded-xl transition-all duration-500 ${highlightedId === wine.id ? 'ring-2 ring-brand-gold/50 p-2' : ''}`}
+                    className={`group cursor-pointer flex gap-4 border border-transparent p-3 rounded-2xl transition-all duration-700 ${highlightedId === wine.id ? 'z-10' : 'border-b border-white/5 pb-6 last:border-0'}`}
                   >
-                    <div className="w-24 h-28 bg-black/50 flex items-center justify-center p-3 rounded-2xl relative border border-brand-gold/20 shadow-inner group-hover:border-brand-gold/50 transition-all">
+                    <div className="w-24 h-28 bg-black/5 flex items-center justify-center p-3 rounded-2xl relative border border-brand-gold/10 shadow-sm group-hover:border-brand-gold/30 transition-all overflow-hidden shrink-0">
                       <div className="absolute inset-0 opacity-5 bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]" />
                       <img
                         src={wine.image_url}
                         alt=""
-                        className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-700"
+                        className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-1000 ease-out drop-shadow-lg"
                       />
                     </div>
                     <div className="flex-1 flex flex-col justify-center">
-                      <div className="text-[9px] uppercase tracking-[0.2em] text-brand-gold/60 font-bold mb-1.5 line-clamp-1">
-                        {wine.region}, {wine.country}
+                      <div className="text-[9px] uppercase tracking-[0.2em] text-brand-gold font-bold mb-1.5 opacity-80">
+                        {wine.region} / {wine.type}
                       </div>
-                      <h3 className="serif text-base text-brand-gold leading-tight mb-2 tracking-wide group-hover:text-white transition-colors">{wine.name_jp}</h3>
+                      <h3 className="serif text-base text-brand-wine leading-tight mb-2 tracking-wide group-hover:text-brand-gold transition-colors">{wine.name_jp}</h3>
                       <div className="flex items-center justify-between mt-auto">
                         <div className="flex flex-col">
-                           <span className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">Bottle</span>
-                           <span className="serif text-base text-brand-gold font-bold tracking-tighter">¥{wine.price_bottle?.toLocaleString()}</span>
+                           <span className="serif text-lg text-brand-wine font-bold tracking-tighter">¥{wine.price_bottle?.toLocaleString()}</span>
                         </div>
                         <ChevronRight className="w-5 h-5 text-brand-gold opacity-40 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
                       </div>

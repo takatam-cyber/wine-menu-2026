@@ -1,29 +1,35 @@
-@import url('https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,wght@0,400..900;1,400..900&family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,wght@0,400..900;1,400..900&family=Inter:wght@300;400;500;600;700&family=Shippori+Mincho:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-serif: "Bodoni Moda", serif;
+  --font-serif: "Bodoni Moda", "Shippori Mincho", serif;
   
-  --color-brand-wine: #8B0000;
+  --color-brand-wine: #2D0F0F;
   --color-brand-gold: #D4AF37;
-  --color-brand-ivory: #0A0A0A;
-  --color-dark-accent: #FDFEFE;
+  --color-brand-ivory: #FDFCFB;
+  --color-brand-dark: #120A0A;
   
-  --shadow-luxury: 0 10px 50px -12px rgba(0, 0, 0, 0.5);
+  --shadow-luxury: 0 20px 50px -12px rgba(0, 0, 0, 0.4);
 }
 
 @layer base {
   body {
-    @apply bg-brand-ivory text-dark-accent font-sans;
+    @apply bg-brand-ivory text-brand-dark font-sans antialiased;
   }
 }
 
 .sleek-bg {
   background: 
-    radial-gradient(circle at 0% 0%, rgba(139, 0, 0, 0.1) 0%, transparent 40%),
-    radial-gradient(circle at 100% 100%, rgba(212, 175, 55, 0.05) 0%, transparent 40%),
-    #0A0A0A;
+    radial-gradient(circle at 0% 0%, rgba(45, 15, 15, 0.05) 0%, transparent 40%),
+    radial-gradient(circle at 100% 100%, rgba(212, 175, 55, 0.08) 0%, transparent 40%),
+    #FDFCFB;
+}
+
+.dark-sleek-bg {
+  background: 
+    radial-gradient(circle at 0% 0%, rgba(212, 175, 55, 0.15) 0%, transparent 40%),
+    #120A0A;
 }
 
 .glass-panel {
