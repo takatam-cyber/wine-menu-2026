@@ -1,0 +1,448 @@
+import React, { useState, useEffect } from 'react';
+import { WineMaster, Store } from '../types';
+import { useWines } from '../lib/WineContext';
+import { generateStaffTalkScript, generateSocialPost } from '../lib/ai-service';
+import { db } from '../lib/firebase';
+import { collection, getDocs, doc, getDoc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
+import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
+import { Wine, Camera, MessageSquare, Save, Eye, EyeOff, Loader2, Sparkles, X, Trash2, Plus, Search, Edit2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+
+export const OwnerView: React.FC = () => {
+  const { wines, user } = useWines();
+  const [inventory, setInventory] = useState<WineMaster[]>([]);
+  const [store, setStore] = useState<Store | null>(null);
+  const [selectedWine, setSelectedWine] = useState<WineMaster | null>(null);
+  const [aiResult, setAiResult] = useState<{ talk: string; social: string } | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isEditingStore, setIsEditingStore] = useState(false);
+  const [editStoreData, setEditStoreData] = useState<Partial<Store>>({});
+  const [isSaving, setIsSaving] = useState(false);
+
+  const sid = new URLSearchParams(window.location.search).get('storeId') || user?.storeId;
+
+  const fetchData = async () => {
+    if (!sid) {
+       setLoading(false);
+       return;
+    }
+
+    try {
+      // Fetch Store Info
+      const storeDoc = await getDoc(doc(db, 'stores', sid));
+      if (storeDoc.exists()) {
+        const storeData = { id: storeDoc.id, ...storeDoc.data() } as Store;
+        setStore(storeData);
+        setEditStoreData(storeData);
+      }
+
+      // Fetch Inventory
+      const querySnapshot = await getDocs(collection(db, 'stores', sid, 'inventory'));
+      const items = querySnapshot.docs.map(d => d.data());
+      
+      const enriched = items.map(item => {
+        const master = wines.find(w => w.id === item.id);
+        if (!master) return null;
+        return { 
+          ...master, 
+          isActive: item.isActive ?? true, 
+          visible: item.visible ?? true,
+          price_bottle: item.price_bottle || master.price_bottle,
+          price_glass: item.price_glass || master.price_glass
+        };
+      }).filter(w => w !== null) as WineMaster[];
+
+      setInventory(enriched);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.GET, `stores/${sid}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user && wines.length > 0) {
+      fetchData();
+    }
+  }, [user, wines]);
+
+  const handleUpdateStore = async () => {
+    if (!sid || !user?.uid) return;
+    setIsSaving(true);
+    try {
+      // Update Store Info
+      await updateDoc(doc(db, 'stores', sid), {
+        name: editStoreData.name,
+        cuisine_type: editStoreData.cuisine_type,
+        address: editStoreData.address
+      });
+
+      // Update User Profile Name if changed
+      if (editStoreData.name !== store?.name) {
+        await updateDoc(doc(db, 'users', user.uid), {
+          name: editStoreData.name
+        });
+      }
+
+      setStore(prev => prev ? { ...prev, ...editStoreData } as Store : null);
+      setIsEditingStore(false);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `stores/${sid}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleToggleActive = async (wineId: string, currentStatus: boolean) => {
+    if (!sid) return;
+    try {
+      await updateDoc(doc(db, 'stores', sid, 'inventory', wineId), {
+        isActive: !currentStatus
+      });
+      setInventory(prev => prev.map(w => w.id === wineId ? { ...w, isActive: !currentStatus } : w));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `stores/${sid}/inventory/${wineId}`);
+    }
+  };
+
+  const handleDeleteWine = async (wineId: string) => {
+    if (!sid || !window.confirm('このワインをメニューから削除しますか？')) return;
+    try {
+      await deleteDoc(doc(db, 'stores', sid, 'inventory', wineId));
+      setInventory(prev => prev.filter(w => w.id !== wineId));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `stores/${sid}/inventory/${wineId}`);
+    }
+  };
+
+  const handleAddWine = async (masterWine: WineMaster) => {
+    if (!sid) return;
+    try {
+      await setDoc(doc(db, 'stores', sid, 'inventory', masterWine.id), {
+        id: masterWine.id,
+        isActive: true,
+        visible: true,
+        price_bottle: masterWine.price_bottle,
+        price_glass: masterWine.price_glass,
+        updatedAt: new Date().toISOString()
+      });
+      
+      setInventory(prev => [...prev, { ...masterWine, isActive: true, visible: true }]);
+      setShowAddModal(false);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `stores/${sid}/inventory/${masterWine.id}`);
+    }
+  };
+
+  const handleGenerateAI = async (wine: WineMaster) => {
+    setSelectedWine(wine);
+    setIsGenerating(true);
+    const [talk, social] = await Promise.all([
+      generateStaffTalkScript(wine),
+      generateSocialPost(wine)
+    ]);
+    setAiResult({ talk, social });
+    setIsGenerating(false);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full py-24 gap-4">
+        <Loader2 className="w-8 h-8 animate-spin text-brand-gold" />
+        <p className="text-brand-gold/60 text-xs font-bold uppercase tracking-widest">Loading Cellar...</p>
+      </div>
+    );
+  }
+
+  const filteredMasterWines = wines.filter(w => 
+    !inventory.some(inv => inv.id === w.id) &&
+    (w.name_jp.toLowerCase().includes(searchTerm.toLowerCase()) || 
+     w.name_en.toLowerCase().includes(searchTerm.toLowerCase()) ||
+     w.id.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  return (
+    <div id="owner-view" className="max-w-4xl mx-auto px-4 py-8 md:py-12 space-y-8 animate-in fade-in duration-700">
+      <header className="flex flex-col md:flex-row md:items-start justify-between gap-6">
+        <div className="flex-1">
+          {isEditingStore ? (
+            <div className="space-y-4 bg-black/40 p-6 rounded-2xl border border-brand-gold/20 animate-in slide-in-from-top duration-300">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[9px] font-bold text-brand-gold/60 uppercase tracking-widest block mb-1">店名</label>
+                  <input 
+                    className="w-full bg-white/5 border border-brand-gold/20 rounded-lg px-3 py-2 text-brand-ivory text-sm outline-none focus:border-brand-gold"
+                    value={editStoreData.name || ''}
+                    onChange={e => setEditStoreData({...editStoreData, name: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="text-[9px] font-bold text-brand-gold/60 uppercase tracking-widest block mb-1">料理カテゴリー</label>
+                  <input 
+                    className="w-full bg-white/5 border border-brand-gold/20 rounded-lg px-3 py-2 text-brand-ivory text-sm outline-none focus:border-brand-gold"
+                    value={editStoreData.cuisine_type || ''}
+                    onChange={e => setEditStoreData({...editStoreData, cuisine_type: e.target.value})}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-[9px] font-bold text-brand-gold/60 uppercase tracking-widest block mb-1">住所</label>
+                <input 
+                  className="w-full bg-white/5 border border-brand-gold/20 rounded-lg px-3 py-2 text-brand-ivory text-sm outline-none focus:border-brand-gold"
+                  value={editStoreData.address || ''}
+                  onChange={e => setEditStoreData({...editStoreData, address: e.target.value})}
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button onClick={() => setIsEditingStore(false)} className="px-4 py-2 text-[10px] uppercase font-bold text-gray-400 hover:text-white transition-colors">キャンセル</button>
+                <button 
+                  onClick={handleUpdateStore} 
+                  disabled={isSaving}
+                  className="bg-brand-gold text-brand-wine px-6 py-2 rounded-lg text-[10px] uppercase font-bold tracking-widest flex items-center gap-2 hover:brightness-110"
+                >
+                  {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                  保存する
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div className="flex items-center gap-3">
+                <h1 className="serif text-3xl text-brand-gold">{store?.name || '店舗情報不明'}</h1>
+                <button onClick={() => setIsEditingStore(true)} className="p-2 text-brand-gold/40 hover:text-brand-gold transition-colors">
+                  <Edit2 className="w-4 h-4" />
+                </button>
+              </div>
+              <p className="text-gray-400 text-[10px] uppercase tracking-widest font-bold mt-1">
+                {store?.cuisine_type} • {store?.address}
+              </p>
+            </div>
+          )}
+        </div>
+        <button 
+          onClick={() => setShowAddModal(true)}
+          className="bg-brand-gold text-brand-wine px-6 py-3 rounded-full text-xs font-bold uppercase tracking-widest flex items-center gap-2 hover:scale-105 transition-all shadow-luxury active:scale-95"
+        >
+          <Plus className="w-5 h-5" />
+          ワインを追加
+        </button>
+      </header>
+
+      <div className="grid gap-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-brand-gold/20 pb-3 mb-2 gap-4">
+          <h3 className="text-xs font-bold uppercase tracking-widest text-brand-gold flex items-center justify-center md:justify-start gap-2">
+            <Wine className="w-4 h-4 text-brand-gold" />
+            稼働中のワインリスト ({inventory.length})
+          </h3>
+          <span className="text-[9px] text-gray-500 uppercase font-mono tracking-tighter text-center md:text-right italic">
+            最新のマスターデータと同期済み
+          </span>
+        </div>
+        
+        {inventory.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center border-2 border-dashed border-white/5 rounded-3xl bg-black/20">
+            <Wine className="w-12 h-12 text-brand-gold/10 mb-4" />
+            <p className="text-gray-500 text-xs uppercase tracking-widest">現在メニューにワインがありません</p>
+            <button onClick={() => setShowAddModal(true)} className="text-brand-gold text-[10px] font-bold uppercase tracking-widest mt-4 hover:underline">最初のワインを追加する</button>
+          </div>
+        ) : (
+          <div className="grid gap-3">
+            {inventory.map((wine) => (
+              <div key={wine.id} className="glass-panel p-4 md:p-5 rounded-2xl shadow-luxury flex flex-col sm:flex-row items-center justify-between group hover:border-brand-gold transition-all gap-4">
+                <div className="flex items-center gap-4 w-full">
+                  <div className="w-16 h-20 bg-black/40 flex items-center justify-center p-2 rounded-lg relative border border-white/5 overflow-hidden shadow-inner shrink-0">
+                    <div className="absolute inset-0 opacity-5 bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]"></div>
+                    <img src={wine.image_url} alt="" className="w-full h-full object-contain relative z-10 scale-125" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-brand-ivory text-base md:text-lg leading-tight truncate">{wine.name_jp}</div>
+                    <div className="text-[10px] md:text-[11px] text-brand-gold/60 font-mono tracking-tighter font-bold uppercase mt-1">
+                      {wine.grape} • {wine.vintage}
+                    </div>
+                    <div className="text-[11px] md:text-xs text-brand-ivory/80 font-bold mt-1.5 flex items-center gap-3">
+                      <span className="bg-brand-gold/10 px-2 py-0.5 rounded border border-brand-gold/20">BTL: ¥{wine.price_bottle?.toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                  <button
+                    onClick={() => handleGenerateAI(wine)}
+                    className="p-2.5 text-brand-gold hover:bg-brand-gold hover:text-brand-wine rounded-xl transition-all border border-brand-gold/30 shadow-[0_0_10px_rgba(212,175,55,0.1)]"
+                    title="AIインテリジェンス"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleToggleActive(wine.id, wine.isActive || false)}
+                    className={`p-2.5 rounded-xl transition-all border flex items-center justify-center shrink-0 ${
+                      wine.isActive 
+                      ? 'border-brand-gold bg-brand-gold/10 text-brand-gold shadow-[0_0_15px_rgba(212,175,55,0.2)]' 
+                      : 'border-white/10 bg-white/5 text-gray-600'
+                    }`}
+                  >
+                    {wine.isActive ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                  </button>
+                  <button
+                    onClick={() => handleDeleteWine(wine.id)}
+                    className="p-2.5 text-red-400 hover:bg-red-500 hover:text-white rounded-xl transition-all border border-red-500/20 hover:border-red-500"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <AnimatePresence>
+        {/* AI Insight Modal */}
+        {selectedWine && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] md:p-4 flex items-end md:items-center justify-center bg-brand-wine/40 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 100 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 100 }}
+              className="bg-black/95 backdrop-blur-3xl rounded-t-[2rem] md:rounded-3xl shadow-[0_0_100px_rgba(0,0,0,1)] border border-brand-gold/30 w-full max-w-2xl overflow-hidden max-h-[90vh] md:max-h-[85vh] flex flex-col"
+            >
+              <div className="bg-gradient-to-r from-brand-wine to-black p-6 md:p-8 flex items-center justify-between border-b border-brand-gold/20 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 md:w-10 md:h-10 bg-brand-gold rounded-full flex items-center justify-center text-brand-wine text-xs md:text-sm font-bold shadow-[0_0_20px_rgba(212,175,55,0.5)]">AI</div>
+                  <div>
+                    <h4 className="serif text-brand-ivory text-xl md:text-2xl tracking-wide leading-none mb-1">接客AIアシスタント</h4>
+                    <p className="text-[9px] text-brand-gold/60 uppercase tracking-[0.2em] font-bold">Sales Intelligence Suite</p>
+                  </div>
+                </div>
+                <button onClick={() => setSelectedWine(null)} className="text-brand-gold/40 hover:text-brand-ivory hover:scale-110 transition-all p-2 bg-white/5 rounded-full">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              
+              <div className="flex-1 p-6 md:p-10 space-y-10 overflow-y-auto custom-scrollbar scroll-smooth">
+                {isGenerating ? (
+                  <div className="flex flex-col items-center justify-center py-24 gap-8">
+                    <div className="relative">
+                      <Loader2 className="w-16 h-16 animate-spin text-brand-gold opacity-40" />
+                      <Sparkles className="absolute inset-0 m-auto w-6 h-6 text-brand-gold animate-pulse" />
+                    </div>
+                    <div className="text-center space-y-2">
+                       <p className="serif italic text-brand-gold text-2xl animate-pulse">解析中...</p>
+                       <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">CSVマスター・ソムリエエンジン駆動中</p>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <section className="space-y-4">
+                      <div className="flex items-center gap-3 text-brand-gold text-xs font-bold uppercase tracking-[0.2em] border-b border-brand-gold/20 pb-3">
+                        <div className="p-1.5 bg-brand-gold/10 rounded-lg">
+                          <MessageSquare className="w-4 h-4" />
+                        </div>
+                        接客用「おすすめトークスクリプト」
+                      </div>
+                      <div className="bg-white/5 p-6 md:p-8 rounded-2xl text-base md:text-lg leading-relaxed border border-brand-gold/10 italic text-brand-ivory/90 font-serif shadow-inner relative group">
+                        <div className="absolute top-4 left-4 text-brand-gold/10 text-6xl font-serif">“</div>
+                        <div className="relative z-10 pl-6 pr-2">
+                          {aiResult?.talk}
+                        </div>
+                      </div>
+                    </section>
+                    
+                    <section className="space-y-4">
+                      <div className="flex items-center gap-3 text-brand-gold text-xs font-bold uppercase tracking-[0.2em] border-b border-brand-gold/20 pb-3">
+                        <div className="p-1.5 bg-brand-gold/10 rounded-lg">
+                          <Camera className="w-4 h-4" />
+                        </div>
+                        SNS集客用投稿案 (Instagram)
+                      </div>
+                      <div className="bg-black/60 p-6 md:p-8 rounded-2xl text-xs md:text-sm leading-relaxed border border-brand-gold/10 font-mono text-gray-400 whitespace-pre-wrap shadow-inner">
+                        {aiResult?.social}
+                      </div>
+                    </section>
+                  </>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {/* Add Wine Modal */}
+        {showAddModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] md:p-4 flex items-end md:items-center justify-center bg-black/80 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 100 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 100 }}
+              className="bg-brand-wine border border-brand-gold/20 rounded-t-3xl md:rounded-3xl shadow-luxury w-full max-w-2xl h-[85vh] md:h-[80vh] flex flex-col"
+            >
+              <div className="p-6 md:p-8 border-b border-brand-gold/20 flex items-center justify-between bg-black/40">
+                <div>
+                  <h2 className="serif text-2xl text-brand-gold">マスターから選択</h2>
+                  <p className="text-[10px] text-gray-400 uppercase tracking-widest mt-1">Pieroth Master Wine List</p>
+                </div>
+                <button onClick={() => setShowAddModal(false)} className="p-2 text-brand-gold/40 hover:text-brand-gold transition-colors">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="px-6 md:px-8 py-4 border-b border-brand-gold/10">
+                <div className="relative">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-gold/40" />
+                  <input 
+                    placeholder="ワイン名、産地、銘柄コードで検索..."
+                    className="w-full bg-white/5 border border-brand-gold/20 rounded-full pl-12 pr-6 py-2.5 text-sm text-brand-ivory outline-none focus:border-brand-gold transition-all"
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-3 custom-scrollbar">
+                {filteredMasterWines.length === 0 ? (
+                  <div className="py-20 text-center opacity-30 italic serif text-brand-gold/60">
+                    該当するワインが見つかりません
+                  </div>
+                ) : (
+                  filteredMasterWines.map(w => (
+                    <div key={w.id} className="bg-white/5 border border-white/5 rounded-2xl p-4 flex items-center justify-between group hover:border-brand-gold/30 hover:bg-white/10 transition-all">
+                      <div className="flex items-center gap-4 flex-1">
+                        <div className="w-12 h-16 bg-black/40 rounded-lg flex items-center justify-center p-2 border border-white/10 shrink-0">
+                          <img src={w.image_url} alt="" className="h-full object-contain" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-brand-ivory font-bold text-sm truncate">{w.name_jp}</div>
+                          <div className="text-[10px] text-brand-gold/60 uppercase font-mono mt-1">
+                            {w.country} • {w.vintage} • Code: {w.id}
+                          </div>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => handleAddWine(w)}
+                        className="ml-4 p-3 bg-brand-gold text-brand-wine rounded-xl hover:scale-110 active:scale-95 transition-all shadow-md flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest"
+                      >
+                        <Plus className="w-4 h-4" />
+                        追加
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};

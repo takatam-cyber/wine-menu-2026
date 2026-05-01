@@ -1,0 +1,87 @@
+{
+  "entities": {
+    "Wine": {
+      "title": "Wine Master Data",
+      "description": "Master list of wines available from Pieroth Japan",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name_jp": { "type": "string" },
+        "name_en": { "type": "string" },
+        "country": { "type": "string" },
+        "region": { "type": "string" },
+        "grape": { "type": "string" },
+        "color": { "type": "string" },
+        "type": { "type": "string" },
+        "vintage": { "type": "string" },
+        "alcohol": { "type": "string" },
+        "cost": { "type": "number" },
+        "image_url": { "type": "string" },
+        "ai_explanation": { "type": "string" },
+        "pairing": { "type": "string" }
+      },
+      "required": ["id", "name_jp", "cost"]
+    },
+    "Store": {
+      "title": "Restaurant Store",
+      "description": "A restaurant store using the Pieroth Smart Menu",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "repId": { "type": "string", "description": "UID of the Pieroth Sales Rep managing this store" },
+        "ownerId": { "type": "string", "description": "UID of the Restaurant Owner" },
+        "cuisine": { "type": "string" },
+        "address": { "type": "string" },
+        "isActive": { "type": "boolean" }
+      },
+      "required": ["id", "name", "repId"]
+    },
+    "StoreInventory": {
+      "title": "Store-Specific Wine Entry",
+      "description": "Selection and pricing of a wine for a specific store",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "sellingPrice": { "type": "number" },
+        "stock": { "type": "number" },
+        "isActive": { "type": "boolean" },
+        "aiTalkScript": { "type": "string" },
+        "aiSocialPost": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "sellingPrice"]
+    },
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Metadata for app users",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "rep", "owner"] },
+        "storeId": { "type": "string", "description": "Store ID for owners" }
+      },
+      "required": ["uid", "email", "role"]
+    }
+  },
+  "firestore": {
+    "/winesMaster/{wineId}": {
+      "schema": "Wine",
+      "description": "Master wine data"
+    },
+    "/stores/{storeId}": {
+      "schema": "Store",
+      "description": "Store metadata"
+    },
+    "/stores/{storeId}/inventory/{wineId}": {
+      "schema": "StoreInventory",
+      "description": "Wine selection for a specific store"
+    },
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile and role tracking"
+    }
+  }
+}

@@ -1,0 +1,96 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // --- 0. ヘルパー関数（整理・高速化） ---
+    function isSignedIn() { return request.auth != null; }
+    function authUid() { return request.auth.uid; }
+    function authEmail() { return request.auth.token.email; }
+    
+    // ドメイン判定：これが営業マンログインの鍵
+    function isPierothEmail() {
+      return isSignedIn() && authEmail().matches('.*@pieroth\\.jp$');
+    }
+
+    // システム管理者（静的定義）
+    function isSystemAdmin() {
+      return isSignedIn() && (authEmail() == 'takatam@pieroth.jp' || authEmail() == 'takatam40725@gmail.com');
+    }
+    
+    // 管理者判定（静的 or DB上のロール）
+    function isAdmin() { 
+      return isSystemAdmin() || 
+             (isSignedIn() && exists(/databases/$(database)/documents/users/$(authUid())) && 
+              get(/databases/$(database)/documents/users/$(authUid())).data.role == 'admin');
+    }
+
+    // 営業マン判定：ドメイン保持者、またはDBでrepロールを持つ者
+    function isRep() {
+      return isPierothEmail() || isAdmin() || 
+             (isSignedIn() && exists(/databases/$(database)/documents/users/$(authUid())) && 
+              get(/databases/$(database)/documents/users/$(authUid())).data.role == 'rep');
+    }
+
+    function isOwner() {
+      return isAdmin() || (isSignedIn() && exists(/databases/$(database)/documents/users/$(authUid())) && 
+                           get(/databases/$(database)/documents/users/$(authUid())).data.role == 'owner');
+    }
+
+    // --- 1. ユーザープロフィールのルール ---
+    match /users/{userId} {
+      // 自分のデータなら、ロールに関係なく読み取りを許可する（ログインを成立させるため）
+      allow get: if isSignedIn() && userId == authUid();
+      
+      // 管理者は全ユーザーを検索・取得できる
+      allow get, list: if isAdmin();
+      
+      // 新規作成：サインインしていれば作成可能
+      // 営業マンはオーナー用プロフィールを作成できる(SaaS管理のため)
+      allow create: if isSignedIn() && (
+        request.resource.data.uid == authUid() || 
+        (isRep() && request.resource.data.role == 'owner')
+      );
+      
+      // 更新：自分自身、または管理者が特定のフィールドのみ更新可能
+      allow update: if (userId == authUid() || isAdmin()) && 
+                    request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'storeId', 'role']);
+    }
+
+    // --- 2. 店舗・在庫（営業マン権限が必要な箇所） ---
+    match /stores/{storeId} {
+      function isRepForStore() {
+        return isRep() && (resource == null || resource.data.repId == authUid());
+      }
+
+      allow get: if true; // 一般公開（メニュー閲覧など）
+      allow list: if isSignedIn(); 
+      
+      // 営業マンなら店舗作成可能
+      allow create: if isRep(); 
+      
+      // 管理者、またはその店舗の担当営業マン、またはオーナーなら更新可能
+      allow update: if isAdmin() || isRepForStore() || (isOwner() && resource.data.ownerId == authUid());
+
+      // 子コレクション：在庫
+      match /inventory/{wineId} {
+        allow read: if true;
+        allow write: if isAdmin() || isRepForStore() || (isOwner() && get(/databases/$(database)/documents/stores/$(storeId)).data.ownerId == authUid());
+      }
+    }
+
+    // --- 3. マスターデータ ---
+    match /winesMaster/{wineId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    
+    match /wines/{wineId} {
+      allow read: if isSignedIn();
+    }
+    
+    // デフォルト拒否
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
