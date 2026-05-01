@@ -114,8 +114,8 @@ ${context.history?.map(m => `${m.role === 'user' ? '客' : 'ソムリエ'}: ${m.
       model: "gemini-3-flash-preview",
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       config: {
-        maxOutputTokens: 1000,
-        temperature: 0.7,
+        maxOutputTokens: 600,
+        temperature: 0.6,
       }
     });
 

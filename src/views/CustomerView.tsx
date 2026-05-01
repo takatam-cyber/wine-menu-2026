@@ -47,8 +47,8 @@ export const CustomerView: React.FC = () => {
         setShowReturnFloating(true);
       }, 2000);
       
-      // Hide floating button after 30 seconds if not used
-      setTimeout(() => setShowReturnFloating(false), 30000);
+      // Hide floating button after 2 minutes if not used (more generous than 30s)
+      setTimeout(() => setShowReturnFloating(false), 120000);
     }
   };
 
@@ -142,15 +142,16 @@ export const CustomerView: React.FC = () => {
                 setIsSommelierOpen(true);
                 setShowReturnFloating(false);
               }}
-              className="fixed bottom-32 right-6 z-[60] w-24 h-24 bg-gradient-to-br from-brand-gold via-white to-brand-gold text-brand-wine rounded-full shadow-[0_25px_60px_rgba(212,175,55,0.5)] flex flex-col items-center justify-center border-4 border-brand-wine/20 backdrop-blur-xl cursor-pointer group p-2 overflow-hidden"
+              className="fixed bottom-32 right-6 z-[60] w-28 h-28 bg-gradient-to-br from-brand-gold via-white to-brand-gold text-brand-wine rounded-full shadow-[0_0_50px_rgba(212,175,55,0.7),0_25px_60px_rgba(0,0,0,0.5)] flex flex-col items-center justify-center border-4 border-brand-wine/20 backdrop-blur-xl cursor-pointer group p-2 overflow-hidden"
             >
+              <div className="absolute inset-0 rounded-full animate-ping bg-brand-gold/10 pointer-events-none" />
               <div className="absolute inset-0 rounded-full animate-pulse bg-brand-gold/20" />
               <div className="absolute -top-1 -right-1 bg-brand-wine text-brand-gold text-[10px] font-black px-3 py-1 rounded-full border border-brand-gold shadow-2xl z-10">
-                CHAT
+                BACK
               </div>
-              <Sparkles className="w-10 h-10 mb-1 group-hover:rotate-12 transition-transform duration-500 text-brand-wine shadow-sm" />
-              <div className="text-[9px] font-black tracking-tighter leading-none text-center uppercase text-brand-wine">
-                ソムリエとの<br/>相談に戻る
+              <Sparkles className="w-12 h-12 mb-1 group-hover:rotate-12 transition-transform duration-500 text-brand-wine shadow-sm" />
+              <div className="text-[10px] font-black tracking-tighter leading-none text-center uppercase text-brand-wine">
+                ソムリエに<br/>戻る
               </div>
             </motion.button>
           )}
@@ -217,13 +218,14 @@ export const CustomerView: React.FC = () => {
                     whileTap={{ scale: 0.98 }}
                     animate={highlightedId === wine.id ? { 
                       borderColor: ["rgba(212,175,55,0.1)", "rgba(212,175,55,1)", "rgba(212,175,55,0.1)"],
-                      backgroundColor: ["rgba(255,255,255,0)", "rgba(212,175,55,0.2)", "rgba(255,255,255,0)"],
+                      backgroundColor: ["rgba(255,255,255,0)", "rgba(212,175,55,0.4)", "rgba(255,255,255,0)"],
                       boxShadow: [
                          "0 0 0 0px rgba(212,175,55,0)", 
-                         "0 0 60px 10px rgba(212,175,55,0.5)", 
+                         "0 0 80px 20px rgba(212,175,55,1)", 
                          "0 0 0 0px rgba(212,175,55,0)"
                       ],
-                      scale: [1, 1.05, 1]
+                      scale: [1, 1.08, 1],
+                      filter: ["brightness(1)", "brightness(1.5)", "brightness(1)"]
                     } : {}}
                     transition={highlightedId === wine.id ? { 
                       duration: 1.0, 
