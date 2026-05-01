@@ -174,13 +174,13 @@ export const AdminView: React.FC = () => {
         setImportStatus({ type: 'success', message: 'オーナー情報を更新しました' });
       } else {
         // --- CREATE MODE ---
-        // Using a unique name for secondary app to avoid collisions
-        const secondaryAppName = `secondary-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+        const secondaryAppName = `secondary-auth-${Date.now()}`;
         let secondaryApp;
         try {
-          secondaryApp = initializeApp(firebaseConfig, secondaryAppName);
-        } catch (e) {
+          // Check if app already exists before initializing
           secondaryApp = getApp(secondaryAppName);
+        } catch (e) {
+          secondaryApp = initializeApp(firebaseConfig, secondaryAppName);
         }
         
         const secondaryAuth = getAuth(secondaryApp);

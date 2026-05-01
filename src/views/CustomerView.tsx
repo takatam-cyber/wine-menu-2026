@@ -37,7 +37,9 @@ export const CustomerView: React.FC = () => {
     if (element) {
       element.scrollIntoView({ behavior: 'smooth', block: 'center' });
       setHighlightedId(id);
-      setTimeout(() => setHighlightedId(null), 2000);
+      
+      // Extend highlighting duration for better UX
+      setTimeout(() => setHighlightedId(null), 4000);
     }
   };
 
@@ -164,32 +166,46 @@ export const CustomerView: React.FC = () => {
                     id={`wine-${wine.id}`}
                     whileTap={{ scale: 0.98 }}
                     animate={highlightedId === wine.id ? { 
-                      boxShadow: ["0 0 0 0px rgba(212,175,55,0)", "0 0 0 4px rgba(212,175,55,0.4)", "0 0 0 0px rgba(212,175,55,0)"],
                       borderColor: ["rgba(212,175,55,0.2)", "rgba(212,175,55,1)", "rgba(212,175,55,0.2)"],
-                      backgroundColor: ["rgba(212,175,55,0)", "rgba(212,175,55,0.1)", "rgba(212,175,55,0)"]
+                      boxShadow: [
+                        "0 0 0 0px rgba(212,175,55,0)", 
+                        "0 0 40px 4px rgba(212,175,55,0.5)", 
+                        "0 0 0 0px rgba(212,175,55,0)"
+                      ],
+                      scale: [1, 1.02, 1]
                     } : {}}
-                    transition={highlightedId === wine.id ? { duration: 1.5, repeat: 2 } : {}}
+                    transition={highlightedId === wine.id ? { 
+                      duration: 2, 
+                      repeat: 2,
+                      ease: "easeInOut"
+                    } : {}}
                     onClick={() => setSelectedWine(wine)}
-                    className={`group cursor-pointer flex gap-4 border border-transparent p-3 rounded-2xl transition-all duration-700 ${highlightedId === wine.id ? 'z-10' : 'border-b border-white/5 pb-6 last:border-0'}`}
+                    className={`group cursor-pointer flex gap-5 border border-transparent p-4 rounded-[2rem] transition-all duration-1000 ${
+                      highlightedId === wine.id 
+                        ? 'z-20 border-brand-gold bg-brand-gold/5' 
+                        : 'border-b border-brand-wine/5 hover:bg-brand-gold/5'
+                    }`}
                   >
-                    <div className="w-24 h-28 bg-black/5 flex items-center justify-center p-3 rounded-2xl relative border border-brand-gold/10 shadow-sm group-hover:border-brand-gold/30 transition-all overflow-hidden shrink-0">
-                      <div className="absolute inset-0 opacity-5 bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]" />
+                    <div className="w-28 h-32 bg-white/50 backdrop-blur-sm flex items-center justify-center p-4 rounded-3xl relative border border-brand-gold/10 shadow-sm group-hover:border-brand-gold/30 transition-all overflow-hidden shrink-0">
+                      <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]" />
                       <img
                         src={wine.image_url}
                         alt=""
-                        className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-1000 ease-out drop-shadow-lg"
+                        className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-1000 ease-out drop-shadow-2xl"
                       />
                     </div>
-                    <div className="flex-1 flex flex-col justify-center">
-                      <div className="text-[9px] uppercase tracking-[0.2em] text-brand-gold font-bold mb-1.5 opacity-80">
-                        {wine.region} / {wine.type}
+                    <div className="flex-1 flex flex-col justify-center gap-1">
+                      <div className="text-[10px] uppercase font-bold text-brand-gold/80 tracking-[0.3em]">
+                        {wine.region} · {wine.vintage}
                       </div>
-                      <h3 className="serif text-base text-brand-wine leading-tight mb-2 tracking-wide group-hover:text-brand-gold transition-colors">{wine.name_jp}</h3>
-                      <div className="flex items-center justify-between mt-auto">
+                      <h3 className="serif text-lg text-brand-wine leading-tight tracking-tight group-hover:text-brand-gold transition-colors">{wine.name_jp}</h3>
+                      <div className="flex items-center justify-between mt-3">
                         <div className="flex flex-col">
-                           <span className="serif text-lg text-brand-wine font-bold tracking-tighter">¥{wine.price_bottle?.toLocaleString()}</span>
+                           <span className="serif text-xl text-brand-wine font-medium tracking-tighter">¥{wine.price_bottle?.toLocaleString()}</span>
                         </div>
-                        <ChevronRight className="w-5 h-5 text-brand-gold opacity-40 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                        <div className="w-10 h-10 rounded-full bg-brand-gold/10 flex items-center justify-center group-hover:bg-brand-gold group-hover:text-white transition-all">
+                          <ChevronRight className="w-6 h-6 text-brand-gold group-hover:text-white" />
+                        </div>
                       </div>
                     </div>
                   </motion.div>

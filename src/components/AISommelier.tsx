@@ -105,29 +105,29 @@ export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, cuisin
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
               className="fixed bottom-0 inset-x-0 bg-brand-ivory z-[70] rounded-t-[40px] shadow-[0_-20px_50px_rgba(0,0,0,0.3)] border-t border-brand-gold/20 flex flex-col max-h-[85vh]"
             >
-              <div className="w-12 h-1.5 bg-brand-gold/30 rounded-full mx-auto my-4 shrink-0" />
+              <div className="w-16 h-1.5 bg-brand-gold/40 rounded-full mx-auto my-5 shrink-0 opacity-80" />
               
-              <div className="px-8 pb-6 border-b border-brand-gold/10 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-brand-wine flex items-center justify-center border border-brand-gold/30">
-                    <Sparkles className="text-brand-gold w-5 h-5" />
+              <div className="px-10 pb-6 border-b border-brand-gold/10 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-brand-wine flex items-center justify-center border-2 border-brand-gold/20 shadow-inner">
+                    <Sparkles className="text-brand-gold w-6 h-6" />
                   </div>
                   <div>
-                    <h3 className="serif text-brand-wine text-xl font-medium tracking-wide">AI Sommelier</h3>
-                    <p className="text-[10px] text-brand-wine/60 uppercase tracking-[0.2em] font-medium">Exclusive Guidance</p>
+                    <h3 className="serif text-brand-wine text-2xl font-medium tracking-tight">AI Sommelier</h3>
+                    <p className="text-[9px] text-brand-wine/50 uppercase tracking-[0.3em] font-bold">Exclusive Concierge</p>
                   </div>
                 </div>
                 <button 
                   onClick={() => setIsOpen(false)}
-                  className="p-2 rounded-full hover:bg-brand-wine/5 text-brand-wine transition-colors"
+                  className="p-3 rounded-full hover:bg-brand-gold/10 text-brand-wine transition-all border border-transparent hover:border-brand-gold/20"
                 >
-                  <X className="w-6 h-6" />
+                  <X className="w-7 h-7" />
                 </button>
               </div>
 
               <div 
                 ref={scrollRef}
-                className="flex-1 overflow-y-auto p-8 space-y-6 scroll-smooth bg-gradient-to-b from-transparent to-brand-gold/5"
+                className="flex-1 overflow-y-auto px-8 py-10 space-y-8 scroll-smooth bg-gradient-to-b from-white to-brand-gold/10"
               >
                 {messages.length === 0 && (
                   <div className="text-center py-20 space-y-4">

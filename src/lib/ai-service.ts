@@ -19,8 +19,8 @@ export function isUserAuthorized() {
 
 function getAIClient() {
   if (!genAI) {
-    // 新しい独自変数 MY_SOMMELIER_KEY のみを使用し、競合を避ける
-    const apiKey = (process.env as any).MY_SOMMELIER_KEY;
+    // 優先的に MY_SOMMELIER_KEY を参照し、(process.env as any) で型エラーを回避
+    const apiKey = (process.env as any).MY_SOMMELIER_KEY || process.env.MY_SOMMELIER_KEY;
 
     if (!apiKey || apiKey === "undefined" || apiKey === "null" || apiKey === "" || apiKey === "AI Studio Free Tier") {
       console.error(`[AI Sommelier] API Key ERROR: MY_SOMMELIER_KEY is missing or invalid. Value: ${apiKey}`);
@@ -28,17 +28,10 @@ function getAIClient() {
 アプリの[Settings]から 'MY_SOMMELIER_KEY' という名前で有効なGemini APIキーを設定してください。`);
     }
 
-    if (apiKey.startsWith("Al")) {
-      console.warn(`[AI Sommelier] WARNING: API Key starts with "Al" (small L). Did you mean "AI" (capital I)?`);
-    }
-    
     // Mask key for safety but log details for debugging
     const maskedKey = `${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}`;
-    console.log(`%c[AI Sommelier] Initializing Gemini AI
-    Source: MY_SOMMELIER_KEY
-    Key Hint: ${maskedKey}
-    Length: ${apiKey.length}
-    Starts with 'AI': ${apiKey.startsWith('AI')}`, "color: #4CAF50; font-weight: bold;");
+    console.log(`[AI Sommelier] Initializing Gemini AI (Model: gemini-1.5-flash-latest)
+    Source: MY_SOMMELIER_KEY (Hint: ${maskedKey})`);
 
     genAI = new GoogleGenAI({ apiKey });
   }
@@ -57,47 +50,62 @@ export async function getSommelierAdvice(
   availableWines: WineMaster[],
   context: { cuisine?: string; mood?: string } = {}
 ) {
-  // お客様（未ログイン）も利用できるように validateAndCall を使用せず
-  const user = auth.currentUser;
-  const userEmail = user?.email || "Anonymous Customer";
-
   if (availableWines.length === 0) {
     return "申し訳ございません。現在在庫にあるワインがございません。";
   }
 
-  const wineContext = availableWines
+  // --- 低燃費モード: 事前フィルタリング (トークン節約) ---
+  const query = userQuery.toLowerCase();
+  let filteredWines = availableWines;
+  
+  if (query.includes("赤") || query.includes("red")) {
+    filteredWines = availableWines.filter(w => w.type === "Red");
+  } else if (query.includes("白") || query.includes("white")) {
+    filteredWines = availableWines.filter(w => w.type === "White");
+  } else if (query.includes("泡") || query.includes("sparkling") || query.includes("シャンパン")) {
+    filteredWines = availableWines.filter(w => w.type === "Sparkling");
+  } else if (query.includes("甘") || query.includes("sweet") || query.includes("デザート")) {
+    filteredWines = availableWines.filter(w => w.type === "Dessert" || w.type === "Sweet");
+  }
+
+  // トークン節約のため、最大15本に制限し、情報を極限まで削る
+  const wineContext = filteredWines
+    .slice(0, 15)
     .map(
       (w) =>
-        `- [ID: ${w.id}] ${w.name_jp} (${w.country}, ${w.vintage}, ${w.grape}): ${w.ai_explanation} (Pairing: ${w.pairing})`
+        `[ID:${w.id}] ${w.name_jp} | ${w.type} | ${w.ai_explanation.substring(0, 40)}...`
     )
     .join("\n");
 
-  const prompt = `以下のワインリストから選んで答えてください：
+  const prompt = `あなたは「当店の専属ソムリエ」です。リストから最適なワインを提案してください。
+
+【厳選リスト】
 ${wineContext}
 
-【お客様からの質問】
+【お客様の要望】
 "${userQuery}"
 
 ---
-あなたは、このレストランの店主から全幅の信任を得ている「専属ソムリエ」です。
-
-【回答の厳格な構成ルール】
-1. 冒頭の挨拶は「15文字以内」で極小化してください（例：「お魚料理ですね。こちらが最適です。」）。
-2. ワインの提案は「最大2本」に絞り、全体の分量は150文字程度。
-3. 各ワインの紹介は必ず以下の3要素のみ：
+【厳格な回答ルール (スマホ最適化)】
+1. 冒頭の挨拶は15文字以内（例：「お魚料理ですね。こちらが最適です。」）。
+2. インポーター名は出さず「当店のリスト」として紹介。
+3. 提案は「最大2本」に絞り、全体で150文字程度。
+4. 各紹介は以下の3要素のみ：
    - 【商品名 (ヴィンテージ)】
-   - 【ひとこと理由】（太字。料理との「化学反応」をプロの言葉で短く）
-   - 【味わい】（1行。官能的な表現を1つ入れる）
-4. 各ワインの紹介の末尾に、必ず [SELECT:商品ID] という形式のタグを付与してください（例：[SELECT:9308180]）。
-5. 最後は「お持ちしましょうか？」等の簡潔な結びで。
-6. インポーター名は一切出さず、「当店のリスト」として紹介してください。
-7. スマホの1画面に確実に収まる分量を維持してください。`;
+   - 【ひとこと理由】(太字。料理との「化学反応」をプロの言葉で短く)
+   - 【味わい】(1行。官能的な表現を1点)
+5. 各紹介の末尾に [SELECT:商品ID] を必ず付与。
+6. 最後は「お持ちしましょうか？」等の簡潔な結びで。`;
 
   try {
     const ai = getAIClient();
     const result = await ai.models.generateContent({
       model: "gemini-1.5-flash-latest",
-      contents: prompt
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: {
+        maxOutputTokens: 300,
+        temperature: 0.7,
+      }
     });
     
     const answer = result.text;
@@ -106,10 +114,6 @@ ${wineContext}
     return answer;
   } catch (error: any) {
     console.error("AI Sommelier Error:", error);
-    const errorMsg = error?.message || "";
-    if (errorMsg.includes("API_KEY_INVALID") || errorMsg.includes("403") || errorMsg.includes("401")) {
-      return "ソムリエの認証に失敗しました。管理画面の[Settings]から正しい MY_SOMMELIER_KEY が設定されているかご確認ください。";
-    }
     return "申し訳ございません。現在ソムリエが席を外しております。少々お時間をおいてから再度お声がけください。";
   }
 }
@@ -131,7 +135,11 @@ The script should be:
       const ai = getAIClient();
       const result = await ai.models.generateContent({
         model: "gemini-1.5-flash-latest",
-        contents: prompt
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
+          maxOutputTokens: 500,
+          temperature: 0.8,
+        }
       });
       return result.text || "このワインは非常にバランスが良く、お食事にぴったりです。";
     } catch (error) {
@@ -153,7 +161,11 @@ Language: Japanese.`;
       const ai = getAIClient();
       const result = await ai.models.generateContent({
         model: "gemini-1.5-flash-latest",
-        contents: prompt
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
+          maxOutputTokens: 500,
+          temperature: 0.8,
+        }
       });
       return result.text || "優雅なひとときを。 #Wine #SommelierSelection";
     } catch (error) {
