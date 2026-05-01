@@ -53,3 +53,23 @@
   border-radius: 2rem;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
 }
+
+.markdown-body {
+  @apply space-y-2;
+}
+
+.markdown-body p {
+  @apply mb-2;
+}
+
+.markdown-body strong {
+  @apply text-brand-gold font-bold;
+}
+
+.markdown-body ul, .markdown-body ol {
+  @apply pl-4 my-2;
+}
+
+.markdown-body li {
+  @apply mb-1;
+}

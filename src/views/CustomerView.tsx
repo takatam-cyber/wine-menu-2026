@@ -15,6 +15,38 @@ export const CustomerView: React.FC = () => {
   const [store, setStore] = useState<Store | null>(null);
   const [inventory, setInventory] = useState<WineMaster[]>([]);
   const [loading, setLoading] = useState(true);
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const [showReturnToAI, setShowReturnToAI] = useState(false);
+
+  // スクロール監視
+  useEffect(() => {
+    const container = document.querySelector('.overflow-y-auto');
+    if (!container) return;
+
+    const handleScroll = (e: any) => {
+      const scrollTop = e.target.scrollTop;
+      setShowReturnToAI(scrollTop > 600);
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [loading]);
+
+  const handleSelectWine = (id: string) => {
+    const element = document.getElementById(`wine-${id}`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setHighlightedId(id);
+      setTimeout(() => setHighlightedId(null), 2000);
+    }
+  };
+
+  const scrollToSommelier = () => {
+    const element = document.getElementById('ai-sommelier');
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
 
   const fetchStoreData = async () => {
     const params = new URLSearchParams(window.location.search);
@@ -96,7 +128,11 @@ export const CustomerView: React.FC = () => {
           {/* Scrollable Content */}
           <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-8 pb-40 scroll-smooth">
             {/* AI Sommelier Section */}
-            <AISommelier availableWines={inventory} cuisineType={store.cuisine_type} />
+            <AISommelier 
+              availableWines={inventory} 
+              cuisineType={store.cuisine_type} 
+              onSelectWine={handleSelectWine}
+            />
 
             <div className="space-y-6">
               <div className="flex items-center justify-between border-b border-brand-gold/30 pb-2 mb-8">
@@ -108,9 +144,15 @@ export const CustomerView: React.FC = () => {
                 {inventory.map((wine) => (
                   <motion.div
                     key={wine.id}
+                    id={`wine-${wine.id}`}
                     whileTap={{ scale: 0.98 }}
+                    animate={highlightedId === wine.id ? { 
+                      backgroundColor: ["rgba(255,255,255,0)", "rgba(212,175,55,0.2)", "rgba(255,255,255,0)"],
+                      scale: [1, 1.02, 1]
+                    } : {}}
+                    transition={{ duration: 1, times: [0, 0.5, 1] }}
                     onClick={() => setSelectedWine(wine)}
-                    className="group cursor-pointer flex gap-4 border-b border-white/5 pb-6 last:border-0"
+                    className={`group cursor-pointer flex gap-4 border-b border-white/5 pb-6 last:border-0 rounded-xl transition-all duration-500 ${highlightedId === wine.id ? 'ring-2 ring-brand-gold/50 p-2' : ''}`}
                   >
                     <div className="w-24 h-28 bg-black/50 flex items-center justify-center p-3 rounded-2xl relative border border-brand-gold/20 shadow-inner group-hover:border-brand-gold/50 transition-all">
                       <div className="absolute inset-0 opacity-5 bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]" />
@@ -141,10 +183,26 @@ export const CustomerView: React.FC = () => {
         </div>
 
         {/* Global Footer (QR Action) */}
-        <div className="absolute bottom-8 inset-x-6 md:inset-x-8 z-40 bg-gradient-to-t from-brand-ivory via-brand-ivory to-transparent pt-12">
-           <button className="w-full bg-brand-gold text-brand-wine py-4 rounded-2xl font-bold text-[11px] tracking-[0.4em] uppercase border border-brand-gold shadow-[0_0_30px_rgba(212,175,55,0.3)] hover:scale-[1.02] active:scale-95 transition-all">
-             ソムリエを呼ぶ
-           </button>
+        <div className="absolute bottom-8 inset-x-6 md:inset-x-8 z-40 bg-gradient-to-t from-brand-ivory via-brand-ivory to-transparent pt-12 pointer-events-none">
+           <div className="flex flex-col gap-3 pointer-events-auto">
+             <AnimatePresence>
+               {showReturnToAI && (
+                 <motion.button
+                   initial={{ opacity: 0, y: 20 }}
+                   animate={{ opacity: 1, y: 0 }}
+                   exit={{ opacity: 0, y: 20 }}
+                   onClick={scrollToSommelier}
+                   className="w-full bg-white/90 backdrop-blur-md text-brand-wine py-3 rounded-2xl font-bold text-[10px] tracking-[0.2em] uppercase border border-brand-gold/30 shadow-lg flex items-center justify-center gap-2 hover:bg-white transition-all"
+                 >
+                   <Sparkles className="w-3 h-3 text-brand-gold" />
+                   ソムリエに相談する
+                 </motion.button>
+               )}
+             </AnimatePresence>
+             <button className="w-full bg-brand-gold text-brand-wine py-4 rounded-2xl font-bold text-[11px] tracking-[0.4em] uppercase border border-brand-gold shadow-[0_0_30px_rgba(212,175,55,0.3)] hover:scale-[1.02] active:scale-95 transition-all">
+               ソムリエを呼ぶ
+             </button>
+           </div>
         </div>
 
         {/* Wine Details Modal */}

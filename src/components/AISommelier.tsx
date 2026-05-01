@@ -8,9 +8,10 @@ import ReactMarkdown from 'react-markdown';
 interface AISommelierProps {
   availableWines: WineMaster[];
   cuisineType?: string;
+  onSelectWine?: (id: string) => void;
 }
 
-export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, cuisineType }) => {
+export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, cuisineType, onSelectWine }) => {
   const [query, setQuery] = useState('');
   const [messages, setMessages] = useState<{ role: 'user' | 'ai'; content: string }[]>([]);
   const [loading, setLoading] = useState(false);
@@ -29,8 +30,40 @@ export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, cuisin
     setLoading(false);
   };
 
+  const renderMessageContent = (content: string) => {
+    // [SELECT:ID] を検出するための正規表現
+    const selectRegex = /\[SELECT:(\d+)\]/g;
+    const parts = content.split(selectRegex);
+    
+    // parts は [text, id, text, id, ...] の形式になる
+    return (
+      <div className="space-y-4">
+        <div className="markdown-body">
+          <ReactMarkdown>{content.replace(selectRegex, '')}</ReactMarkdown>
+        </div>
+        
+        {/* ボタンだけをメッセージの下部にまとめて表示 */}
+        <div className="flex flex-wrap gap-2 pt-2">
+          {Array.from(content.matchAll(selectRegex)).map((match, idx) => {
+            const wineId = match[1];
+            return (
+              <button
+                key={`${wineId}-${idx}`}
+                onClick={() => onSelectWine?.(wineId)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-gold text-brand-wine text-[10px] font-bold uppercase tracking-wider rounded-lg border border-brand-wine/10 shadow-sm hover:brightness-110 active:scale-95 transition-all animate-in fade-in slide-in-from-bottom-1 duration-500"
+              >
+                <Wine className="w-3 h-3" />
+                このワインの詳細を見る
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div id="ai-sommelier" className="flex flex-col h-[500px] bg-white rounded-xl shadow-2xl border border-brand-gold/20 overflow-hidden">
+    <div id="ai-sommelier" className="flex flex-col h-[500px] bg-white rounded-xl shadow-2xl border border-brand-gold/20 overflow-hidden mb-12">
       <div className="bg-brand-wine px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Sparkles className="text-brand-gold w-5 h-5" />
@@ -38,7 +71,7 @@ export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, cuisin
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-brand-ivory/30">
+      <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-brand-ivory/30 scroll-smooth">
         {messages.length === 0 && (
           <div className="text-center py-12 text-gray-400">
             <p className="serif italic text-lg text-brand-wine/60">
@@ -56,13 +89,17 @@ export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, cuisin
             <div
               className={`max-w-[85%] rounded-2xl p-4 text-sm leading-relaxed ${
                 msg.role === 'user'
-                  ? 'bg-brand-wine text-white rounded-tr-none'
-                  : 'bg-white text-gray-800 shadow-md border border-brand-gold/10 rounded-tl-none'
+                  ? 'bg-brand-wine text-white rounded-tr-none shadow-lg'
+                  : 'bg-white text-gray-800 shadow-xl border border-brand-gold/10 rounded-tl-none'
               }`}
             >
-              <div className="markdown-body">
-                <ReactMarkdown>{msg.content}</ReactMarkdown>
-              </div>
+              {msg.role === 'ai' ? (
+                renderMessageContent(msg.content)
+              ) : (
+                <div className="markdown-body">
+                  <ReactMarkdown>{msg.content}</ReactMarkdown>
+                </div>
+              )}
             </div>
           </motion.div>
         ))}
