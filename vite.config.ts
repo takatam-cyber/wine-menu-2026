@@ -8,11 +8,8 @@ export default defineConfig(({mode}) => {
   return {
     plugins: [react(), tailwindcss()],
     define: {
-      'process.env.GEMINI_API_KEY': JSON.stringify(
-        (env.NEXT_PUBLIC_GEMINI_API_KEY && env.NEXT_PUBLIC_GEMINI_API_KEY !== 'AI Studio Free Tier') ? env.NEXT_PUBLIC_GEMINI_API_KEY : ''
-      ),
-      'process.env.NEXT_PUBLIC_GEMINI_API_KEY': JSON.stringify(
-        (env.NEXT_PUBLIC_GEMINI_API_KEY && env.NEXT_PUBLIC_GEMINI_API_KEY !== 'AI Studio Free Tier') ? env.NEXT_PUBLIC_GEMINI_API_KEY : ''
+      'process.env.MY_SOMMELIER_KEY': JSON.stringify(
+        (env.MY_SOMMELIER_KEY && env.MY_SOMMELIER_KEY !== 'AI Studio Free Tier') ? env.MY_SOMMELIER_KEY : ''
       ),
     },
     resolve: {

@@ -20,16 +20,15 @@ export function isUserAuthorized() {
 
 function getAIClient() {
   if (!genAI) {
-    // ユーザーのリクエストに従い、NEXT_PUBLIC_GEMINI_API_KEYのみを唯一のソースとする
-    const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+    // 新しい独自変数 MY_SOMMELIER_KEY のみを使用し、競合を避ける
+    const apiKey = (process.env as any).MY_SOMMELIER_KEY;
 
     if (!apiKey || apiKey === "undefined" || apiKey === "null" || apiKey === "" || apiKey === "AI Studio Free Tier") {
-      console.error(`[AI Sommelier] API Key ERROR: NEXT_PUBLIC_GEMINI_API_KEY is missing or invalid. Value: ${apiKey}`);
+      console.error(`[AI Sommelier] API Key ERROR: MY_SOMMELIER_KEY is missing or invalid. Value: ${apiKey}`);
       throw new Error(`AIソムリエの認証情報(APIキー)が正しく設定されていません。
-アプリの[Settings]から 'NEXT_PUBLIC_GEMINI_API_KEY' という名前で有効なGemini APIキーを設定してください。`);
+アプリの[Settings]から 'MY_SOMMELIER_KEY' という名前で有効なGemini APIキーを設定してください。`);
     }
 
-    // TYPO CHECK: Detect if the key starts with "Al" (small L) instead of "AI" (capital i)
     if (apiKey.startsWith("Al")) {
       console.warn(`[AI Sommelier] WARNING: API Key starts with "Al" (small L). Did you mean "AI" (capital I)?`);
     }
@@ -37,7 +36,7 @@ function getAIClient() {
     // Mask key for safety but log details for debugging
     const maskedKey = `${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}`;
     console.log(`%c[AI Sommelier] Initializing Gemini AI
-    Source: NEXT_PUBLIC_GEMINI_API_KEY
+    Source: MY_SOMMELIER_KEY
     Key Hint: ${maskedKey}
     Length: ${apiKey.length}
     Starts with 'AI': ${apiKey.startsWith('AI')}`, "color: #4CAF50; font-weight: bold;");
@@ -98,7 +97,7 @@ ${wineContext}
   try {
     const ai = getAIClient();
     const result = await ai.models.generateContent({
-      model: "gemini-1.5-flash-latest",
+      model: "gemini-3-flash-preview",
       contents: prompt
     });
     
@@ -110,7 +109,7 @@ ${wineContext}
     console.error("AI Sommelier Error:", error);
     const errorMsg = error?.message || "";
     if (errorMsg.includes("API_KEY_INVALID") || errorMsg.includes("403") || errorMsg.includes("401")) {
-      return "ソムリエの認証に失敗しました。管理画面の[Settings]から正しいNEXT_PUBLIC_GEMINI_API_KEYが設定されているかご確認ください。";
+      return "ソムリエの認証に失敗しました。管理画面の[Settings]から正しい MY_SOMMELIER_KEY が設定されているかご確認ください。";
     }
     return "申し訳ございません。現在ソムリエが席を外しております。少々お時間をおいてから再度お声がけください。";
   }
@@ -132,7 +131,7 @@ The script should be:
     try {
       const ai = getAIClient();
       const result = await ai.models.generateContent({
-        model: "gemini-1.5-flash-latest",
+        model: "gemini-3-flash-preview",
         contents: prompt
       });
       return result.text || "このワインは非常にバランスが良く、お食事にぴったりです。";
@@ -154,7 +153,7 @@ Language: Japanese.`;
     try {
       const ai = getAIClient();
       const result = await ai.models.generateContent({
-        model: "gemini-1.5-flash-latest",
+        model: "gemini-3-flash-preview",
         contents: prompt
       });
       return result.text || "優雅なひとときを。 #Pieroth #Wine";
