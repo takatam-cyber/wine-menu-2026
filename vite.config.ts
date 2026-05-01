@@ -7,11 +7,6 @@ export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
   return {
     plugins: [react(), tailwindcss()],
-    define: {
-      'process.env.MY_SOMMELIER_KEY': JSON.stringify(
-        (env.MY_SOMMELIER_KEY && env.MY_SOMMELIER_KEY !== 'AI Studio Free Tier') ? env.MY_SOMMELIER_KEY : ''
-      ),
-    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

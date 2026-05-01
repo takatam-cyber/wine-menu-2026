@@ -13,10 +13,21 @@ interface AISommelierProps {
   setIsOpen: (open: boolean) => void;
 }
 
+interface Message {
+  role: 'user' | 'ai';
+  content: string;
+  buttons?: string[];
+  wineIds?: string[];
+}
+
 export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, cuisineType, onSelectWine, isOpen, setIsOpen }) => {
   const [query, setQuery] = useState('');
-  const [messages, setMessages] = useState<{ role: 'user' | 'ai'; content: string }[]>([
-    { role: 'ai', content: 'いらっしゃいませ。本日のお料理や、今の気分に合わせて最適なワインをご提案します。 [BUTTON:お肉料理] [BUTTON:お魚料理] [BUTTON:前菜・サラダ] [BUTTON:ソムリエにお任せ]' }
+  const [messages, setMessages] = useState<Message[]>([
+    { 
+      role: 'ai', 
+      content: 'いらっしゃいませ。本日のお料理や、今の気分に合わせて最適なワインをご提案します。',
+      buttons: ['お肉料理', 'お魚料理', '前菜・サラダ', 'ソムリエにお任せ']
+    }
   ]);
 
   const [loading, setLoading] = useState(false);
@@ -57,7 +68,12 @@ export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, cuisin
         cuisine: cuisineType,
         history: [...messages, { role: 'user', content: userMessage }]
       });
-      setMessages((prev) => [...prev, { role: 'ai', content: response }]);
+      setMessages((prev) => [...prev, { 
+        role: 'ai', 
+        content: response.message,
+        buttons: response.buttons,
+        wineIds: response.wineIds
+      }]);
     } catch (err: any) {
       setError(err.message || 'エラーが発生しました');
     } finally {
@@ -65,29 +81,17 @@ export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, cuisin
     }
   };
 
-  const renderMessageContent = (content: string) => {
-    // Robust regex to handle extra spaces, full-width colons, and potentially unclosed tags at the end
-    // Captures even if the closing bracket is missing at the end of the total content string
-    const selectRegex = /\[\s*SELECT\s*[:：]\s*(\d+)\s*(?:\]|$)/gi;
-    const buttonRegex = /\[\s*BUTTON\s*[:：]\s*([^\]\n]+)\s*(?:\]|$)/gi;
-    
-    // Clean text for markdown (remove tags precisely)
-    const cleanContent = content.replace(selectRegex, '').replace(buttonRegex, '').trim();
-    
-    // Extract interactive elements
-    const selections = Array.from(content.matchAll(selectRegex)).map(m => m[1]);
-    const buttons = Array.from(content.matchAll(buttonRegex)).map(m => m[1]);
-
+  const renderMessageContent = (msg: Message) => {
     return (
       <div className="space-y-4">
         <div className="markdown-body text-[13.5px] leading-[1.7] font-medium text-brand-wine/90">
-          <ReactMarkdown>{cleanContent}</ReactMarkdown>
+          <ReactMarkdown>{msg.content}</ReactMarkdown>
         </div>
         
         {/* Wine Rich Cards (Horizontal Scrollable) */}
-        {selections.length > 0 && (
+        {msg.wineIds && msg.wineIds.length > 0 && (
           <div className="flex gap-3 overflow-x-auto pb-4 -mx-1 px-1 mt-2 scrollbar-hide snap-x">
-            {selections.map((wineId, idx) => {
+            {msg.wineIds.map((wineId, idx) => {
               const wine = availableWines.find(w => String(w.id) === String(wineId));
               if (!wine) return null;
               
@@ -132,9 +136,9 @@ export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, cuisin
         )}
 
         {/* Wizard Choices (Next steps) */}
-        {buttons.length > 0 && (
+        {msg.buttons && msg.buttons.length > 0 && (
           <div className="flex flex-wrap gap-2 pt-1">
-            {buttons.map((label, idx) => (
+            {msg.buttons.map((label, idx) => (
               <motion.button
                 key={`wizard-btn-${label}-${idx}`}
                 whileHover={{ scale: 1.05, backgroundColor: '#FFFFFF', borderColor: '#2D0F0F' }}
@@ -236,7 +240,7 @@ export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, cuisin
                       }`}
                     >
                       {msg.role === 'ai' ? (
-                        renderMessageContent(msg.content)
+                        renderMessageContent(msg)
                       ) : (
                         <p className="text-sm font-medium">{msg.content}</p>
                       )}
