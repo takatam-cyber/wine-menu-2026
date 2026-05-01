@@ -139,11 +139,13 @@ export const CustomerView: React.FC = () => {
                 setIsSommelierOpen(true);
                 setShowReturnFloating(false);
               }}
-              className="fixed bottom-32 right-6 z-[60] w-14 h-14 bg-brand-wine text-brand-gold rounded-full shadow-[0_10px_30px_rgba(0,0,0,0.5)] flex items-center justify-center border-2 border-brand-gold backdrop-blur-md cursor-pointer"
+              className="fixed bottom-32 right-6 z-[60] w-16 h-16 bg-brand-wine text-brand-gold rounded-full shadow-[0_15px_40px_rgba(0,0,0,0.6)] flex flex-col items-center justify-center border-2 border-brand-gold backdrop-blur-md cursor-pointer group"
             >
-              <div className="absolute inset-0 rounded-full animate-ping bg-brand-gold/30" />
-              <Sparkles className="w-6 h-6" />
-              <div className="absolute -bottom-2 -right-2 bg-brand-gold text-brand-wine text-[8px] font-black px-1.5 py-0.5 rounded shadow-sm border border-brand-wine">BACK</div>
+              <div className="absolute inset-0 rounded-full animate-ping bg-brand-gold/40" />
+              <Sparkles className="w-6 h-6 mb-0.5 group-hover:rotate-12 transition-transform" />
+              <div className="text-[7px] font-bold tracking-tighter leading-none text-center">
+                ソムリエに<br/>聞く
+              </div>
             </motion.button>
           )}
         </AnimatePresence>
@@ -209,17 +211,17 @@ export const CustomerView: React.FC = () => {
                     whileTap={{ scale: 0.98 }}
                     animate={highlightedId === wine.id ? { 
                       borderColor: ["rgba(212,175,55,0.1)", "rgba(212,175,55,1)", "rgba(212,175,55,0.1)"],
-                      backgroundColor: ["rgba(255,255,255,0)", "rgba(212,175,55,0.1)", "rgba(255,255,255,0)"],
+                      backgroundColor: ["rgba(255,255,255,0)", "rgba(212,175,55,0.2)", "rgba(255,255,255,0)"],
                       boxShadow: [
-                        "0 0 0 0px rgba(212,175,55,0)", 
-                        "0 0 50px 5px rgba(212,175,55,0.3)", 
-                        "0 0 0 0px rgba(212,175,55,0)"
+                         "0 0 0 0px rgba(212,175,55,0)", 
+                         "0 0 60px 10px rgba(212,175,55,0.5)", 
+                         "0 0 0 0px rgba(212,175,55,0)"
                       ],
-                      scale: [1, 1.03, 1]
+                      scale: [1, 1.05, 1]
                     } : {}}
                     transition={highlightedId === wine.id ? { 
-                      duration: 1.5, 
-                      repeat: 2,
+                      duration: 1.2, 
+                      repeat: 3,
                       ease: "easeInOut"
                     } : {}}
                     onClick={() => setSelectedWine(wine)}

@@ -48,11 +48,12 @@ export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, cuisin
   };
 
   const renderMessageContent = (content: string) => {
-    const selectRegex = /\[SELECT:(\d+)\]/g;
-    const buttonRegex = /\[BUTTON:([^\]]+)\]/g;
+    // Robust regex to handle potential extra spaces
+    const selectRegex = /\[SELECT:\s*(\d+)\s*\]/g;
+    const buttonRegex = /\[BUTTON:\s*([^\]]+)\s*\]/g;
     
-    // Clean text for markdown (remove tags)
-    const cleanContent = content.replace(selectRegex, '').replace(buttonRegex, '');
+    // Clean text for markdown (remove tags precisely)
+    const cleanContent = content.replace(selectRegex, '').replace(buttonRegex, '').trim();
     
     // Extract interactive elements
     const selections = Array.from(content.matchAll(selectRegex)).map(m => m[1]);
@@ -76,27 +77,27 @@ export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, cuisin
                   onSelectWine?.(wineId);
                   setIsOpen(false);
                 }}
-                className="inline-flex items-center gap-3 px-6 py-3 bg-brand-gold text-brand-wine text-[11px] font-bold uppercase tracking-[0.2em] rounded-full shadow-[0_10px_25px_rgba(212,175,55,0.3)] transition-all"
+                className="inline-flex items-center gap-3 px-6 py-3 bg-brand-gold text-brand-wine text-[11px] font-bold uppercase tracking-[0.2em] rounded-full shadow-[0_10px_25px_rgba(212,175,55,0.3)] transition-all animate-in fade-in zoom-in duration-500"
               >
                 <div className="w-6 h-6 rounded-full bg-brand-wine/10 flex items-center justify-center">
                   <Wine className="w-3.5 h-3.5" />
                 </div>
-                このワインの詳細を見る
+                🍷 このワインの詳細を見る
               </motion.button>
             ))}
           </div>
         )}
 
-        {/* Interaction Chips */}
+        {/* Interaction Chips (Wizard style next steps) */}
         {buttons.length > 0 && (
-          <div className="flex flex-wrap gap-2 pt-2">
+          <div className="flex flex-wrap gap-2.5 pt-2">
             {buttons.map((label, idx) => (
               <motion.button
                 key={`btn-${label}-${idx}`}
-                whileHover={{ scale: 1.05, y: -2 }}
+                whileHover={{ scale: 1.05, y: -2, backgroundColor: '#FFFFFF', borderColor: '#D4AF37' }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => handleSend(label)}
-                className="px-4 py-2 bg-white text-brand-wine/70 text-[11px] font-bold rounded-xl border border-brand-gold/20 shadow-sm hover:border-brand-gold hover:text-brand-wine transition-all"
+                className="px-5 py-2.5 bg-white/60 text-brand-wine/80 text-[11px] font-bold rounded-2xl border border-brand-gold/15 shadow-sm hover:text-brand-wine transition-all animate-in slide-in-from-bottom-2 duration-300"
               >
                 {label}
               </motion.button>
