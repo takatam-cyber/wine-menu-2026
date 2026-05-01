@@ -1,5 +1,22 @@
+import { GoogleGenAI, Type } from "@google/genai";
 import { WineMaster } from "../types";
 import { auth } from "./firebase";
+
+let genAI: any = null;
+
+function getAIClient() {
+  if (!genAI) {
+    const apiKey = import.meta.env.VITE_MY_SOMMELIER_KEY || process.env.MY_SOMMELIER_KEY;
+
+    if (!apiKey) {
+      console.error(`[AI Sommelier] APIキーが見つかりません。`);
+      throw new Error("APIキーが設定されていません。GitHubのSecretsを確認してください。");
+    }
+
+    genAI = new GoogleGenAI({ apiKey });
+  }
+  return genAI;
+}
 
 /**
  * AIを利用可能か（認証済みかつ適切なメールドメインか）判定する
@@ -28,7 +45,7 @@ export interface AISommelierResponse {
 }
 
 /**
- * ソムリエとしてワインを提案する (Backend Proxy v2)
+ * ソムリエとしてワインを提案する (Frontend v3 - Function Calling)
  */
 export async function getSommelierAdvice(
   userQuery: string,
@@ -42,26 +59,78 @@ export async function getSommelierAdvice(
     .join("\n");
 
   try {
-    const response = await fetch("/api/sommelier", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        userQuery,
-        wineContext,
-        history: context.history
-      })
+    const ai = getAIClient();
+    
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: context.history?.map(h => ({
+        role: h.role === 'ai' ? 'model' : 'user',
+        parts: [{ text: h.content }]
+      })) || [],
+      config: {
+        systemInstruction: `あなたはピーロート・ジャパンの高級AIソムリエです。
+3ターン以内に最高のワインを提案してください。
+
+【出力の鉄則】
+1. 挨拶や前置きは極力短くし、ユーザーが次に選ぶべきアクションを明確にします。
+2. 構造化データとして回答を返すための専用ツール（update_ui）を必ず使用してください。
+3. 提案時は最大3本までに絞ってください。
+
+【提供可能リスト】
+${wineContext}`,
+        tools: [
+          {
+            functionDeclarations: [
+              {
+                name: "update_ui",
+                description: "AIの回答内容、選択肢ボタン、提案ワインリストをUIに反映します。",
+                parameters: {
+                  type: Type.OBJECT,
+                  properties: {
+                    message: {
+                      type: Type.STRING,
+                      description: "ユーザーへ表示するテキストメッセージ（Markdown可）。"
+                    },
+                    buttons: {
+                      type: Type.ARRAY,
+                      items: { type: Type.STRING },
+                      description: "ユーザーが次に選ぶべき選択肢のラベル。例: ['赤ワイン希望', '白ワイン希望']"
+                    },
+                    wineIds: {
+                      type: Type.ARRAY,
+                      items: { type: Type.STRING },
+                      description: "提案するワインの商品IDリスト。例: ['9309980', '9308883']"
+                    }
+                  },
+                  required: ["message"]
+                }
+              }
+            ]
+          }
+        ],
+        toolConfig: {
+          functionCallingConfig: {
+            mode: "ANY",
+            allowedFunctionNames: ["update_ui"]
+          }
+        },
+        temperature: 0.3
+      }
     });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || "サーバーエラーが発生しました。");
+    const call = response.functionCalls?.[0];
+    if (call && call.name === "update_ui") {
+      return call.args as AISommelierResponse;
     }
-
-    return await response.json();
+    
+    return { 
+      message: response.text || "ソムリエが在庫を確認中です。少々お待ちください。",
+      buttons: ["最初から探す"]
+    };
   } catch (error: any) {
-    console.error("AI Sommelier Fetch Error:", error);
+    console.error("AI Sommelier Error:", error);
     return {
-      message: "申し訳ございません。ソムリエを呼び出せませんでした。画面を更新するか、少し時間をお試しください。",
+      message: "申し訳ございません。ソムリエを呼び出せませんでした。APIキーを確認してください。",
       buttons: ["最初から探す"]
     };
   }
@@ -73,14 +142,12 @@ export async function getSommelierAdvice(
 export async function generateStaffTalkScript(wine: WineMaster) {
   return validateAndCall(async () => {
     try {
-      const response = await fetch("/api/staff-talk", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ wine })
+      const ai = getAIClient();
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: [{ role: "user", parts: [{ text: `スタッフ向けの30秒セールストークを作成してください。\nワイン: ${wine.name_jp}\n特徴: ${wine.ai_explanation}\nペアリング: ${wine.pairing}\n150文字以内で簡潔に。` }] }]
       });
-      if (!response.ok) throw new Error("トーク編集エラー");
-      const data = await response.json();
-      return data.text || "このワインは非常にお勧めです。";
+      return response.text || "このワインは非常にお勧めです。";
     } catch (error: any) {
       console.error("Staff talk generation error:", error);
       return `【生成エラー】${error.message}`;
@@ -94,14 +161,12 @@ export async function generateStaffTalkScript(wine: WineMaster) {
 export async function generateSocialPost(wine: WineMaster) {
   return validateAndCall(async () => {
     try {
-      const response = await fetch("/api/social-post", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ wine })
+      const ai = getAIClient();
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: [{ role: "user", parts: [{ text: `Instagram投稿用のキャプションを作成してください。\nワイン: ${wine.name_jp}\nハッシュタグを5つ含めて。150文字以内。` }] }]
       });
-      if (!response.ok) throw new Error("SNS生成エラー");
-      const data = await response.json();
-      return data.text || "特別なワインの時間。 #Wine";
+      return response.text || "特別なワインの時間。 #Wine";
     } catch (error: any) {
       console.error("Social post generation error:", error);
       return `【生成エラー】${error.message}`;
