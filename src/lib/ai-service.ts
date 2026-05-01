@@ -19,15 +19,14 @@ export function isUserAuthorized() {
 
 function getAIClient() {
   if (!genAI) {
-    // AI Studio標準キーまたは以前設定されていたカスタムキーの両方を確認
-    const apiKey = process.env.GEMINI_API_KEY || (process.env as any).MY_SOMMELIER_KEY;
+    const apiKey = (process.env as any).MY_SOMMELIER_KEY || process.env.MY_SOMMELIER_KEY;
 
-    if (!apiKey || apiKey === "undefined" || apiKey === "null" || apiKey === "" || apiKey === "AI Studio Free Tier") {
-      console.error("[AI Sommelier] API Key ERROR: Valid key not found.");
-      throw new Error("APIキー(GEMINI_API_KEY)が設定されていません。AI Studioの[Settings]から有効なキーを確認してください。");
+    if (!apiKey || apiKey === "undefined" || apiKey === "null" || apiKey === "" || apiKey === "AI Studio Free Tier" || !apiKey.startsWith("AI") || apiKey.length < 39) {
+      console.error(`[AI Sommelier] API Key ERROR: MY_SOMMELIER_KEY is missing or invalid.`);
+      throw new Error("APIキーの設定(MY_SOMMELIER_KEY)が不完全です。管理者メニューの[Settings]から、'AI'で始まる39文字以上の有効なGemini APIキーを設定してください。");
     }
 
-    genAI = new GoogleGenAI(apiKey);
+    genAI = new GoogleGenAI({ apiKey });
   }
   return genAI;
 }
@@ -67,70 +66,73 @@ export async function getSommelierAdvice(
     )
     .join("\n");
 
-  const prompt = `あなたは一流レストランの「専属シニアソムリエ」です。
-スマホ最適化のため、以下の【接客アルゴリズム】を厳守してください。
+  const prompt = `あなたはミシュラン星付きレストランの「専属シニアソムリエ」です。
+スマホ最適化のため、またお客様に最高のエクスペリエンスを提供するため、以下の【接客アルゴリズム】を厳守してください。
 
-【接客アルゴリズム：4ステップ対話】
+【接客アルゴリズム：段階的選定】
 あなたはすぐにワインを提案してはいけません。以下の手順を必ず踏んでください。
 
-Step 1（カテゴリー確認）:
-料理のカテゴリーが不明な場合、まず確認してください。
-提示する選択肢： [BUTTON:お肉料理] [BUTTON:お魚料理] [BUTTON:前菜・サラダ] [BUTTON:本日の気分で選ぶ]
+1. 【Step 1：カテゴリー診断】
+   料理のカテゴリーが不明な場合（特にお客様の最初の発言など）、まず確認してください。
+   提示する選択肢： [BUTTON:お肉料理] [BUTTON:お魚料理] [BUTTON:前菜・サラダ] [BUTTON:本日の気分で選ぶ]
 
-Step 2（詳細ヒアリング）:
-ユーザーの選択を受け、「承知いたしました。〇〇ですね。」と短く返した上で、さらに詳細を聞いてください。
-- お肉：種類（牛・豚・鴨等）や調理法。
-- お魚：魚種やソース。
-- 前菜：[BUTTON:冷たい前菜] [BUTTON:温かい前菜] [BUTTON:チーズ・生ハム]
-必ず [BUTTON:ラベル] を提示してください。
+2. 【Step 2：詳細ヒアリング】
+   ユーザーの選択を受け、「承知いたしました。〇〇ですね。」と短く返した上で、さらに詳細を聞いてください。
+   - お肉の場合：種類（牛・豚・羊等）や焼き方（グリル・煮込み等）。
+   - お魚の場合：白身、赤身、調理法、ソースの種類。
+   - 前菜を選んだ場合：[BUTTON:冷たい前菜（サラダ・マリネ等）] [BUTTON:温かい前菜（キッシュ・スープ等）] [BUTTON:チーズ・生ハム・ナッツ]
+   必ず [BUTTON:ラベル] を提示してください。
 
-Step 3（味の方向性）:
-最後に味の好みを一言確認します。（例：[BUTTON:さっぱり・酸味] [BUTTON:濃厚・クリーミー] [BUTTON:塩気・スモーキー]）
+3. 【Step 3：味の方向性】
+   最後に味の好みを一言確認します。（例：[BUTTON:さっぱり・酸味] [BUTTON:濃厚・クリーミー] [BUTTON:塩気・スモーキー]）
 
-Step 4（最終提案）:
-上記3ステップを経て初めて、[SELECT:商品ID] を用いてワインを提案してください。
-銘柄名 [SELECT:ID] （スペースなし）の形式で出力。
-提案後には必ず [BUTTON:他の候補] [BUTTON:最初から探す] を含めてください。
+4. 【Step 4：最終提案】
+   上記を経て初めて、[SELECT:商品ID] を用いて3種類程度のワインを提案してください。
+   銘柄名 [SELECT:ID] （スペースなし）の形式で出力。
+   提案後には必ず [BUTTON:他の候補] [BUTTON:最初から探す] を含めてください。
 
-【制約・禁止事項】
-- 最初の挨拶（いらっしゃいませ）は履歴がない場合のみ。二度目以降は自己紹介や挨拶は一切禁止です。
-- 会話は極めて簡潔（150文字程度）にし、途中で途切れないようにしてください。
-- 全ての回答の末尾には、次に選ぶべき行動を [BUTTON:ラベル] 形式で提示すること。
+【制約事項】
+- 二度目以降の返答では「いらっしゃいませ」や自己紹介は一切禁止です。
+- 会話は極めて簡潔（150〜200文字程度）にし、途中で途切れないようにしてください。
+- 全ての回答の末尾には、次に選ぶべき行動を [BUTTON:ラベル] 形式で必ず2〜4個提示すること。
 
-【リスト】
+【店舗情報】
+- 今夜のメイン：${context.cuisine || "シェフお任せ"}
+
+【提供可能なワインリスト】
 ${wineContext}
 
-【これまでの履歴】
+【これまでの会話履歴】
 ${context.history?.map(m => `${m.role === 'user' ? '客' : 'ソムリエ'}: ${m.content}`).join('\n') || "なし"}
 
-客：${userQuery}
-ソムリエ：`;
+お客様：${userQuery}`;
 
   try {
-    const genAI = getAIClient();
-    const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+    const ai = getAIClient();
     
-    const result = await model.generateContent({
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
       contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: {
+      config: {
         maxOutputTokens: 1000,
         temperature: 0.7,
       }
     });
 
-    const text = result.response.text();
-    if (!text) throw new Error("応答が空でした。");
+    if (!response || !response.text) {
+      throw new Error("AIからの応答が空でした。");
+    }
     
-    return text;
+    return response.text;
   } catch (error: any) {
     console.error("AI Sommelier Error:", error);
     const detail = error.message || String(error);
     
-    if (detail.includes("API_KEY_INVALID") || detail.includes("not valid")) {
-      return "【認証エラー】APIキーの設定を確認してください。";
+    if (detail.includes("API_KEY_INVALID") || detail.includes("API key not valid")) {
+      return "【認証エラー】APIキーが無効です。管理者メニューの[Settings]から正しい MY_SOMMELIER_KEY を設定してください。";
     }
     
-    return `（ソムリエが失礼いたしました。通信に乱れがあるようです。再度ボタンから話しかけてみてください。：${detail.substring(0, 40)}）`;
+    return `申し訳ございません。現在ソムリエが席を外しております。 (Error: ${detail.substring(0, 30)}...)`;
   }
 }
 
@@ -146,15 +148,15 @@ export async function generateStaffTalkScript(wine: WineMaster) {
 150文字以内で簡潔に。`;
 
     try {
-      const genAI = getAIClient();
-      const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
-      const result = await model.generateContent({
+      const ai = getAIClient();
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
         contents: [{ role: "user", parts: [{ text: prompt }] }]
       });
-      return result.response.text();
+      return response.text || "このワインは非常にお勧めです。";
     } catch (error: any) {
       console.error("Staff talk generation error:", error);
-      return `【生成失敗】${error.message}`;
+      return `【生成エラー】${error.message}`;
     }
   });
 }
@@ -169,15 +171,15 @@ export async function generateSocialPost(wine: WineMaster) {
 ハッシュタグを5つ含めて。150文字以内。`;
 
     try {
-      const genAI = getAIClient();
-      const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
-      const result = await model.generateContent({
+      const ai = getAIClient();
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
         contents: [{ role: "user", parts: [{ text: prompt }] }]
       });
-      return result.response.text();
+      return response.text || "特別なワインの時間。 #Wine";
     } catch (error: any) {
       console.error("Social post generation error:", error);
-      return `【生成失敗】${error.message}`;
+      return `【生成エラー】${error.message}`;
     }
   });
 }
