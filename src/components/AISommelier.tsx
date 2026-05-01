@@ -28,10 +28,10 @@ export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, cuisin
     }
   }, [messages, loading]);
 
-  const handleSend = async () => {
-    if (!query.trim()) return;
+  const handleSend = async (customQuery?: string) => {
+    const userMessage = customQuery || query;
+    if (!userMessage.trim()) return;
 
-    const userMessage = query;
     setMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
     setQuery('');
     setLoading(true);
@@ -49,30 +49,60 @@ export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, cuisin
 
   const renderMessageContent = (content: string) => {
     const selectRegex = /\[SELECT:(\d+)\]/g;
+    const buttonRegex = /\[BUTTON:([^\]]+)\]/g;
+    
+    // Clean text for markdown (remove tags)
+    const cleanContent = content.replace(selectRegex, '').replace(buttonRegex, '');
+    
+    // Extract interactive elements
+    const selections = Array.from(content.matchAll(selectRegex)).map(m => m[1]);
+    const buttons = Array.from(content.matchAll(buttonRegex)).map(m => m[1]);
+
     return (
-      <div className="space-y-4">
-        <div className="markdown-body text-[13px] leading-relaxed">
-          <ReactMarkdown>{content.replace(selectRegex, '')}</ReactMarkdown>
+      <div className="space-y-5">
+        <div className="markdown-body text-[13.5px] leading-[1.8] font-medium text-brand-wine/90">
+          <ReactMarkdown>{cleanContent}</ReactMarkdown>
         </div>
         
-        <div className="flex flex-wrap gap-2 pt-2">
-          {Array.from(content.matchAll(selectRegex)).map((match, idx) => {
-            const wineId = match[1];
-            return (
-              <button
-                key={`${wineId}-${idx}`}
+        {/* Wine Action Buttons */}
+        {selections.length > 0 && (
+          <div className="flex flex-wrap gap-3 pt-1">
+            {selections.map((wineId, idx) => (
+              <motion.button
+                key={`select-${wineId}-${idx}`}
+                whileHover={{ scale: 1.05, backgroundColor: '#2D0F0F', color: '#D4AF37' }}
+                whileTap={{ scale: 0.95 }}
                 onClick={() => {
                   onSelectWine?.(wineId);
                   setIsOpen(false);
                 }}
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-gold text-brand-wine text-[11px] font-bold uppercase tracking-[0.1em] rounded-full border border-brand-wine/10 shadow-lg hover:brightness-110 active:scale-95 transition-all animate-in fade-in slide-in-from-bottom-2 duration-700"
+                className="inline-flex items-center gap-3 px-6 py-3 bg-brand-gold text-brand-wine text-[11px] font-bold uppercase tracking-[0.2em] rounded-full shadow-[0_10px_25px_rgba(212,175,55,0.3)] transition-all"
               >
-                <Wine className="w-3.5 h-3.5" />
-                このワインを詳しく
-              </button>
-            );
-          })}
-        </div>
+                <div className="w-6 h-6 rounded-full bg-brand-wine/10 flex items-center justify-center">
+                  <Wine className="w-3.5 h-3.5" />
+                </div>
+                このワインの詳細を見る
+              </motion.button>
+            ))}
+          </div>
+        )}
+
+        {/* Interaction Chips */}
+        {buttons.length > 0 && (
+          <div className="flex flex-wrap gap-2 pt-2">
+            {buttons.map((label, idx) => (
+              <motion.button
+                key={`btn-${label}-${idx}`}
+                whileHover={{ scale: 1.05, y: -2 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => handleSend(label)}
+                className="px-4 py-2 bg-white text-brand-wine/70 text-[11px] font-bold rounded-xl border border-brand-gold/20 shadow-sm hover:border-brand-gold hover:text-brand-wine transition-all"
+              >
+                {label}
+              </motion.button>
+            ))}
+          </div>
+        )}
       </div>
     );
   };
@@ -83,27 +113,30 @@ export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, cuisin
       <AnimatePresence>
         {isOpen && (
           <>
-            {/* Backdrop */}
+            {/* Backdrop with luxury blur */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsOpen(false)}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60]"
+              className="fixed inset-0 bg-black/60 backdrop-blur-[6px] z-[60]"
             />
             
             <motion.div
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed bottom-0 inset-x-0 bg-brand-ivory z-[70] rounded-t-[40px] shadow-[0_-20px_50px_rgba(0,0,0,0.3)] border-t border-brand-gold/20 flex flex-col max-h-[85vh]"
+              transition={{ type: 'spring', damping: 28, stiffness: 220 }}
+              className="fixed bottom-0 inset-x-0 bg-white/85 backdrop-blur-3xl z-[70] rounded-t-[40px] shadow-[0_-20px_60px_rgba(0,0,0,0.4)] border-t border-white/20 flex flex-col max-h-[85vh] overflow-hidden"
             >
-              <div className="w-16 h-1.5 bg-brand-gold/40 rounded-full mx-auto my-5 shrink-0 opacity-80" />
+              {/* Luxury Accent Line */}
+              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-brand-gold to-transparent opacity-60" />
               
-              <div className="px-10 pb-6 border-b border-brand-gold/10 flex items-center justify-between">
+              <div className="w-16 h-1.5 bg-brand-gold/30 rounded-full mx-auto my-5 shrink-0 opacity-80" />
+              
+              <div className="px-10 pb-6 border-b border-brand-gold/5 flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-brand-wine flex items-center justify-center border-2 border-brand-gold/20 shadow-inner">
+                  <div className="w-12 h-12 rounded-full bg-brand-wine flex items-center justify-center border-2 border-brand-gold/30 shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)]">
                     <Sparkles className="text-brand-gold w-6 h-6" />
                   </div>
                   <div>
@@ -121,7 +154,7 @@ export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, cuisin
 
               <div 
                 ref={scrollRef}
-                className="flex-1 overflow-y-auto px-8 py-10 space-y-8 scroll-smooth bg-gradient-to-b from-white to-brand-gold/10"
+                className="flex-1 overflow-y-auto px-8 py-10 space-y-8 scroll-smooth bg-gradient-to-b from-white/10 to-brand-gold/5"
               >
                 {error && (
                   <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-red-600 text-xs text-center flex flex-col gap-2 shadow-sm animate-in fade-in zoom-in">

@@ -17,6 +17,7 @@ export const CustomerView: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [showReturnToAI, setShowReturnToAI] = useState(false);
+  const [showReturnFloating, setShowReturnFloating] = useState(false);
   const [isSommelierOpen, setIsSommelierOpen] = useState(false);
 
   // スクロール監視
@@ -38,9 +39,13 @@ export const CustomerView: React.FC = () => {
     if (element) {
       element.scrollIntoView({ behavior: 'smooth', block: 'center' });
       setHighlightedId(id);
+      setShowReturnFloating(true);
       
-      // Extend highlighting duration for better UX
-      setTimeout(() => setHighlightedId(null), 4000);
+      // Luxury pulsing duration
+      setTimeout(() => setHighlightedId(null), 3500);
+      
+      // Floating button auto-hide policy (longer presence for better UX)
+      setTimeout(() => setShowReturnFloating(false), 20000);
     }
   };
 
@@ -121,6 +126,28 @@ export const CustomerView: React.FC = () => {
           <div className="w-20 h-5 bg-black rounded-full border border-white/10" />
         </div>
 
+        {/* Floating Return to Sommelier Button (Appears after jumping to a card) */}
+        <AnimatePresence>
+          {showReturnFloating && (
+            <motion.button
+              initial={{ opacity: 0, x: 50, scale: 0.8 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: 50, scale: 0.8 }}
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => {
+                setIsSommelierOpen(true);
+                setShowReturnFloating(false);
+              }}
+              className="fixed bottom-32 right-6 z-[60] w-14 h-14 bg-brand-wine text-brand-gold rounded-full shadow-[0_10px_30px_rgba(0,0,0,0.5)] flex items-center justify-center border-2 border-brand-gold backdrop-blur-md cursor-pointer"
+            >
+              <div className="absolute inset-0 rounded-full animate-ping bg-brand-gold/30" />
+              <Sparkles className="w-6 h-6" />
+              <div className="absolute -bottom-2 -right-2 bg-brand-gold text-brand-wine text-[8px] font-black px-1.5 py-0.5 rounded shadow-sm border border-brand-wine">BACK</div>
+            </motion.button>
+          )}
+        </AnimatePresence>
+
         <div className="flex-1 mt-0 md:mt-8 flex flex-col overflow-hidden">
           {/* Header */}
           <header className="p-6 flex items-center justify-between border-b border-brand-gold/30 shrink-0 bg-black/40 backdrop-blur-md sticky top-0 z-50">
@@ -181,16 +208,17 @@ export const CustomerView: React.FC = () => {
                     id={`wine-${wine.id}`}
                     whileTap={{ scale: 0.98 }}
                     animate={highlightedId === wine.id ? { 
-                      borderColor: ["rgba(212,175,55,0.2)", "rgba(212,175,55,1)", "rgba(212,175,55,0.2)"],
+                      borderColor: ["rgba(212,175,55,0.1)", "rgba(212,175,55,1)", "rgba(212,175,55,0.1)"],
+                      backgroundColor: ["rgba(255,255,255,0)", "rgba(212,175,55,0.1)", "rgba(255,255,255,0)"],
                       boxShadow: [
                         "0 0 0 0px rgba(212,175,55,0)", 
-                        "0 0 40px 4px rgba(212,175,55,0.5)", 
+                        "0 0 50px 5px rgba(212,175,55,0.3)", 
                         "0 0 0 0px rgba(212,175,55,0)"
                       ],
-                      scale: [1, 1.02, 1]
+                      scale: [1, 1.03, 1]
                     } : {}}
                     transition={highlightedId === wine.id ? { 
-                      duration: 2, 
+                      duration: 1.5, 
                       repeat: 2,
                       ease: "easeInOut"
                     } : {}}

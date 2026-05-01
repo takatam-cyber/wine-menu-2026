@@ -19,7 +19,7 @@ export function isUserAuthorized() {
 
 function getAIClient() {
   if (!genAI) {
-    // 優先的に MY_SOMMELIER_KEY を参照し、(process.env as any) で型エラーを回避
+    // 優先的に MY_SOMMELIER_KEY を参照
     const apiKey = (process.env as any).MY_SOMMELIER_KEY || process.env.MY_SOMMELIER_KEY;
 
     if (!apiKey || apiKey === "undefined" || apiKey === "null" || apiKey === "" || apiKey === "AI Studio Free Tier" || !apiKey.startsWith("AI") || apiKey.length < 39) {
@@ -27,10 +27,9 @@ function getAIClient() {
       throw new Error("APIキーの設定(MY_SOMMELIER_KEY)が不完全です。管理者メニューの[Settings]から、'AI'で始まる39文字以上の有効なGemini APIキーを設定してください。");
     }
 
-    // Mask key for safety but log details for debugging
+    // Mask key for safety
     const maskedKey = `${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}`;
-    console.log(`[AI Sommelier] Initializing Gemini AI (Model: gemini-3-flash-preview)
-    Source: MY_SOMMELIER_KEY (Hint: ${maskedKey})`);
+    console.log(`[AI Sommelier] Initializing Gemini AI (Model: gemini-3-flash-preview) Hint: ${maskedKey}`);
 
     genAI = new GoogleGenAI({ apiKey });
   }
@@ -41,71 +40,76 @@ async function validateAndCall(fn: () => Promise<any>) {
   if (!isUserAuthorized()) {
     throw new Error("この操作を行う権限がありません。管理者アカウントでログインしてください。");
   }
-  return await fn();
+  return fn();
 }
 
+/**
+ * ソムリエとしてワインを提案する
+ */
 export async function getSommelierAdvice(
   userQuery: string,
   availableWines: WineMaster[],
-  context: { cuisine?: string; mood?: string } = {}
+  context: { cuisine?: string } = {}
 ) {
-  if (availableWines.length === 0) {
-    return "申し訳ございません。現在在庫にあるワインがございません。";
-  }
-
-  // --- 低燃費モード: 事前フィルタリング (トークン節約) ---
+  // --- Token saving pre-filtering ---
   const query = userQuery.toLowerCase();
   let filteredWines = availableWines;
   
-  if (query.includes("赤") || query.includes("red")) {
+  if (query.includes("赤") || query.includes("red") || query.includes("肉")) {
     filteredWines = availableWines.filter(w => w.type === "Red");
-  } else if (query.includes("白") || query.includes("white")) {
+  } else if (query.includes("白") || query.includes("white") || query.includes("魚")) {
     filteredWines = availableWines.filter(w => w.type === "White");
-  } else if (query.includes("泡") || query.includes("sparkling") || query.includes("シャンパン")) {
+  } else if (query.includes("泡") || query.includes("sparkling") || query.includes("祝い")) {
     filteredWines = availableWines.filter(w => w.type === "Sparkling");
-  } else if (query.includes("甘") || query.includes("sweet") || query.includes("デザート")) {
-    filteredWines = availableWines.filter(w => w.type === "Dessert" || w.type === "Sweet");
   }
 
-  // トークン節約のため、最大15本に制限し、情報を極限まで削る
   const wineContext = filteredWines
-    .slice(0, 15)
+    .slice(0, 12)
     .map(
       (w) =>
-        `[ID:${w.id}] ${w.name_jp} | ${w.type} | ${w.ai_explanation.substring(0, 40)}...`
+        `[ID:${w.id}] ${w.name_jp} | ${w.type} | 特徴:${w.ai_explanation.substring(0, 50)} | 合う料理:${w.pairing}`
     )
     .join("\n");
 
-  const prompt = `あなたは「当店の専属ソムリエ」です。リストから最適なワインを提案してください。
+  const prompt = `あなたは「ミシュラン星付きレストランの専属シニアソムリエ」です。気品と情緒溢れる言葉で、お客様を最高の1本へ導き、会話を楽しく進めてください。
 
-【厳選リスト】
+【性格と文体】
+- 言葉遣いは極めて優雅。簡潔さ（150文字以内）を重視。
+- ピーロート・ジャパン等のインポーター名は絶対に出さず「当店のセラー」として紹介して。
+- 知識の披露ではなく、お客様の心に響く「情景」を語ってください。
+
+【技術仕様（重要）】
+1. ワインを提案する際は、商品名の横に必ず [SELECT:商品ID] を付与してください。
+2. 次のステップへ導くための「選択肢ボタン」を、メッセージの最後に [BUTTON:ラベル] 形式で2〜4個必ず提案してください。
+   ラベルは2〜6文字と非常に短く（例：[BUTTON:お肉に合う赤] [BUTTON:華やかな白] [BUTTON:プロに代議] 等）、直感的に選べるものにしてください。
+3. 商品を提案する際は必ず商品名の横に [SELECT:商品ID] を付与してください。
+   例：「【銘柄名】[SELECT:101] は深みがあり...」
+
+【回答例】
+「今夜は真鯛のポワレですね。海の香りに寄り添う、宝石のような白ワインがございます。
+【シャブリ プルミエクリュ】 [SELECT:102]
+貝殻を思わせるミネラルが、お料理の隠れた甘みを引き出しますよ。
+
+他にも、もう少しカジュアルな泡や白もお探しでしょうか？ 
+[BUTTON:もう少し軽めで] [BUTTON:華やかな泡を] [BUTTON:お任せします]」
+
+【店舗情報】
+- 今夜の料理：${context.cuisine || "シェフお任せ"}
+
+【提供可能なワイン（この中から選んでください）】
 ${wineContext}
 
-【お客様の要望】
-"${userQuery}"
-
----
-【厳格な回答ルール (スマホ最適化)】
-1. 冒頭の挨拶は15文字以内（例：「お魚料理ですね。こちらが最適です。」）。
-2. インポーター名は出さず「当店のリスト」として紹介。
-3. 提案は「最大2本」に絞り、全体で150文字程度。
-4. 各紹介は以下の3要素のみ：
-   - 【商品名 (ヴィンテージ)】
-   - 【ひとこと理由】(太字。料理との「化学反応」をプロの言葉で短く)
-   - 【味わい】(1行。官能的な表現を1点)
-5. 各紹介の末尾に [SELECT:商品ID] を必ず付与。
-6. 最後は「お持ちしましょうか？」等の簡潔な結びで。`;
+質問：${userQuery}`;
 
   try {
     const ai = getAIClient();
     
-    // トークン節約のため、シンプルな文字列でプロンプトを送信
     const result = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: prompt,
       config: {
-        maxOutputTokens: 300,
-        temperature: 0.7,
+        maxOutputTokens: 400,
+        temperature: 0.8,
       }
     });
     
@@ -116,11 +120,8 @@ ${wineContext}
     return result.text;
   } catch (error: any) {
     console.error("AI Sommelier Error:", error);
-    
-    // エラーの詳細をユーザーに表示して原因特定を助ける
     const detail = error.message || String(error);
     
-    // 特徴的なキーワードでエラーを分類
     if (detail.includes("API_KEY_INVALID") || detail.includes("API key not valid")) {
       return "【認証エラー】APIキーが無効です。管理者メニューの[Settings]から正しい MY_SOMMELIER_KEY を設定してください。";
     }
@@ -137,6 +138,9 @@ ${wineContext}
   }
 }
 
+/**
+ * スタッフ向けのセールストーク案を作成する
+ */
 export async function generateStaffTalkScript(wine: WineMaster) {
   return validateAndCall(async () => {
     const prompt = `Create a 30-second sales talk script for restaurant staff to suggest this wine to a customer.
@@ -168,6 +172,9 @@ The script should be:
   });
 }
 
+/**
+ * SNS投稿用のキャプション案を作成する
+ */
 export async function generateSocialPost(wine: WineMaster) {
   return validateAndCall(async () => {
     const prompt = `Create an Instagram post caption for this wine.
