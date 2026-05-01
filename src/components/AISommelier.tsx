@@ -16,17 +16,28 @@ interface AISommelierProps {
 export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, cuisineType, onSelectWine, isOpen, setIsOpen }) => {
   const [query, setQuery] = useState('');
   const [messages, setMessages] = useState<{ role: 'user' | 'ai'; content: string }[]>([
-    { role: 'ai', content: 'いらっしゃいませ。本日のお料理に合うワインをお探しですか？' }
+    { role: 'ai', content: 'いらっしゃいませ。本日のお料理に合うワインをお探しですか？ [BUTTON:お肉料理] [BUTTON:お魚料理] [BUTTON:本日の気分で選ぶ]' }
   ]);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages, loading]);
+    // Scroll to bottom whenever messages or loading state changes
+    const scrollToBottom = () => {
+      if (scrollRef.current) {
+        scrollRef.current.scrollTo({
+          top: scrollRef.current.scrollHeight,
+          behavior: 'smooth'
+        });
+      }
+    };
+
+    // Use a small timeout to ensure DOM has updated
+    const timeoutId = setTimeout(scrollToBottom, 100);
+    return () => clearTimeout(timeoutId);
+  }, [messages, loading, isOpen]);
 
   const handleSend = async (customQuery?: string) => {
     const userMessage = customQuery || query;
@@ -48,9 +59,10 @@ export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, cuisin
   };
 
   const renderMessageContent = (content: string) => {
-    // Robust regex to handle potential extra spaces
-    const selectRegex = /\[SELECT:\s*(\d+)\s*\]/g;
-    const buttonRegex = /\[BUTTON:\s*([^\]]+)\s*\]/g;
+    // Robust regex to handle extra spaces and potentially unclosed tags at the end
+    // Use [^\]]* to handle content inside reasonably even if missing bracket
+    const selectRegex = /\[\s*SELECT\s*[:：]\s*(\d+)\s*(?:\]|$)/gi;
+    const buttonRegex = /\[\s*BUTTON\s*[:：]\s*([^\]\n]+)\s*(?:\]|$)/gi;
     
     // Clean text for markdown (remove tags precisely)
     const cleanContent = content.replace(selectRegex, '').replace(buttonRegex, '').trim();
@@ -65,39 +77,58 @@ export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, cuisin
           <ReactMarkdown>{cleanContent}</ReactMarkdown>
         </div>
         
-        {/* Wine Action Buttons */}
+        {/* Wine Rich Cards (Inline Proposal) - Stacked vertically */}
         {selections.length > 0 && (
-          <div className="flex flex-wrap gap-3 pt-1">
-            {selections.map((wineId, idx) => (
-              <motion.button
-                key={`select-${wineId}-${idx}`}
-                whileHover={{ scale: 1.05, backgroundColor: '#2D0F0F', color: '#D4AF37' }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => {
-                  onSelectWine?.(wineId);
-                  setIsOpen(false);
-                }}
-                className="inline-flex items-center gap-3 px-6 py-3 bg-brand-gold text-brand-wine text-[11px] font-bold uppercase tracking-[0.2em] rounded-full shadow-[0_10px_25px_rgba(212,175,55,0.3)] transition-all animate-in fade-in zoom-in duration-500"
-              >
-                <div className="w-6 h-6 rounded-full bg-brand-wine/10 flex items-center justify-center">
-                  <Wine className="w-3.5 h-3.5" />
-                </div>
-                🍷 このワインの詳細を見る
-              </motion.button>
-            ))}
+          <div className="flex flex-col gap-3 pt-2">
+            {selections.map((wineId, idx) => {
+              const wine = availableWines.find(w => String(w.id) === String(wineId));
+              if (!wine) return null;
+              
+              return (
+                <motion.div
+                  key={`select-rich-card-${wineId}-${idx}`}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: idx * 0.1 }}
+                  onClick={() => {
+                    onSelectWine?.(wineId);
+                    setIsOpen(false);
+                  }}
+                  className="group flex gap-4 p-4 bg-brand-ivory/40 rounded-[24px] border border-brand-gold/20 hover:border-brand-gold hover:bg-white transition-all cursor-pointer shadow-sm hover:shadow-2xl"
+                >
+                  <div className="w-20 h-20 bg-white rounded-[18px] overflow-hidden border border-brand-gold/10 p-1 flex-shrink-0">
+                    <img 
+                      src={wine.image_url} 
+                      alt={wine.name_jp} 
+                      className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-700"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                  <div className="flex-1 flex flex-col justify-center gap-1">
+                    <div className="text-[10px] text-brand-gold font-bold uppercase tracking-widest">{wine.vintage} | {wine.type}</div>
+                    <div className="text-[13px] font-bold text-brand-wine leading-tight line-clamp-1 group-hover:text-brand-gold transition-colors">{wine.name_jp}</div>
+                    <div className="text-xs font-black text-brand-wine/80">¥{Number(wine.price_bottle).toLocaleString()}</div>
+                    <div className="mt-1 flex items-center gap-1.5 text-[10px] text-brand-gold/80 font-bold uppercase">
+                      <Wine className="w-3 h-3" />
+                      🍷 詳細を見る
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
           </div>
         )}
 
-        {/* Interaction Chips (Wizard style next steps) */}
+        {/* Wizard Choices (Next steps) */}
         {buttons.length > 0 && (
-          <div className="flex flex-wrap gap-2.5 pt-2">
+          <div className="flex flex-wrap gap-2.5 pt-1">
             {buttons.map((label, idx) => (
               <motion.button
-                key={`btn-${label}-${idx}`}
-                whileHover={{ scale: 1.05, y: -2, backgroundColor: '#FFFFFF', borderColor: '#D4AF37' }}
+                key={`wizard-btn-${label}-${idx}`}
+                whileHover={{ scale: 1.05, y: -2, backgroundColor: '#FFFFFF', borderColor: '#2D0F0F' }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => handleSend(label)}
-                className="px-5 py-2.5 bg-white/60 text-brand-wine/80 text-[11px] font-bold rounded-2xl border border-brand-gold/15 shadow-sm hover:text-brand-wine transition-all animate-in slide-in-from-bottom-2 duration-300"
+                className="px-5 py-2.5 bg-brand-wine/5 text-brand-wine/90 text-[11px] font-bold rounded-2xl border border-brand-gold/20 shadow-sm transition-all animate-in slide-in-from-bottom-2 duration-300"
               >
                 {label}
               </motion.button>
@@ -226,7 +257,7 @@ export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, cuisin
                     className="w-full pl-6 pr-14 py-4 rounded-full border border-brand-gold/20 focus:border-brand-gold/50 focus:outline-none focus:ring-4 focus:ring-brand-gold/10 text-sm transition-all bg-brand-ivory/20"
                   />
                   <button
-                    onClick={handleSend}
+                    onClick={() => handleSend()}
                     disabled={loading}
                     className="absolute right-2 top-1/2 -translate-y-1/2 p-3 rounded-full bg-brand-wine text-brand-gold hover:brightness-125 disabled:opacity-50 transition-all shadow-md group-hover:scale-105"
                   >

@@ -2,7 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 import { WineMaster } from "../types";
 import { auth } from "./firebase";
 
-let genAI: GoogleGenAI | null = null;
+let genAI: any = null;
 
 /**
  * AIを利用可能か（認証済みかつ適切なメールドメインか）判定する
@@ -19,17 +19,12 @@ export function isUserAuthorized() {
 
 function getAIClient() {
   if (!genAI) {
-    // 優先的に MY_SOMMELIER_KEY を参照
     const apiKey = (process.env as any).MY_SOMMELIER_KEY || process.env.MY_SOMMELIER_KEY;
 
     if (!apiKey || apiKey === "undefined" || apiKey === "null" || apiKey === "" || apiKey === "AI Studio Free Tier" || !apiKey.startsWith("AI") || apiKey.length < 39) {
       console.error(`[AI Sommelier] API Key ERROR: MY_SOMMELIER_KEY is missing or invalid.`);
       throw new Error("APIキーの設定(MY_SOMMELIER_KEY)が不完全です。管理者メニューの[Settings]から、'AI'で始まる39文字以上の有効なGemini APIキーを設定してください。");
     }
-
-    // Mask key for safety
-    const maskedKey = `${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}`;
-    console.log(`[AI Sommelier] Initializing Gemini AI (Model: gemini-3-flash-preview) Hint: ${maskedKey}`);
 
     genAI = new GoogleGenAI({ apiKey });
   }
@@ -64,54 +59,43 @@ export async function getSommelierAdvice(
   }
 
   const wineContext = filteredWines
-    .slice(0, 12)
+    .slice(0, 15)
     .map(
       (w) =>
         `[ID:${w.id}] ${w.name_jp} | ${w.type} | 特徴:${w.ai_explanation.substring(0, 50)} | 合う料理:${w.pairing}`
     )
     .join("\n");
 
-  const prompt = `あなたは「ミシュラン星付きレストランの専属シニアソムリエ」です。気品と情緒溢れる言葉で、お客様を最高の1本へ導き、会話を楽しく進めてください。
+  const finalPrompt = `あなたはレストランの「専属シニアソムリエ」です。
+スマホ最適化のため、以下の【3ステップ対話】を厳守してください：
 
-【性格と文体】
-- 言葉遣いは極めて優雅。簡潔さ（150文字以内）を重視。
-- ピーロート・ジャパン等のインポーター名は絶対に出さず「当店のセラー」として紹介して。
-- 知識の披露ではなく、お客様の心に響く「情景」を語ってください。
+1. 【食材診断】: 食材の詳細（肉・魚・野菜等）を深掘りする質問をし、必ず [BUTTON:ラベル] を提示。
+2. 【調理法診断】: 次に調理法、ソース、味の濃さを聞き、必ず [BUTTON:ラベル] を提示。
+3. 【最終提案】: 2回以上の質問を経てから、初めて [SELECT:商品ID] を付与して3本程度提案。
 
-【技術仕様（最重要）】
-1. ワインを提案する際は、商品名のすぐ横（末尾）にスペースを空けず [SELECT:商品ID] を必ず付与してください。
-   例：「【銘柄名】[SELECT:101] は深みがあり...」
-2. 回答の最後に、ユーザーが次に選ぶべき行動を短いラベルで、必ず [BUTTON:ラベル] 形式で2〜4個提示してください。
-   ラベルは2〜6文字の直感的なもの（例：[BUTTON:軽めの白] [BUTTON:お肉料理] [BUTTON:プロに相談] 等）に限定してください。
+制約事項:
+- 冒頭の挨拶は「15文字以内」に。
+- 提案するワイン名のすぐ横に、スペースなしで [SELECT:商品ID] を付与すること。
+- 回答の最後には、次に選ぶべき行動を [BUTTON:ラベル] 形式で必ず2〜3個提示すること。
+- 回答は極めて簡潔（150文字程度）にし、途中で途切れないようにしてください。
 
-【回答例】
-「今夜は真鯛のポワレですね。海の香りに寄り添う、宝石のような白ワインがございます。
-【シャブリ プルミエクリュ】[SELECT:102]
-貝殻を思わせるミネラルが、お料理の隠れた甘みを引き出します。
-
-他にも、スッキリした泡や、お肉料理に合わせた赤もお探しでしょうか？ 
-[BUTTON:爽やかな泡] [BUTTON:お肉に合う赤] [BUTTON:ソムリエお任せ]」
-
-【店舗情報】
-- 今夜の料理：${context.cuisine || "シェフお任せ"}
-
-【提供可能なワイン（この中から選んでください）】
+リスト：
 ${wineContext}
 
-質問：${userQuery}`;
+お客様：${userQuery}`;
 
   try {
     const ai = getAIClient();
     
     const result = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: prompt,
+      contents: [{ role: "user", parts: [{ text: finalPrompt }] }],
       config: {
-        maxOutputTokens: 400,
-        temperature: 0.8,
+        maxOutputTokens: 600,
+        temperature: 0.7,
       }
     });
-    
+
     if (!result || !result.text) {
       throw new Error("AIからの応答が空でした。");
     }
@@ -127,13 +111,9 @@ ${wineContext}
     if (detail.includes("404") || detail.includes("model not found")) {
       return "【モデルエラー】選択されたAIモデルが見つかりません。設定を確認してください。";
     }
-    if (detail.includes("429") || detail.includes("quota")) {
-      return "【制限エラー】AIの利用制限に達しました。しばらく時間をおいてから再度お試しください。";
-    }
 
     return `申し訳ございません。現在ソムリエが席を外しております。
-(詳細エラー: ${detail})
-少々お時間をおいてから再度お声がけください。`;
+(詳細エラー: ${detail.substring(0, 50)}...)`;
   }
 }
 
@@ -142,31 +122,22 @@ ${wineContext}
  */
 export async function generateStaffTalkScript(wine: WineMaster) {
   return validateAndCall(async () => {
-    const prompt = `Create a 30-second sales talk script for restaurant staff to suggest this wine to a customer.
-Wine: ${wine.name_jp} (${wine.name_en})
-Features: ${wine.ai_explanation}
-Pairing: ${wine.pairing}
-
-The script should be:
-1. Polished and professional.
-2. Focus on one 'wow' factor.
-3. Suggest a specific food pairing from the data.
-4. Language: Japanese.`;
+    const prompt = `スタッフ向けの30秒セールストークを作成してください。
+ワイン: ${wine.name_jp}
+特徴: ${wine.ai_explanation}
+ペアリング: ${wine.pairing}
+簡潔かつ魅力的に。`;
 
     try {
       const ai = getAIClient();
       const result = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: prompt,
-        config: {
-          maxOutputTokens: 500,
-          temperature: 0.8,
-        }
+        contents: [{ role: "user", parts: [{ text: prompt }] }]
       });
-      return result.text || "このワインは非常にバランスが良く、お食事にぴったりです。";
+      return result.text || "このワインは特にお勧めです。";
     } catch (error: any) {
       console.error("Staff talk generation error:", error);
-      return `【生成エラー】${error.message || "お食事にぴったりのワインです。"}`;
+      return `【生成エラー】${error.message}`;
     }
   });
 }
@@ -176,26 +147,20 @@ The script should be:
  */
 export async function generateSocialPost(wine: WineMaster) {
   return validateAndCall(async () => {
-    const prompt = `Create an Instagram post caption for this wine.
-Wine: ${wine.name_jp}
-Tone: Luxury, sophisticated.
-Include 5 relevant hashtags for a fine dining restaurant (no brand names).
-Language: Japanese.`;
+    const prompt = `Instagram投稿用のキャプションを作成してください。
+ワイン: ${wine.name_jp}
+ハッシュタグを5つ含めてください。`;
 
     try {
       const ai = getAIClient();
       const result = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: prompt,
-        config: {
-          maxOutputTokens: 500,
-          temperature: 0.8,
-        }
+        contents: [{ role: "user", parts: [{ text: prompt }] }]
       });
-      return result.text || "優雅なひとときを。 #Wine #SommelierSelection";
+      return result.text || "素敵なワインの時間。";
     } catch (error: any) {
       console.error("Social post generation error:", error);
-      return `【生成エラー】${error.message || "優雅なひとときを。 #Wine"}`;
+      return `【生成エラー】${error.message}`;
     }
   });
 }

@@ -130,21 +130,24 @@ export const CustomerView: React.FC = () => {
         <AnimatePresence>
           {showReturnFloating && (
             <motion.button
-              initial={{ opacity: 0, x: 50, scale: 0.8 }}
-              animate={{ opacity: 1, x: 0, scale: 1 }}
-              exit={{ opacity: 0, x: 50, scale: 0.8 }}
-              whileHover={{ scale: 1.1 }}
+              initial={{ opacity: 0, scale: 0.5, y: 100 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.5, y: 100 }}
+              whileHover={{ scale: 1.1, backgroundColor: '#FFFFFF' }}
               whileTap={{ scale: 0.9 }}
               onClick={() => {
                 setIsSommelierOpen(true);
                 setShowReturnFloating(false);
               }}
-              className="fixed bottom-32 right-6 z-[60] w-16 h-16 bg-brand-wine text-brand-gold rounded-full shadow-[0_15px_40px_rgba(0,0,0,0.6)] flex flex-col items-center justify-center border-2 border-brand-gold backdrop-blur-md cursor-pointer group"
+              className="fixed bottom-32 right-6 z-[60] w-24 h-24 bg-gradient-to-br from-brand-gold via-white to-brand-gold text-brand-wine rounded-full shadow-[0_25px_60px_rgba(212,175,55,0.5)] flex flex-col items-center justify-center border-4 border-brand-wine/20 backdrop-blur-xl cursor-pointer group p-2 overflow-hidden"
             >
-              <div className="absolute inset-0 rounded-full animate-ping bg-brand-gold/40" />
-              <Sparkles className="w-6 h-6 mb-0.5 group-hover:rotate-12 transition-transform" />
-              <div className="text-[7px] font-bold tracking-tighter leading-none text-center">
-                ソムリエに<br/>聞く
+              <div className="absolute inset-0 rounded-full animate-pulse bg-brand-gold/20" />
+              <div className="absolute -top-1 -right-1 bg-brand-wine text-brand-gold text-[10px] font-black px-3 py-1 rounded-full border border-brand-gold shadow-2xl z-10">
+                CHAT
+              </div>
+              <Sparkles className="w-10 h-10 mb-1 group-hover:rotate-12 transition-transform duration-500 text-brand-wine shadow-sm" />
+              <div className="text-[9px] font-black tracking-tighter leading-none text-center uppercase text-brand-wine">
+                ソムリエとの<br/>相談に戻る
               </div>
             </motion.button>
           )}
