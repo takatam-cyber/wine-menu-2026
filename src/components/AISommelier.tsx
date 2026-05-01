@@ -66,7 +66,7 @@ export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, cuisin
   };
 
   const renderMessageContent = (content: string) => {
-    // Robust regex to handle extra spaces and potentially unclosed tags at the end
+    // Robust regex to handle extra spaces, full-width colons, and potentially unclosed tags at the end
     // Captures even if the closing bracket is missing at the end of the total content string
     const selectRegex = /\[\s*SELECT\s*[:：]\s*(\d+)\s*(?:\]|$)/gi;
     const buttonRegex = /\[\s*BUTTON\s*[:：]\s*([^\]\n]+)\s*(?:\]|$)/gi;
@@ -265,7 +265,7 @@ export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, cuisin
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-                    placeholder="お料理に合う1本を提案します..."
+                    placeholder="「牛肉のグリル」など自由に入力してください..."
                     className="w-full pl-6 pr-14 py-4 rounded-full border border-brand-gold/20 focus:border-brand-gold/50 focus:outline-none focus:ring-4 focus:ring-brand-gold/10 text-sm transition-all bg-brand-ivory/20"
                   />
                   <button

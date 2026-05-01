@@ -46,64 +46,28 @@ export async function getSommelierAdvice(
   availableWines: WineMaster[],
   context: { cuisine?: string; history?: { role: 'user' | 'ai'; content: string }[] } = {}
 ) {
-  // --- Token saving pre-filtering ---
-  const query = userQuery.toLowerCase();
-  let filteredWines = availableWines;
-  
-  if (query.includes("赤") || query.includes("red") || query.includes("肉")) {
-    filteredWines = availableWines.filter(w => w.type === "Red");
-  } else if (query.includes("白") || query.includes("white") || query.includes("魚")) {
-    filteredWines = availableWines.filter(w => w.type === "White");
-  } else if (query.includes("泡") || query.includes("sparkling") || query.includes("祝い")) {
-    filteredWines = availableWines.filter(w => w.type === "Sparkling");
-  }
-
-  const wineContext = filteredWines
-    .slice(0, 20) // More context for rich proposal
-    .map(
-      (w) =>
-        `[ID:${w.id}] ${w.name_jp} | ${w.type} | 特徴:${w.ai_explanation.substring(0, 100)} | 合う料理:${w.pairing} | 価格:¥${Number(w.price_bottle).toLocaleString()}`
-    )
+  // RAG: 在庫情報の圧縮
+  const wineContext = availableWines
+    .slice(0, 15)
+    .map(w => `[ID:${w.id}] ${w.name_jp} | 合う:${w.pairing} | ¥${Number(w.price_bottle).toLocaleString()}`)
     .join("\n");
 
-  const prompt = `あなたはミシュラン星付きレストランの「専属シニアソムリエ」です。
-スマホ最適化のため、またお客様に最高のエクスペリエンスを提供するため、以下の【接客アルゴリズム】を厳守してください。
+  const prompt = `あなたはピーロート・ジャパンのAIソムリエです。
+3ターン以内に最高のワイン3本を提案し、[SELECT:ID] で出力してください。
 
-【接客アルゴリズム：段階的選定】
-あなたはすぐにワインを提案してはいけません。以下の手順を必ず踏んでください。
+【出力の鉄則】
+1. **挨拶・前置きの完全排除**: 「承知いたしました」「ピーロート・ジャパンへようこそ」等の定型句は一切禁止です。即座に質問または回答を開始してください。
+2. **簡潔な文体**: 回答は短文で構成し、結論だけを述べてください。
+3. **タグの完結**: 全ての回答の末尾は、必ず [BUTTON:ラベル] または提案時の [SELECT:ID] で終わらせること。文章の途中で終わることは絶対に許されません。
+4. **即提案**: 具体的な食材や好みが入力された場合、ヒアリングをスキップして即座に提案（Turn 3）へ移行してください。
 
-1. 【Step 1：カテゴリー診断】
-   料理のカテゴリーが不明な場合（特にお客様の最初の発言など）、まず確認してください。
-   提示する選択肢： [BUTTON:お肉料理] [BUTTON:お魚料理] [BUTTON:前菜・サラダ] [BUTTON:本日の気分で選ぶ]
+【進行フロー】
+・Turn 1: カテゴリー確認。[BUTTON:お肉料理] [BUTTON:お魚料理] [BUTTON:前菜] [BUTTON:気分で選ぶ]
+・Turn 2: 詳細（食材・調理法・味）を1文で確認。
+・Turn 3: 厳選提案。銘柄名 [SELECT:ID] 形式で3本。
 
-2. 【Step 2：詳細ヒアリング】
-   ユーザーの選択を受け、「承知いたしました。〇〇ですね。」と短く返した上で、さらに詳細を聞いてください。
-   - お肉の場合：種類（牛・豚・羊等）や焼き方（グリル・煮込み等）。
-   - お魚の場合：白身、赤身、調理法、ソースの種類。
-   - 前菜を選んだ場合：[BUTTON:冷たい前菜（サラダ・マリネ等）] [BUTTON:温かい前菜（キッシュ・スープ等）] [BUTTON:チーズ・生ハム・ナッツ]
-   必ず [BUTTON:ラベル] を提示してください。
-
-3. 【Step 3：味の方向性】
-   最後に味の好みを一言確認します。（例：[BUTTON:さっぱり・酸味] [BUTTON:濃厚・クリーミー] [BUTTON:塩気・スモーキー]）
-
-4. 【Step 4：最終提案】
-   上記を経て初めて、[SELECT:商品ID] を用いて3種類程度のワインを提案してください。
-   銘柄名 [SELECT:ID] （スペースなし）の形式で出力。
-   提案後には必ず [BUTTON:他の候補] [BUTTON:最初から探す] を含めてください。
-
-【制約事項】
-- 二度目以降の返答では「いらっしゃいませ」や自己紹介は一切禁止です。
-- 会話は極めて簡潔（150〜200文字程度）にし、途中で途切れないようにしてください。
-- 全ての回答の末尾には、次に選ぶべき行動を [BUTTON:ラベル] 形式で必ず2〜4個提示すること。
-
-【店舗情報】
-- 今夜のメイン：${context.cuisine || "シェフお任せ"}
-
-【提供可能なワインリスト】
+【在庫リスト】
 ${wineContext}
-
-【これまでの会話履歴】
-${context.history?.map(m => `${m.role === 'user' ? '客' : 'ソムリエ'}: ${m.content}`).join('\n') || "なし"}
 
 お客様：${userQuery}`;
 
@@ -114,8 +78,8 @@ ${context.history?.map(m => `${m.role === 'user' ? '客' : 'ソムリエ'}: ${m.
       model: "gemini-3-flash-preview",
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       config: {
-        maxOutputTokens: 600,
-        temperature: 0.6,
+        maxOutputTokens: 1000,
+        temperature: 0.3,
       }
     });
 
@@ -132,7 +96,7 @@ ${context.history?.map(m => `${m.role === 'user' ? '客' : 'ソムリエ'}: ${m.
       return "【認証エラー】APIキーが無効です。管理者メニューの[Settings]から正しい MY_SOMMELIER_KEY を設定してください。";
     }
     
-    return `申し訳ございません。現在ソムリエが席を外しております。 (Error: ${detail.substring(0, 30)}...)`;
+    return "ソムリエを呼び出せませんでした。[BUTTON:最初から探す]";
   }
 }
 
