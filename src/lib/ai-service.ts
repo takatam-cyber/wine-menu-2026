@@ -19,14 +19,15 @@ export function isUserAuthorized() {
 
 function getAIClient() {
   if (!genAI) {
-    const apiKey = (process.env as any).MY_SOMMELIER_KEY || process.env.MY_SOMMELIER_KEY;
+    // AI Studio標準キーまたは以前設定されていたカスタムキーの両方を確認
+    const apiKey = process.env.GEMINI_API_KEY || (process.env as any).MY_SOMMELIER_KEY;
 
-    if (!apiKey || apiKey === "undefined" || apiKey === "null" || apiKey === "" || apiKey === "AI Studio Free Tier" || !apiKey.startsWith("AI") || apiKey.length < 39) {
-      console.error(`[AI Sommelier] API Key ERROR: MY_SOMMELIER_KEY is missing or invalid.`);
-      throw new Error("APIキーの設定(MY_SOMMELIER_KEY)が不完全です。管理者メニューの[Settings]から、'AI'で始まる39文字以上の有効なGemini APIキーを設定してください。");
+    if (!apiKey || apiKey === "undefined" || apiKey === "null" || apiKey === "" || apiKey === "AI Studio Free Tier") {
+      console.error("[AI Sommelier] API Key ERROR: Valid key not found.");
+      throw new Error("APIキー(GEMINI_API_KEY)が設定されていません。AI Studioの[Settings]から有効なキーを確認してください。");
     }
 
-    genAI = new GoogleGenAI({ apiKey });
+    genAI = new GoogleGenAI(apiKey);
   }
   return genAI;
 }
@@ -44,7 +45,7 @@ async function validateAndCall(fn: () => Promise<any>) {
 export async function getSommelierAdvice(
   userQuery: string,
   availableWines: WineMaster[],
-  context: { cuisine?: string } = {}
+  context: { cuisine?: string; history?: { role: 'user' | 'ai'; content: string }[] } = {}
 ) {
   // --- Token saving pre-filtering ---
   const query = userQuery.toLowerCase();
@@ -59,61 +60,77 @@ export async function getSommelierAdvice(
   }
 
   const wineContext = filteredWines
-    .slice(0, 15)
+    .slice(0, 20) // More context for rich proposal
     .map(
       (w) =>
-        `[ID:${w.id}] ${w.name_jp} | ${w.type} | 特徴:${w.ai_explanation.substring(0, 50)} | 合う料理:${w.pairing}`
+        `[ID:${w.id}] ${w.name_jp} | ${w.type} | 特徴:${w.ai_explanation.substring(0, 100)} | 合う料理:${w.pairing} | 価格:¥${Number(w.price_bottle).toLocaleString()}`
     )
     .join("\n");
 
-  const finalPrompt = `あなたはレストランの「専属シニアソムリエ」です。
-スマホ最適化のため、以下の【3ステップ対話】を厳守してください：
+  const prompt = `あなたは一流レストランの「専属シニアソムリエ」です。
+スマホ最適化のため、以下の【接客アルゴリズム】を厳守してください。
 
-1. 【食材診断】: 食材の詳細（肉・魚・野菜等）を深掘りする質問をし、必ず [BUTTON:ラベル] を提示。
-2. 【調理法診断】: 次に調理法、ソース、味の濃さを聞き、必ず [BUTTON:ラベル] を提示。
-3. 【最終提案】: 2回以上の質問を経てから、初めて [SELECT:商品ID] を付与して3本程度提案。
+【接客アルゴリズム：4ステップ対話】
+あなたはすぐにワインを提案してはいけません。以下の手順を必ず踏んでください。
 
-制約事項:
-- 冒頭の挨拶は「15文字以内」に。
-- 提案するワイン名のすぐ横に、スペースなしで [SELECT:商品ID] を付与すること。
-- 回答の最後には、次に選ぶべき行動を [BUTTON:ラベル] 形式で必ず2〜3個提示すること。
-- 回答は極めて簡潔（150文字程度）にし、途中で途切れないようにしてください。
+Step 1（カテゴリー確認）:
+料理のカテゴリーが不明な場合、まず確認してください。
+提示する選択肢： [BUTTON:お肉料理] [BUTTON:お魚料理] [BUTTON:前菜・サラダ] [BUTTON:本日の気分で選ぶ]
 
-リスト：
+Step 2（詳細ヒアリング）:
+ユーザーの選択を受け、「承知いたしました。〇〇ですね。」と短く返した上で、さらに詳細を聞いてください。
+- お肉：種類（牛・豚・鴨等）や調理法。
+- お魚：魚種やソース。
+- 前菜：[BUTTON:冷たい前菜] [BUTTON:温かい前菜] [BUTTON:チーズ・生ハム]
+必ず [BUTTON:ラベル] を提示してください。
+
+Step 3（味の方向性）:
+最後に味の好みを一言確認します。（例：[BUTTON:さっぱり・酸味] [BUTTON:濃厚・クリーミー] [BUTTON:塩気・スモーキー]）
+
+Step 4（最終提案）:
+上記3ステップを経て初めて、[SELECT:商品ID] を用いてワインを提案してください。
+銘柄名 [SELECT:ID] （スペースなし）の形式で出力。
+提案後には必ず [BUTTON:他の候補] [BUTTON:最初から探す] を含めてください。
+
+【制約・禁止事項】
+- 最初の挨拶（いらっしゃいませ）は履歴がない場合のみ。二度目以降は自己紹介や挨拶は一切禁止です。
+- 会話は極めて簡潔（150文字程度）にし、途中で途切れないようにしてください。
+- 全ての回答の末尾には、次に選ぶべき行動を [BUTTON:ラベル] 形式で提示すること。
+
+【リスト】
 ${wineContext}
 
-お客様：${userQuery}`;
+【これまでの履歴】
+${context.history?.map(m => `${m.role === 'user' ? '客' : 'ソムリエ'}: ${m.content}`).join('\n') || "なし"}
+
+客：${userQuery}
+ソムリエ：`;
 
   try {
-    const ai = getAIClient();
+    const genAI = getAIClient();
+    const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
     
-    const result = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: [{ role: "user", parts: [{ text: finalPrompt }] }],
-      config: {
-        maxOutputTokens: 600,
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: {
+        maxOutputTokens: 1000,
         temperature: 0.7,
       }
     });
 
-    if (!result || !result.text) {
-      throw new Error("AIからの応答が空でした。");
-    }
+    const text = result.response.text();
+    if (!text) throw new Error("応答が空でした。");
     
-    return result.text;
+    return text;
   } catch (error: any) {
     console.error("AI Sommelier Error:", error);
     const detail = error.message || String(error);
     
-    if (detail.includes("API_KEY_INVALID") || detail.includes("API key not valid")) {
-      return "【認証エラー】APIキーが無効です。管理者メニューの[Settings]から正しい MY_SOMMELIER_KEY を設定してください。";
+    if (detail.includes("API_KEY_INVALID") || detail.includes("not valid")) {
+      return "【認証エラー】APIキーの設定を確認してください。";
     }
-    if (detail.includes("404") || detail.includes("model not found")) {
-      return "【モデルエラー】選択されたAIモデルが見つかりません。設定を確認してください。";
-    }
-
-    return `申し訳ございません。現在ソムリエが席を外しております。
-(詳細エラー: ${detail.substring(0, 50)}...)`;
+    
+    return `（ソムリエが失礼いたしました。通信に乱れがあるようです。再度ボタンから話しかけてみてください。：${detail.substring(0, 40)}）`;
   }
 }
 
@@ -126,18 +143,18 @@ export async function generateStaffTalkScript(wine: WineMaster) {
 ワイン: ${wine.name_jp}
 特徴: ${wine.ai_explanation}
 ペアリング: ${wine.pairing}
-簡潔かつ魅力的に。`;
+150文字以内で簡潔に。`;
 
     try {
-      const ai = getAIClient();
-      const result = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+      const genAI = getAIClient();
+      const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+      const result = await model.generateContent({
         contents: [{ role: "user", parts: [{ text: prompt }] }]
       });
-      return result.text || "このワインは特にお勧めです。";
+      return result.response.text();
     } catch (error: any) {
       console.error("Staff talk generation error:", error);
-      return `【生成エラー】${error.message}`;
+      return `【生成失敗】${error.message}`;
     }
   });
 }
@@ -149,18 +166,18 @@ export async function generateSocialPost(wine: WineMaster) {
   return validateAndCall(async () => {
     const prompt = `Instagram投稿用のキャプションを作成してください。
 ワイン: ${wine.name_jp}
-ハッシュタグを5つ含めてください。`;
+ハッシュタグを5つ含めて。150文字以内。`;
 
     try {
-      const ai = getAIClient();
-      const result = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+      const genAI = getAIClient();
+      const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+      const result = await model.generateContent({
         contents: [{ role: "user", parts: [{ text: prompt }] }]
       });
-      return result.text || "素敵なワインの時間。";
+      return result.response.text();
     } catch (error: any) {
       console.error("Social post generation error:", error);
-      return `【生成エラー】${error.message}`;
+      return `【生成失敗】${error.message}`;
     }
   });
 }

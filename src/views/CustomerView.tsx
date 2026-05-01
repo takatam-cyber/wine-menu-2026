@@ -39,13 +39,16 @@ export const CustomerView: React.FC = () => {
     if (element) {
       element.scrollIntoView({ behavior: 'smooth', block: 'center' });
       setHighlightedId(id);
-      setShowReturnFloating(true);
       
-      // Luxury pulsing duration
-      setTimeout(() => setHighlightedId(null), 3500);
+      // Pulse duration exactly 2 seconds as requested
+      setTimeout(() => {
+        setHighlightedId(null);
+        // Show floating button AFTER the pulse finishes
+        setShowReturnFloating(true);
+      }, 2000);
       
-      // Floating button auto-hide policy (longer presence for better UX)
-      setTimeout(() => setShowReturnFloating(false), 20000);
+      // Hide floating button after 30 seconds if not used
+      setTimeout(() => setShowReturnFloating(false), 30000);
     }
   };
 
@@ -133,21 +136,28 @@ export const CustomerView: React.FC = () => {
               initial={{ opacity: 0, scale: 0.5, y: 100 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.5, y: 100 }}
-              whileHover={{ scale: 1.1, backgroundColor: '#FFFFFF' }}
-              whileTap={{ scale: 0.9 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => {
                 setIsSommelierOpen(true);
                 setShowReturnFloating(false);
               }}
-              className="fixed bottom-32 right-6 z-[60] w-24 h-24 bg-gradient-to-br from-brand-gold via-white to-brand-gold text-brand-wine rounded-full shadow-[0_25px_60px_rgba(212,175,55,0.5)] flex flex-col items-center justify-center border-4 border-brand-wine/20 backdrop-blur-xl cursor-pointer group p-2 overflow-hidden"
+              className="fixed bottom-32 right-6 z-[60] px-6 py-4 bg-brand-wine text-brand-gold rounded-full shadow-[0_20px_50px_rgba(45,15,15,0.4)] flex items-center gap-3 border-2 border-brand-gold/60 backdrop-blur-xl cursor-pointer group"
             >
-              <div className="absolute inset-0 rounded-full animate-pulse bg-brand-gold/20" />
-              <div className="absolute -top-1 -right-1 bg-brand-wine text-brand-gold text-[10px] font-black px-3 py-1 rounded-full border border-brand-gold shadow-2xl z-10">
-                CHAT
+              <div className="relative">
+                <Sparkles className="w-6 h-6 group-hover:rotate-12 transition-transform duration-500" />
+                <motion.div 
+                  animate={{ scale: [1, 1.4, 1], opacity: [0.6, 0.2, 0.6] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  className="absolute inset-0 bg-brand-gold rounded-full blur-md"
+                />
               </div>
-              <Sparkles className="w-10 h-10 mb-1 group-hover:rotate-12 transition-transform duration-500 text-brand-wine shadow-sm" />
-              <div className="text-[9px] font-black tracking-tighter leading-none text-center uppercase text-brand-wine">
-                ソムリエとの<br/>相談に戻る
+              <div className="flex flex-col items-start leading-none pr-1">
+                <span className="text-[13px] font-black tracking-widest uppercase mb-0.5">ソムリエに戻る</span>
+                <span className="text-[7px] font-bold opacity-60 uppercase tracking-widest">Return to Chat</span>
+              </div>
+              <div className="bg-brand-gold text-brand-wine text-[9px] font-black px-2 py-0.5 rounded-md ml-1 animate-pulse">
+                BACK
               </div>
             </motion.button>
           )}
@@ -223,8 +233,8 @@ export const CustomerView: React.FC = () => {
                       scale: [1, 1.05, 1]
                     } : {}}
                     transition={highlightedId === wine.id ? { 
-                      duration: 1.2, 
-                      repeat: 3,
+                      duration: 1.0, 
+                      repeat: 1, // Runs twice (total 2s)
                       ease: "easeInOut"
                     } : {}}
                     onClick={() => setSelectedWine(wine)}

@@ -16,7 +16,7 @@ interface AISommelierProps {
 export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, cuisineType, onSelectWine, isOpen, setIsOpen }) => {
   const [query, setQuery] = useState('');
   const [messages, setMessages] = useState<{ role: 'user' | 'ai'; content: string }[]>([
-    { role: 'ai', content: 'いらっしゃいませ。本日のお料理に合うワインをお探しですか？ [BUTTON:お肉料理] [BUTTON:お魚料理] [BUTTON:本日の気分で選ぶ]' }
+    { role: 'ai', content: 'いらっしゃいませ。本日のお料理や、今の気分に合わせて最適なワインをご提案します。 [BUTTON:お肉料理] [BUTTON:お魚料理] [BUTTON:前菜・サラダ] [BUTTON:ソムリエにお任せ]' }
   ]);
 
   const [loading, setLoading] = useState(false);
@@ -35,8 +35,12 @@ export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, cuisin
     };
 
     // Use a small timeout to ensure DOM has updated
-    const timeoutId = setTimeout(scrollToBottom, 100);
-    return () => clearTimeout(timeoutId);
+    const timeoutId = setTimeout(scrollToBottom, 50);
+    const timeoutId2 = setTimeout(scrollToBottom, 350); // Improved secondary scroll for images loading
+    return () => {
+      clearTimeout(timeoutId);
+      clearTimeout(timeoutId2);
+    };
   }, [messages, loading, isOpen]);
 
   const handleSend = async (customQuery?: string) => {
@@ -49,7 +53,10 @@ export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, cuisin
     setError(null);
 
     try {
-      const response = await getSommelierAdvice(userMessage, availableWines, { cuisine: cuisineType });
+      const response = await getSommelierAdvice(userMessage, availableWines, { 
+        cuisine: cuisineType,
+        history: [...messages, { role: 'user', content: userMessage }]
+      });
       setMessages((prev) => [...prev, { role: 'ai', content: response }]);
     } catch (err: any) {
       setError(err.message || 'エラーが発生しました');
@@ -60,7 +67,7 @@ export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, cuisin
 
   const renderMessageContent = (content: string) => {
     // Robust regex to handle extra spaces and potentially unclosed tags at the end
-    // Use [^\]]* to handle content inside reasonably even if missing bracket
+    // Captures even if the closing bracket is missing at the end of the total content string
     const selectRegex = /\[\s*SELECT\s*[:：]\s*(\d+)\s*(?:\]|$)/gi;
     const buttonRegex = /\[\s*BUTTON\s*[:：]\s*([^\]\n]+)\s*(?:\]|$)/gi;
     
@@ -72,14 +79,14 @@ export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, cuisin
     const buttons = Array.from(content.matchAll(buttonRegex)).map(m => m[1]);
 
     return (
-      <div className="space-y-5">
-        <div className="markdown-body text-[13.5px] leading-[1.8] font-medium text-brand-wine/90">
+      <div className="space-y-4">
+        <div className="markdown-body text-[13.5px] leading-[1.7] font-medium text-brand-wine/90">
           <ReactMarkdown>{cleanContent}</ReactMarkdown>
         </div>
         
-        {/* Wine Rich Cards (Inline Proposal) - Stacked vertically */}
+        {/* Wine Rich Cards (Horizontal Scrollable) */}
         {selections.length > 0 && (
-          <div className="flex flex-col gap-3 pt-2">
+          <div className="flex gap-3 overflow-x-auto pb-4 -mx-1 px-1 mt-2 scrollbar-hide snap-x">
             {selections.map((wineId, idx) => {
               const wine = availableWines.find(w => String(w.id) === String(wineId));
               if (!wine) return null;
@@ -87,16 +94,16 @@ export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, cuisin
               return (
                 <motion.div
                   key={`select-rich-card-${wineId}-${idx}`}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: idx * 0.1 }}
                   onClick={() => {
                     onSelectWine?.(wineId);
                     setIsOpen(false);
                   }}
-                  className="group flex gap-4 p-4 bg-brand-ivory/40 rounded-[24px] border border-brand-gold/20 hover:border-brand-gold hover:bg-white transition-all cursor-pointer shadow-sm hover:shadow-2xl"
+                  className="snap-start flex-shrink-0 w-[180px] p-3 bg-brand-ivory/40 rounded-[28px] border border-brand-gold/20 hover:border-brand-gold hover:bg-white transition-all cursor-pointer shadow-sm hover:shadow-xl group"
                 >
-                  <div className="w-20 h-20 bg-white rounded-[18px] overflow-hidden border border-brand-gold/10 p-1 flex-shrink-0">
+                  <div className="aspect-square bg-white rounded-[22px] overflow-hidden border border-brand-gold/10 p-2 mb-3">
                     <img 
                       src={wine.image_url} 
                       alt={wine.name_jp} 
@@ -104,13 +111,18 @@ export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, cuisin
                       referrerPolicy="no-referrer"
                     />
                   </div>
-                  <div className="flex-1 flex flex-col justify-center gap-1">
-                    <div className="text-[10px] text-brand-gold font-bold uppercase tracking-widest">{wine.vintage} | {wine.type}</div>
-                    <div className="text-[13px] font-bold text-brand-wine leading-tight line-clamp-1 group-hover:text-brand-gold transition-colors">{wine.name_jp}</div>
-                    <div className="text-xs font-black text-brand-wine/80">¥{Number(wine.price_bottle).toLocaleString()}</div>
-                    <div className="mt-1 flex items-center gap-1.5 text-[10px] text-brand-gold/80 font-bold uppercase">
-                      <Wine className="w-3 h-3" />
-                      🍷 詳細を見る
+                  <div className="space-y-1">
+                    <div className="text-[8px] text-brand-gold font-black uppercase tracking-wider line-clamp-1">
+                      {wine.vintage} {wine.type}
+                    </div>
+                    <div className="text-[11px] font-bold text-brand-wine leading-tight line-clamp-2 h-8">
+                      {wine.name_jp}
+                    </div>
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-[10px] font-black text-brand-wine/80">
+                        ¥{Number(wine.price_bottle).toLocaleString()}
+                      </span>
+                      <Wine className="w-3 h-3 text-brand-gold" />
                     </div>
                   </div>
                 </motion.div>
@@ -121,14 +133,14 @@ export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, cuisin
 
         {/* Wizard Choices (Next steps) */}
         {buttons.length > 0 && (
-          <div className="flex flex-wrap gap-2.5 pt-1">
+          <div className="flex flex-wrap gap-2 pt-1">
             {buttons.map((label, idx) => (
               <motion.button
                 key={`wizard-btn-${label}-${idx}`}
-                whileHover={{ scale: 1.05, y: -2, backgroundColor: '#FFFFFF', borderColor: '#2D0F0F' }}
+                whileHover={{ scale: 1.05, backgroundColor: '#FFFFFF', borderColor: '#2D0F0F' }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => handleSend(label)}
-                className="px-5 py-2.5 bg-brand-wine/5 text-brand-wine/90 text-[11px] font-bold rounded-2xl border border-brand-gold/20 shadow-sm transition-all animate-in slide-in-from-bottom-2 duration-300"
+                className="px-4 py-2 bg-brand-wine/5 text-brand-wine/90 text-[10.5px] font-black rounded-xl border border-brand-gold/20 shadow-sm transition-all"
               >
                 {label}
               </motion.button>
