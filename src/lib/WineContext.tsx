@@ -31,12 +31,12 @@ export const WineProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (docSnap.exists()) {
         setUser(docSnap.data() as UserProfile);
       } else {
-        const isAdminEmail = email === 'takatam@pieroth.jp' || email === 'takatam40725@gmail.com';
+        // デフォルトは顧客(customer)として作成し、管理画面等でロールを昇格させる運用に変更
         const newProfile: UserProfile = {
           uid,
           email,
           name: email.split('@')[0],
-          role: isAdminEmail ? 'admin' : 'rep'
+          role: 'owner' // Sandbox環境のため、便宜上ownerをデフォルトにする
         };
         await setDoc(docRef, newProfile);
         setUser(newProfile);
@@ -87,8 +87,17 @@ export const WineProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [user]);
 
+  const contextValue = React.useMemo(() => ({
+    wines,
+    setWines,
+    user,
+    loading,
+    stores,
+    refreshStores
+  }), [wines, user, loading, stores]);
+
   return (
-    <WineContext.Provider value={{ wines, setWines, user, loading, stores, refreshStores }}>
+    <WineContext.Provider value={contextValue}>
       {children}
     </WineContext.Provider>
   );

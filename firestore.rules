@@ -7,26 +7,16 @@ service cloud.firestore {
     function authUid() { return request.auth.uid; }
     function authEmail() { return request.auth.token.email; }
     
-    // ドメイン判定：これが営業マンログインの鍵
-    function isPierothEmail() {
-      return isSignedIn() && authEmail().matches('.*@pieroth\\.jp$');
-    }
-
-    // システム管理者（静的定義）
-    function isSystemAdmin() {
-      return isSignedIn() && (authEmail() == 'takatam@pieroth.jp' || authEmail() == 'takatam40725@gmail.com');
-    }
-    
-    // 管理者判定（静的 or DB上のロール）
+    // 管理者判定（DB上のロール）
     function isAdmin() { 
-      return isSystemAdmin() || 
-             (isSignedIn() && exists(/databases/$(database)/documents/users/$(authUid())) && 
-              get(/databases/$(database)/documents/users/$(authUid())).data.role == 'admin');
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/users/$(authUid())) && 
+             get(/databases/$(database)/documents/users/$(authUid())).data.role == 'admin';
     }
 
-    // 営業マン判定：ドメイン保持者、またはDBでrepロールを持つ者
+    // 営業マン判定：DBでrepロールを持つ者
     function isRep() {
-      return isPierothEmail() || isAdmin() || 
+      return isAdmin() || 
              (isSignedIn() && exists(/databases/$(database)/documents/users/$(authUid())) && 
               get(/databases/$(database)/documents/users/$(authUid())).data.role == 'rep');
     }
