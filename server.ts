@@ -5,16 +5,24 @@ import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import { rateLimit } from "express-rate-limit";
 import admin from "firebase-admin";
+import { getFirestore } from "firebase-admin/firestore";
+import firebaseConfig from "./firebase-applet-config.json";
 
 dotenv.config();
 
 // Firebase Admin initialization
+let firebaseApp: admin.app.App;
 try {
-  admin.initializeApp();
+  firebaseApp = admin.initializeApp({
+    projectId: firebaseConfig.projectId,
+    credential: admin.credential.applicationDefault()
+  });
 } catch (e) {
-  console.warn("Firebase Admin already initialized or failed:", e);
+  // If app already exists, handle it
+  firebaseApp = admin.apps.find(a => a?.options.projectId === firebaseConfig.projectId) || admin.app();
 }
-const dbAdmin = admin.firestore();
+
+const dbAdmin = getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId);
 
 // Authentication Middleware
 const authenticateUser = async (req: Request, res: Response, next: NextFunction) => {
@@ -25,7 +33,7 @@ const authenticateUser = async (req: Request, res: Response, next: NextFunction)
 
   const idToken = authHeader.split("Bearer ")[1];
   try {
-    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    const decodedToken = await admin.auth(firebaseApp).verifyIdToken(idToken);
     (req as any).user = decodedToken;
     next();
   } catch (error) {
@@ -40,11 +48,20 @@ const limiter = rateLimit({
   message: { error: "リクエスト制限を超えました。15分後に再度お試しください。" },
   standardHeaders: true,
   legacyHeaders: false,
+  // Use the IP address from the proxy if available
+  keyGenerator: (req) => {
+    const xff = req.headers["x-forwarded-for"];
+    if (typeof xff === "string") return xff.split(",")[0].trim();
+    return (req.headers["forwarded"] as string) || req.ip || "unknown";
+  },
 });
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
+
+  // Trust Cloud Run's proxy
+  app.set("trust proxy", 1);
 
   app.use(express.json());
   app.use("/api/", limiter);
@@ -173,15 +190,18 @@ ${wineContext}`;
       const { uid, role } = req.body;
       const caller = (req as any).user;
 
-      // STERN: Only existing admins can assign 'admin' or 'rep' roles.
-      // This prevents general users (owner/customer) from escalating privileges.
-      if (caller.role !== "admin") {
+      // Bootstrap & Strict Enforcement: 
+      // 1. Only existing admins can assign roles.
+      // 2. The owner of the project (takatam40725@gmail.com) can always assign roles to bootstrap the system.
+      const isAdmin = caller.role === "admin" || caller.email === "takatam40725@gmail.com";
+      
+      if (!isAdmin) {
         return res.status(403).json({ error: "Forbidden: Admin access required for role management" });
       }
 
       await admin.auth().setCustomUserClaims(uid, { role });
       await dbAdmin.collection("users").doc(uid).set({ role }, { merge: true });
-      res.json({ success: true, message: `Role ${role} assigned correctly.` });
+      res.json({ success: true, message: `Role ${role} assigned correctly to ${uid}.` });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
