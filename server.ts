@@ -71,13 +71,13 @@ async function startServer() {
       const client = getAIClient();
       
       // 1. Fetch Store Inventory (Real-time Inventory Link)
-      // We list up to 30 active items (Firestore IN query limit)
+      // Fetch up to 100 active items to give AI a better selection
       const inventorySnap = await dbAdmin
         .collection("stores")
         .doc(storeId)
         .collection("inventory")
         .where("isActive", "==", true)
-        .limit(30)
+        .limit(100)
         .get();
 
       const inventoryIds = inventorySnap.docs.map(doc => doc.id);
@@ -89,20 +89,23 @@ async function startServer() {
         });
       }
 
-      // 2. Fetch Detailed Wine Data for available IDs
-      // This is the "Verification" step to ensure we only use data from winesMaster
-      const winesSnap = await dbAdmin
-        .collection("winesMaster")
-        .where(admin.firestore.FieldPath.documentId(), "in", inventoryIds)
-        .get();
+      // 2. Fetch Detailed Wine Data for available IDs in chunks
+      // Firestore 'in' query is limited to 30 items
+      const availableWines: any[] = [];
+      for (let i = 0; i < inventoryIds.length; i += 30) {
+        const chunk = inventoryIds.slice(i, i + 30);
+        const winesSnap = await dbAdmin
+          .collection("winesMaster")
+          .where(admin.firestore.FieldPath.documentId(), "in", chunk)
+          .get();
+        availableWines.push(...winesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() as any })));
+      }
 
-      const availableWines = winesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
-
-      // 3. Keyword Extraction for local filtering (since Firestore doesn't support full-text search)
+      // 3. Keyword Extraction for intelligent filtering
       const analyzerModel = client.getGenerativeModel({ model: "models/gemini-1.5-flash" });
       const analysisResult = await analyzerModel.generateContent(`
-        ユーザーの要望から検索ワード(色,タイプ,料理等)を3つ抽出してJSONで返してください。
-        例: {"keywords": ["赤", "フルボディ", "肉"]}
+        ユーザーの要望から検索ワード(色,タイプ,料理,産地等)を3-5個抽出してJSONで返してください。
+        例: {"keywords": ["赤", "フルボディ", "牛肉", "ボルドー"]}
         要望: ${userQuery}
       `);
       
@@ -113,15 +116,20 @@ async function startServer() {
         if (jsonMatch) keywords = JSON.parse(jsonMatch[0]).keywords || [];
       } catch (e) {}
 
-      // 4. Inventory Filtering based on keywords
-      const filteredWines = keywords.length > 0 
-        ? availableWines.filter(w => keywords.some(k => JSON.stringify(w).toLowerCase().includes(k.toLowerCase())))
-        : availableWines;
+      // 4. Advanced Inventory Filtering based on keywords
+      // Rank matches by how many keywords they contain
+      const rankedWines = availableWines.map(w => {
+        const wineStr = JSON.stringify(w).toLowerCase();
+        const matches = keywords.filter(k => wineStr.includes(k.toLowerCase())).length;
+        return { wine: w, matches };
+      }).sort((a, b) => b.matches - a.matches);
 
-      // Ensure we don't send too much data and stay within the inventory limit
-      const contextWines = filteredWines.slice(0, 15);
+      const filteredWines = rankedWines
+        .filter(r => r.matches > 0 || keywords.length === 0)
+        .map(r => r.wine)
+        .slice(0, 15);
 
-      const wineContext = contextWines
+      const wineContext = filteredWines
         .map(w => `[ID:${w.id}] ${w.name_jp} | 合う料理:${w.pairing} | 価格:¥${Number(w.price_bottle).toLocaleString()}`)
         .join("\n");
 
@@ -152,8 +160,7 @@ ${wineContext}`;
         contents: [...geminiHistory, { role: "user", parts: [{ text: userQuery }] }]
       });
 
-      const responseText = result.response.text();
-      res.json({ message: responseText });
+      res.json({ message: result.response.text() });
     } catch (error: any) {
       console.error("Sommelier Error:", error);
       res.status(500).json({ error: error.message });
@@ -166,14 +173,15 @@ ${wineContext}`;
       const { uid, role } = req.body;
       const caller = (req as any).user;
 
-      // Strict enforcement: Only users who already have 'admin' claims can change roles
+      // STERN: Only existing admins can assign 'admin' or 'rep' roles.
+      // This prevents general users (owner/customer) from escalating privileges.
       if (caller.role !== "admin") {
-        return res.status(403).json({ error: "Forbidden: Admin access required" });
+        return res.status(403).json({ error: "Forbidden: Admin access required for role management" });
       }
 
       await admin.auth().setCustomUserClaims(uid, { role });
       await dbAdmin.collection("users").doc(uid).set({ role }, { merge: true });
-      res.json({ success: true, message: `Role ${role} set successfully for ${uid}.` });
+      res.json({ success: true, message: `Role ${role} assigned correctly.` });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
