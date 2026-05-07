@@ -2,28 +2,24 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // --- 0. ヘルパー関数（整理・高速化） ---
+    // --- 0. ヘルパー関数（Custom Claims利用で高速化） ---
     function isSignedIn() { return request.auth != null; }
     function authUid() { return request.auth.uid; }
-    function authEmail() { return request.auth.token.email; }
+    function getUserRole() { return request.auth.token.role; }
     
-    // 管理者判定（DB上のロール）
+    // 管理者判定（Custom Claims）
     function isAdmin() { 
-      return isSignedIn() && 
-             exists(/databases/$(database)/documents/users/$(authUid())) && 
-             get(/databases/$(database)/documents/users/$(authUid())).data.role == 'admin';
+      return isSignedIn() && getUserRole() == 'admin';
     }
 
-    // 営業マン判定：DBでrepロールを持つ者
+    // 営業マン判定（Custom Claims）
     function isRep() {
-      return isAdmin() || 
-             (isSignedIn() && exists(/databases/$(database)/documents/users/$(authUid())) && 
-              get(/databases/$(database)/documents/users/$(authUid())).data.role == 'rep');
+      return isAdmin() || (isSignedIn() && getUserRole() == 'rep');
     }
 
+    // オーナー判定（Custom Claims）
     function isOwner() {
-      return isAdmin() || (isSignedIn() && exists(/databases/$(database)/documents/users/$(authUid())) && 
-                           get(/databases/$(database)/documents/users/$(authUid())).data.role == 'owner');
+      return isAdmin() || (isSignedIn() && getUserRole() == 'owner');
     }
 
     // --- 1. ユーザープロフィールのルール ---

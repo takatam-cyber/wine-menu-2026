@@ -40,14 +40,12 @@ export const CustomerView: React.FC = () => {
       element.scrollIntoView({ behavior: 'smooth', block: 'center' });
       setHighlightedId(id);
       
-      // Pulse duration exactly 2 seconds as requested
+      // Shortened to 0.8s for enterprise-grade snappiness
       setTimeout(() => {
         setHighlightedId(null);
-        // Show floating button AFTER the pulse finishes
         setShowReturnFloating(true);
-      }, 2000);
+      }, 800);
       
-      // Hide floating button after 2 minutes if not used (more generous than 30s)
       setTimeout(() => setShowReturnFloating(false), 120000);
     }
   };
@@ -228,9 +226,9 @@ export const CustomerView: React.FC = () => {
                       filter: ["brightness(1)", "brightness(1.5)", "brightness(1)"]
                     } : {}}
                     transition={highlightedId === wine.id ? { 
-                      duration: 1.0, 
-                      repeat: 1, // Runs twice (total 2s)
-                      ease: "easeInOut"
+                      duration: 0.8, 
+                      repeat: 0, 
+                      ease: "easeOut"
                     } : {}}
                     onClick={() => setSelectedWine(wine)}
                     className={`group cursor-pointer flex gap-5 border border-transparent p-4 rounded-[2rem] transition-all duration-1000 ${

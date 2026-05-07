@@ -3,14 +3,33 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
+import { rateLimit } from "express-rate-limit";
+import admin from "firebase-admin";
 
 dotenv.config();
+
+// Firebase Admin for Custom Claims and Server-side DB access
+try {
+  admin.initializeApp();
+} catch (e) {
+  console.warn("Firebase Admin already initialized or failed:", e);
+}
+const dbAdmin = admin.firestore();
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 50,
+  message: { error: "リクエスト制限を超えました。15分後に再度お試しください。" },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
   app.use(express.json());
+  app.use("/api/", limiter);
 
   // Safe client initialization
   let genAI: any = null;
@@ -25,49 +44,52 @@ async function startServer() {
     return genAI;
   }
 
-  // AI Sommelier API
+  // AI Sommelier API (Server-side RAG)
   app.post("/api/sommelier", async (req, res) => {
     try {
       const { userQuery, history } = req.body;
       const client = getAIClient();
       
-      // 1. Intent Analysis (Small prompt to get keywords/filters)
+      // 1. Intent Analysis
       const analyzerModel = client.getGenerativeModel({ model: "models/gemini-1.5-flash" });
       const analysisResult = await analyzerModel.generateContent(`
-        ユーザーの要望から、ワイン検索用のキーワード（色、タイプ、料理、予算、雰囲気など）を3つ程度抽出してください。
-        JSON形式で返してください。例: {"keywords": ["赤ワイン", "フルボディ", "牛肉"]}
+        ユーザーの要望から検索ワード(色,タイプ,料理等)を3つ抽出してJSONで返してください。
+        例: {"keywords": ["赤", "フルボディ", "肉"]}
         要望: ${userQuery}
       `);
       
-      let keywords = [];
+      let keywords: string[] = [];
       try {
         const text = analysisResult.response.text();
         const jsonMatch = text.match(/\{.*\}/s);
-        if (jsonMatch) {
-          keywords = JSON.parse(jsonMatch[0]).keywords;
-        }
-      } catch (e) {
-        console.warn("Intent analysis failed, falling back to full context.");
-      }
+        if (jsonMatch) keywords = JSON.parse(jsonMatch[0]).keywords || [];
+      } catch (e) {}
 
-      // 2. Fetch/Filter Wines (In a real app, this would be a Vector DB query)
-      // Here we simulate RAG by filtering the MASTER_WINES from the request if provided, 
-      // or using a server-side copy (we'll fetch from Firestore in future steps).
-      const { wineContext: clientWineContext } = req.body;
+      // 2. Server-side Retrieval (RAG)
+      // Fetching from 'winesMaster' collection
+      const wineSnap = await dbAdmin.collection("winesMaster").limit(100).get();
+      const allWines = wineSnap.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
       
-      // For now, we still use the context passed from client but we could scale this.
-      // In a production app, we would search the Database here.
+      // Keywords filter (Simplified RAG)
+      const filteredWines = keywords.length > 0 
+        ? allWines.filter(w => keywords.some(k => JSON.stringify(w).toLowerCase().includes(k.toLowerCase())))
+        : allWines.slice(0, 15);
 
-      const systemInstruction = `あなたはピーロート・ジャパンの最高級AIソムリエです。
-お客様の要望に最も合うワインを、提供可能リストの中から3本厳選してください。
+      const wineContext = filteredWines
+        .slice(0, 15)
+        .map(w => `[ID:${w.id}] ${w.name_jp} | 合う:${w.pairing} | ¥${Number(w.price_bottle).toLocaleString()}`)
+        .join("\n");
+
+      const systemInstruction = `あなたはピーロート・ジャパンの高級AIソムリエです。
+以下のリストから最も合うワインを3本選び、update_uiツールを使用して提案してください。
 
 【出力の鉄則】
-1. 挨拶は極力短く（例：『お客様、素晴らしいセレクションをご案内いたします。』）、即座に提案に入ってください。
-2. 必ず update_ui ツールを呼び出して、メッセージとボタン、またはワイン提案（wineIds）を返してください。
-3. 提案がない場合でも、代替案や質問内容を変える提案をボタンで示してください。
+1. 挨拶は短く。
+2. 必ず update_ui を使用。
+3. リスト外の提案は禁止。
 
 【提供可能リスト】
-${clientWineContext}`;
+${wineContext}`;
 
       const model = client.getGenerativeModel({ 
         model: "models/gemini-3-flash-preview",
@@ -75,13 +97,13 @@ ${clientWineContext}`;
         tools: [{
           functionDeclarations: [{
             name: "update_ui",
-            description: "UIの表示内容（メッセージ、ボタン、ワイン提案）を更新します。",
+            description: "UIの表示内容を更新します。",
             parameters: {
               type: Type.OBJECT,
               properties: {
-                message: { type: Type.STRING, description: "ユーザーへの返答テキスト。" },
-                buttons: { type: Type.ARRAY, items: { type: Type.STRING }, description: "次に押すべきボタンのラベル。" },
-                wineIds: { type: Type.ARRAY, items: { type: Type.STRING }, description: "提案するワインのIDリスト。" }
+                message: { type: Type.STRING },
+                buttons: { type: Type.ARRAY, items: { type: Type.STRING } },
+                wineIds: { type: Type.ARRAY, items: { type: Type.STRING } }
               },
               required: ["message"]
             }
@@ -100,17 +122,23 @@ ${clientWineContext}`;
       });
 
       const calls = result.response.functionCalls();
-      if (calls && calls.length > 0) {
-        return res.json(calls[0].args);
-      }
+      if (calls && calls.length > 0) return res.json(calls[0].args);
       
-      res.json({ 
-        message: result.response.text() || "在庫を確認しました。最適な一本をご案内します。", 
-        buttons: ["最初から探す"] 
-      });
-
+      res.json({ message: result.response.text(), buttons: ["最初から探す"] });
     } catch (error: any) {
-      console.error("Server API Error:", error);
+      console.error("Sommelier Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin: Set Custom Role
+  app.post("/api/admin/set-role", async (req, res) => {
+    try {
+      const { uid, role } = req.body;
+      await admin.auth().setCustomUserClaims(uid, { role });
+      await dbAdmin.collection("users").doc(uid).set({ role }, { merge: true });
+      res.json({ success: true, message: `Role ${role} set successfully.` });
+    } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });

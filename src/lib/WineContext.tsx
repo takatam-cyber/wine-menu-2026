@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, ReactNode, useEffect } from
 import { WineMaster, UserProfile, Role, Store } from '../types';
 import { MASTER_WINES } from './wine-data';
 import { auth, db, onAuthStateChanged } from './firebase';
-import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from './firestore-errors';
 
 interface WineContextType {
@@ -27,36 +27,52 @@ export const WineProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const docRef = doc(db, 'users', uid);
       const docSnap = await getDoc(docRef);
+      let profile: UserProfile;
 
       if (docSnap.exists()) {
-        setUser(docSnap.data() as UserProfile);
+        profile = docSnap.data() as UserProfile;
       } else {
-        // デフォルトは顧客(customer)として作成し、管理画面等でロールを昇格させる運用に変更
-        const newProfile: UserProfile = {
+        profile = {
           uid,
           email,
           name: email.split('@')[0],
-          role: 'owner' // Sandbox環境のため、便宜上ownerをデフォルトにする
+          role: 'owner' // Sandbox default
         };
-        await setDoc(docRef, newProfile);
-        setUser(newProfile);
+        await setDoc(docRef, profile);
+      }
+      setUser(profile);
+
+      // --- Sync Custom Claims for Enterprise-grade performance ---
+      const idTokenResult = await auth.currentUser?.getIdTokenResult();
+      if (idTokenResult?.claims.role !== profile.role) {
+        console.log(`[Enterprise] Syncing role claims for ${profile.role}...`);
+        const idToken = await auth.currentUser?.getIdToken();
+        await fetch('/api/admin/set-role', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}` 
+          },
+          body: JSON.stringify({ uid, role: profile.role })
+        });
+        await auth.currentUser?.getIdToken(true); // Refresh token
       }
     } catch (error) {
       handleFirestoreError(error, OperationType.GET, docPath);
     }
   };
 
-  const refreshStores = async () => {
+  const refreshStores = async (limitCount: number = 20) => {
     if (!user) return;
     const path = 'stores';
     try {
       let q;
       if (user.role === 'rep') {
-        q = query(collection(db, 'stores'), where('repId', '==', user.uid));
+        q = query(collection(db, 'stores'), where('repId', '==', user.uid), limit(limitCount));
       } else if (user.role === 'owner' && user.storeId) {
         q = query(collection(db, 'stores'), where('id', '==', user.storeId));
       } else {
-        q = query(collection(db, 'stores'));
+        q = query(collection(db, 'stores'), limit(limitCount));
       }
 
       const querySnapshot = await getDocs(q);

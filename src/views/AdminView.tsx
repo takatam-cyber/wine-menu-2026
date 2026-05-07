@@ -15,6 +15,7 @@ import Papa from 'papaparse';
 
 export const AdminView: React.FC = () => {
   const { wines, setWines, user, stores, refreshStores } = useWines();
+  const [storeLimit, setStoreLimit] = useState(12);
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
   const [searchId, setSearchId] = useState('');
   const [selectedWines, setSelectedWines] = useState<WineMaster[]>([]);
@@ -33,6 +34,13 @@ export const AdminView: React.FC = () => {
   const [selectedMasterIds, setSelectedMasterIds] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
+  useEffect(() => {
+    refreshStores(storeLimit);
+  }, [storeLimit]);
+
+  const handleLoadMoreStores = () => {
+    setStoreLimit(prev => prev + 12);
+  };
   const selectedStore = stores.find(s => s.id === selectedStoreId);
 
   const handleAddWine = async (wineId?: string) => {
@@ -537,47 +545,59 @@ export const AdminView: React.FC = () => {
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
-              {stores.map(store => (
-                <motion.div
-                  key={store.id}
-                  whileHover={{ y: -8, boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.1)" }}
-                  onClick={() => setSelectedStoreId(store.id)}
-                  className="bg-white p-8 rounded-3xl border border-slate-200 cursor-pointer transition-all flex flex-col justify-between h-56 shadow-sm group"
-                >
-                      <div>
-                        <div className="flex justify-between items-start mb-6">
-                           <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center border border-slate-100 group-hover:bg-brand-wine group-hover:text-white transition-colors shadow-inner">
-                             <Wine className="w-7 h-7" />
-                           </div>
-                           <div className="flex flex-col items-end gap-2">
-                             <span className={`text-[9px] font-bold uppercase tracking-widest px-3 py-1 rounded-full ${store.isActive ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-red-50 text-red-600 border border-red-100'}`}>
-                               {store.isActive ? 'Active' : 'Paused'}
-                             </span>
-                             <button 
-                               onClick={(e) => {
-                                 e.stopPropagation();
-                                 handleDeleteStore(store.id);
-                               }}
-                               className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-500 rounded-full text-[9px] font-bold uppercase tracking-widest hover:bg-red-100 transition-all border border-red-100 shadow-sm opacity-0 group-hover:opacity-100"
-                             >
-                               <Trash2 className="w-3 h-3" />
-                               店舗削除
-                             </button>
-                           </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
+                {stores.map(store => (
+                  <motion.div
+                    key={store.id}
+                    whileHover={{ y: -8, boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.1)" }}
+                    onClick={() => setSelectedStoreId(store.id)}
+                    className="bg-white p-8 rounded-3xl border border-slate-200 cursor-pointer transition-all flex flex-col justify-between h-56 shadow-sm group"
+                  >
+                        <div>
+                          <div className="flex justify-between items-start mb-6">
+                             <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center border border-slate-100 group-hover:bg-brand-wine group-hover:text-white transition-colors shadow-inner">
+                               <Wine className="w-7 h-7" />
+                             </div>
+                             <div className="flex flex-col items-end gap-2">
+                               <span className={`text-[9px] font-bold uppercase tracking-widest px-3 py-1 rounded-full ${store.isActive ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-red-50 text-red-600 border border-red-100'}`}>
+                                 {store.isActive ? 'Active' : 'Paused'}
+                               </span>
+                               <button 
+                                 onClick={(e) => {
+                                   e.stopPropagation();
+                                   handleDeleteStore(store.id);
+                                 }}
+                                 className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-500 rounded-full text-[9px] font-bold uppercase tracking-widest hover:bg-red-100 transition-all border border-red-100 shadow-sm opacity-0 group-hover:opacity-100"
+                               >
+                                 <Trash2 className="w-3 h-3" />
+                                 店舗削除
+                               </button>
+                             </div>
+                          </div>
+                          <h3 className="serif text-xl text-slate-900 group-hover:text-brand-wine transition-colors">{store.name}</h3>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1">{store.cuisine_type}</p>
                         </div>
-                        <h3 className="serif text-xl text-slate-900 group-hover:text-brand-wine transition-colors">{store.name}</h3>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1">{store.cuisine_type}</p>
+                    <div className="flex items-center justify-between mt-6 pt-6 border-t border-slate-50">
+                      <div className="flex flex-col">
+                        <span className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">Status</span>
+                        <span className="text-xs font-bold text-slate-700">{store.isActive ? '営業中' : '停止中'}</span>
                       </div>
-                  <div className="flex items-center justify-between mt-6 pt-6 border-t border-slate-50">
-                    <div className="flex flex-col">
-                      <span className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">Status</span>
-                      <span className="text-xs font-bold text-slate-700">{store.isActive ? '営業中' : '停止中'}</span>
                     </div>
+                  </motion.div>
+                ))}
+                
+                {stores.length >= storeLimit && (
+                  <div className="col-span-full py-10 flex justify-center">
+                    <button 
+                      onClick={handleLoadMoreStores}
+                      className="px-10 py-4 bg-white border border-slate-200 rounded-full text-xs font-bold uppercase tracking-widest text-slate-500 hover:border-brand-wine hover:text-brand-wine transition-all shadow-sm"
+                    >
+                      さらに読み込む (12件ずつ)
+                    </button>
                   </div>
-                </motion.div>
-              ))}
-              {stores.length === 0 && (
+                )}
+
+                {stores.length === 0 && (
                 <div className="col-span-full py-32 text-center bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
                    <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
                       <Shield className="w-10 h-10 text-slate-200" />

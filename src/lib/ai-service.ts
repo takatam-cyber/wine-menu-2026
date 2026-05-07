@@ -11,22 +11,15 @@ export interface AISommelierResponse {
  */
 export async function getSommelierAdvice(
   userQuery: string,
-  availableWines: WineMaster[],
+  _availableWines: WineMaster[], // Unused on client now
   context: { cuisine?: string; history?: { role: 'user' | 'ai'; content: string }[] } = {}
 ): Promise<AISommelierResponse> {
-  // RAG: 在庫情報の圧縮 (サーバー側に送る)
-  const wineContext = availableWines
-    .slice(0, 15)
-    .map(w => `[ID:${w.id}] ${w.name_jp} | 合う:${w.pairing} | ¥${Number(w.price_bottle).toLocaleString()}`)
-    .join("\n");
-
   try {
     const response = await fetch("/api/sommelier", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         userQuery,
-        wineContext,
         history: context.history
       })
     });
