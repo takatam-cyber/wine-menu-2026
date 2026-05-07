@@ -47,13 +47,12 @@ export const WineProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (idTokenResult?.claims.role !== profile.role) {
         console.log(`[Enterprise] Syncing role claims for ${profile.role}...`);
         const idToken = await auth.currentUser?.getIdToken();
-        await fetch('/api/admin/set-role', {
+        await fetch('/api/auth/sync-claims', {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${idToken}` 
-          },
-          body: JSON.stringify({ uid, role: profile.role })
+          }
         });
         await auth.currentUser?.getIdToken(true); // Refresh token
       }

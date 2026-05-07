@@ -17,7 +17,7 @@ try {
 const dbAdmin = admin.firestore();
 
 // Authentication Middleware
-const authenticate = async (req: Request, res: Response, next: NextFunction) => {
+const authenticateUser = async (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return res.status(401).json({ error: "Unauthorized: Missing token" });
@@ -63,7 +63,7 @@ async function startServer() {
   }
 
   // AI Sommelier API (Server-side RAG with real Inventory)
-  app.post("/api/sommelier", authenticate, async (req, res) => {
+  app.post("/api/sommelier", authenticateUser, async (req, res) => {
     try {
       const { userQuery, history, storeId } = req.body;
       if (!storeId) return res.status(400).json({ error: "storeId is required" });
@@ -76,22 +76,22 @@ async function startServer() {
         .doc(storeId)
         .collection("inventory")
         .where("isActive", "==", true)
+        .limit(30)
         .get();
 
       const inventoryIds = inventorySnap.docs.map(doc => doc.id);
       
       if (inventoryIds.length === 0) {
         return res.json({ 
-          message: "申し訳ありません。現在、提案可能な在庫がございません。", 
+          message: "申し訳ありません。現在、この店舗には提案可能な在庫がございません。", 
           buttons: ["最初から探す"] 
         });
       }
 
       // 2. Fetch Detailed Wine Data for available IDs
-      // Firestore 'in' query is limited to 30 items
       const winesSnap = await dbAdmin
         .collection("winesMaster")
-        .where(admin.firestore.FieldPath.documentId(), "in", inventoryIds.slice(0, 30))
+        .where(admin.firestore.FieldPath.documentId(), "in", inventoryIds)
         .get();
 
       const availableWines = winesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
@@ -114,10 +114,10 @@ async function startServer() {
       // 4. RAG Filtering
       const filteredWines = keywords.length > 0 
         ? availableWines.filter(w => keywords.some(k => JSON.stringify(w).toLowerCase().includes(k.toLowerCase())))
-        : availableWines.slice(0, 15);
+        : availableWines;
 
       const wineContext = filteredWines
-        .map(w => `[ID:${w.id}] ${w.name_jp} | 合う:${w.pairing} | ¥${Number(w.price_bottle).toLocaleString()}`)
+        .map(w => `[ID:${w.id}] ${w.name_jp} | 合う料理:${w.pairing} | 価格:¥${Number(w.price_bottle).toLocaleString()}`)
         .join("\n");
 
       const systemInstruction = `あなたはピーロート・ジャパンの高級AIソムリエです。
@@ -171,15 +171,13 @@ ${wineContext}`;
     }
   });
 
-  // Admin: Set Custom Role (Secured)
-  app.post("/api/admin/set-role", authenticate, async (req, res) => {
+  // Admin: Set Custom Role (Strictly Admin Only)
+  app.post("/api/admin/set-role", authenticateUser, async (req, res) => {
     try {
       const { uid, role } = req.body;
       const caller = (req as any).user;
 
-      // Only admins can set roles, OR it's the very first user (simplified for this exercise)
-      const isAdmin = caller.role === "admin";
-      if (!isAdmin && caller.uid !== uid) {
+      if (caller.role !== "admin") {
         return res.status(403).json({ error: "Forbidden: Admin access required" });
       }
 
@@ -191,8 +189,23 @@ ${wineContext}`;
     }
   });
 
+  // Self: Sync Claims (Self-service based on Firestore profile)
+  app.post("/api/auth/sync-claims", authenticateUser, async (req, res) => {
+    try {
+      const { uid } = (req as any).user;
+      const userDoc = await dbAdmin.collection("users").doc(uid).get();
+      if (!userDoc.exists) return res.status(404).json({ error: "Profile not found" });
+      
+      const role = userDoc.data()?.role || "customer";
+      await admin.auth().setCustomUserClaims(uid, { role });
+      res.json({ success: true, role });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Staff Talk AI (Secured)
-  app.post("/api/staff-talk", authenticate, async (req, res) => {
+  app.post("/api/staff-talk", authenticateUser, async (req, res) => {
     try {
       const { wine } = req.body;
       const client = getAIClient();
@@ -210,7 +223,7 @@ ${wineContext}`;
   });
 
   // Social Post AI (Secured)
-  app.post("/api/social-post", authenticate, async (req, res) => {
+  app.post("/api/social-post", authenticateUser, async (req, res) => {
     try {
       const { wine } = req.body;
       const client = getAIClient();
