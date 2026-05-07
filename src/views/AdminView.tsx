@@ -45,7 +45,19 @@ export const AdminView: React.FC = () => {
 
   const handleAddWine = async (wineId?: string) => {
     const idToUse = wineId || searchId;
-    const wine = wines.find(w => w.id === idToUse);
+    let wine = wines.find(w => w.id === idToUse);
+    
+    if (!wine) {
+      try {
+        const mDoc = await getDoc(doc(db, 'winesMaster', idToUse));
+        if (mDoc.exists()) {
+          wine = { id: mDoc.id, ...mDoc.data() } as WineMaster;
+        }
+      } catch (e) {
+        console.error("Master wine fetch error:", e);
+      }
+    }
+
     if (wine && selectedStoreId && !selectedWines.find(sw => sw.id === idToUse)) {
       const docPath = `stores/${selectedStoreId}/inventory/${wine.id}`;
       try {
@@ -110,18 +122,31 @@ export const AdminView: React.FC = () => {
     const path = `stores/${storeId}/inventory`;
     try {
       const querySnapshot = await getDocs(collection(db, 'stores', storeId, 'inventory'));
-      const items = querySnapshot.docs.map(d => d.data());
-      const enrichedWines = items.map(item => {
-        const master = wines.find(w => w.id === item.id);
-        if (!master) return null;
-        return { 
-          ...master, 
-          price_bottle: item.price_bottle ?? master.price_bottle,
-          price_glass: item.price_glass ?? master.price_glass,
-          cost: item.cost ?? master.cost,
-          glasses_per_bottle: item.glasses_per_bottle ?? 6
-        };
-      }).filter(w => w !== null) as WineMaster[];
+      const items = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() as any }));
+      
+      const enrichedWines: WineMaster[] = [];
+
+      for (const item of items) {
+        let master = wines.find(w => w.id === item.id);
+        
+        // Fetch from Firestore if not in memory
+        if (!master) {
+          const mDoc = await getDoc(doc(db, 'winesMaster', item.id));
+          if (mDoc.exists()) {
+            master = { id: mDoc.id, ...mDoc.data() } as WineMaster;
+          }
+        }
+
+        if (master) {
+          enrichedWines.push({ 
+            ...master, 
+            price_bottle: item.price_bottle ?? master.price_bottle,
+            price_glass: item.price_glass ?? master.price_glass,
+            cost: item.cost ?? master.cost,
+            glasses_per_bottle: item.glasses_per_bottle ?? 6
+          });
+        }
+      }
       
       setSelectedWines(enrichedWines);
     } catch (error) {

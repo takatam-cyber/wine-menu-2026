@@ -1,4 +1,5 @@
 import { WineMaster } from "../types";
+import { auth } from "./firebase";
 
 export interface AISommelierResponse {
   message: string;
@@ -7,19 +8,26 @@ export interface AISommelierResponse {
 }
 
 /**
- * AIソムリエの助言を取得する (Proxy経由)
+ * AIソムリエの助言を取得する (Proxy経由・認証付き)
  */
 export async function getSommelierAdvice(
   userQuery: string,
-  _availableWines: WineMaster[], // Unused on client now
+  storeId: string,
   context: { cuisine?: string; history?: { role: 'user' | 'ai'; content: string }[] } = {}
 ): Promise<AISommelierResponse> {
   try {
+    const idToken = await auth.currentUser?.getIdToken();
+    if (!idToken) throw new Error("認証が必要です。ログインし直してください。");
+
     const response = await fetch("/api/sommelier", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${idToken}`
+      },
       body: JSON.stringify({
         userQuery,
+        storeId,
         history: context.history
       })
     });
@@ -42,13 +50,17 @@ export async function getSommelierAdvice(
 }
 
 /**
- * スタッフ向けセールストーク生成 (Proxy経由)
+ * スタッフ向けセールストーク生成 (Proxy経由・認証付き)
  */
 export async function generateStaffTalkScript(wine: WineMaster) {
   try {
+    const idToken = await auth.currentUser?.getIdToken();
     const response = await fetch("/api/staff-talk", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${idToken}`
+      },
       body: JSON.stringify({ wine })
     });
     if (!response.ok) throw new Error("生成に失敗しました");
@@ -61,13 +73,17 @@ export async function generateStaffTalkScript(wine: WineMaster) {
 }
 
 /**
- * SNS投稿案生成 (Proxy経由)
+ * SNS投稿案生成 (Proxy経由・認証付き)
  */
 export async function generateSocialPost(wine: WineMaster) {
   try {
+    const idToken = await auth.currentUser?.getIdToken();
     const response = await fetch("/api/social-post", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${idToken}`
+      },
       body: JSON.stringify({ wine })
     });
     if (!response.ok) throw new Error("生成に失敗しました");

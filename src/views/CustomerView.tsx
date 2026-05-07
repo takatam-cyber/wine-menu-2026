@@ -69,22 +69,30 @@ export const CustomerView: React.FC = () => {
     try {
       const storeDoc = await getDoc(doc(db, 'stores', storeId));
       if (storeDoc.exists()) {
-        setStore({ id: storeDoc.id, ...storeDoc.data() } as Store);
+        const storeData = { id: storeDoc.id, ...storeDoc.data() } as Store;
+        setStore(storeData);
         
         const invSnap = await getDocs(collection(db, 'stores', storeId, 'inventory'));
-        const invItems = invSnap.docs.map(d => d.data());
+        const invItems = invSnap.docs.map(d => ({ id: d.id, ...d.data() }));
         
-        const enriched = invItems
-          .filter(item => item.isActive !== false && item.visible !== false)
-          .map(item => {
-            const master = wines.find(w => w.id === item.id);
-            if (!master) return null;
-            return { 
-              ...master, 
-              price_bottle: item.price_bottle || master.price_bottle,
-              price_glass: item.price_glass || master.price_glass
-            };
-          }).filter(w => w !== null) as WineMaster[];
+        const activeItems = invItems.filter((item: any) => item.isActive !== false && item.visible !== false);
+        
+        // Fetch matching master data from Firestore for these inventory items
+        // (Since we are removing static MASTER_WINES)
+        const enriched: WineMaster[] = [];
+        
+        for (const item of activeItems) {
+          const masterDoc = await getDoc(doc(db, 'winesMaster', item.id));
+          if (masterDoc.exists()) {
+            const masterData = masterDoc.data() as WineMaster;
+            enriched.push({
+              ...masterData,
+              id: masterDoc.id,
+              price_bottle: item.price_bottle || masterData.price_bottle,
+              price_glass: item.price_glass || masterData.price_glass
+            });
+          }
+        }
         
         setInventory(enriched);
       }
@@ -196,6 +204,7 @@ export const CustomerView: React.FC = () => {
             {/* AI Sommelier Section */}
             <AISommelier 
               availableWines={inventory} 
+              storeId={store.id}
               cuisineType={store.cuisine_type} 
               onSelectWine={handleSelectWine}
               isOpen={isSommelierOpen}

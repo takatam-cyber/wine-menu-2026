@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { WineMaster, UserProfile, Role, Store } from '../types';
-import { MASTER_WINES } from './wine-data';
 import { auth, db, onAuthStateChanged } from './firebase';
 import { doc, getDoc, setDoc, collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from './firestore-errors';
@@ -11,13 +10,14 @@ interface WineContextType {
   user: UserProfile | null;
   loading: boolean;
   stores: Store[];
-  refreshStores: () => Promise<void>;
+  refreshStores: (limitCount?: number) => Promise<void>;
+  refreshWines: (limitCount?: number) => Promise<void>;
 }
 
 const WineContext = createContext<WineContextType | undefined>(undefined);
 
 export const WineProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [wines, setWines] = useState<WineMaster[]>(MASTER_WINES);
+  const [wines, setWines] = useState<WineMaster[]>([]);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [stores, setStores] = useState<Store[]>([]);
@@ -62,6 +62,18 @@ export const WineProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const refreshWines = async (limitCount: number = 50) => {
+    const path = 'winesMaster';
+    try {
+      const q = query(collection(db, 'winesMaster'), limit(limitCount));
+      const querySnapshot = await getDocs(q);
+      const fetchedWines = querySnapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as object) } as WineMaster));
+      setWines(fetchedWines);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, path);
+    }
+  };
+
   const refreshStores = async (limitCount: number = 20) => {
     if (!user) return;
     const path = 'stores';
@@ -90,6 +102,7 @@ export const WineProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       } else {
         setUser(null);
         setStores([]);
+        setWines([]);
       }
       setLoading(false);
     });
@@ -100,6 +113,7 @@ export const WineProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     if (user) {
       refreshStores();
+      refreshWines();
     }
   }, [user]);
 
@@ -109,7 +123,8 @@ export const WineProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     user,
     loading,
     stores,
-    refreshStores
+    refreshStores,
+    refreshWines
   }), [wines, user, loading, stores]);
 
   return (

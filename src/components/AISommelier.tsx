@@ -7,6 +7,7 @@ import ReactMarkdown from 'react-markdown';
 
 interface AISommelierProps {
   availableWines: WineMaster[];
+  storeId: string;
   cuisineType?: string;
   onSelectWine?: (id: string) => void;
   isOpen: boolean;
@@ -20,7 +21,7 @@ interface Message {
   wineIds?: string[];
 }
 
-export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, cuisineType, onSelectWine, isOpen, setIsOpen }) => {
+export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, storeId, cuisineType, onSelectWine, isOpen, setIsOpen }) => {
   const [query, setQuery] = useState('');
   const [messages, setMessages] = useState<Message[]>([
     { 
@@ -64,7 +65,7 @@ export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, cuisin
     setError(null);
 
     try {
-      const response = await getSommelierAdvice(userMessage, availableWines, { 
+      const response = await getSommelierAdvice(userMessage, storeId, { 
         cuisine: cuisineType,
         history: [...messages, { role: 'user', content: userMessage }]
       });

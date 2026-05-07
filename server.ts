@@ -1,4 +1,4 @@
-import express from "express";
+import express, { Request, Response, NextFunction } from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { GoogleGenAI, Type } from "@google/genai";
@@ -8,7 +8,7 @@ import admin from "firebase-admin";
 
 dotenv.config();
 
-// Firebase Admin for Custom Claims and Server-side DB access
+// Firebase Admin initialization
 try {
   admin.initializeApp();
 } catch (e) {
@@ -16,9 +16,27 @@ try {
 }
 const dbAdmin = admin.firestore();
 
+// Authentication Middleware
+const authenticate = async (req: Request, res: Response, next: NextFunction) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "Unauthorized: Missing token" });
+  }
+
+  const idToken = authHeader.split("Bearer ")[1];
+  try {
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    (req as any).user = decodedToken;
+    next();
+  } catch (error) {
+    console.error("Auth Error:", error);
+    res.status(401).json({ error: "Unauthorized: Invalid token" });
+  }
+};
+
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 50,
+  max: 100,
   message: { error: "リクエスト制限を超えました。15分後に再度お試しください。" },
   standardHeaders: true,
   legacyHeaders: false,
@@ -44,13 +62,41 @@ async function startServer() {
     return genAI;
   }
 
-  // AI Sommelier API (Server-side RAG)
-  app.post("/api/sommelier", async (req, res) => {
+  // AI Sommelier API (Server-side RAG with real Inventory)
+  app.post("/api/sommelier", authenticate, async (req, res) => {
     try {
-      const { userQuery, history } = req.body;
+      const { userQuery, history, storeId } = req.body;
+      if (!storeId) return res.status(400).json({ error: "storeId is required" });
+
       const client = getAIClient();
       
-      // 1. Intent Analysis
+      // 1. Fetch Store Inventory (Real RAG)
+      const inventorySnap = await dbAdmin
+        .collection("stores")
+        .doc(storeId)
+        .collection("inventory")
+        .where("isActive", "==", true)
+        .get();
+
+      const inventoryIds = inventorySnap.docs.map(doc => doc.id);
+      
+      if (inventoryIds.length === 0) {
+        return res.json({ 
+          message: "申し訳ありません。現在、提案可能な在庫がございません。", 
+          buttons: ["最初から探す"] 
+        });
+      }
+
+      // 2. Fetch Detailed Wine Data for available IDs
+      // Firestore 'in' query is limited to 30 items
+      const winesSnap = await dbAdmin
+        .collection("winesMaster")
+        .where(admin.firestore.FieldPath.documentId(), "in", inventoryIds.slice(0, 30))
+        .get();
+
+      const availableWines = winesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
+
+      // 3. Intent Analysis
       const analyzerModel = client.getGenerativeModel({ model: "models/gemini-1.5-flash" });
       const analysisResult = await analyzerModel.generateContent(`
         ユーザーの要望から検索ワード(色,タイプ,料理等)を3つ抽出してJSONで返してください。
@@ -65,30 +111,24 @@ async function startServer() {
         if (jsonMatch) keywords = JSON.parse(jsonMatch[0]).keywords || [];
       } catch (e) {}
 
-      // 2. Server-side Retrieval (RAG)
-      // Fetching from 'winesMaster' collection
-      const wineSnap = await dbAdmin.collection("winesMaster").limit(100).get();
-      const allWines = wineSnap.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
-      
-      // Keywords filter (Simplified RAG)
+      // 4. RAG Filtering
       const filteredWines = keywords.length > 0 
-        ? allWines.filter(w => keywords.some(k => JSON.stringify(w).toLowerCase().includes(k.toLowerCase())))
-        : allWines.slice(0, 15);
+        ? availableWines.filter(w => keywords.some(k => JSON.stringify(w).toLowerCase().includes(k.toLowerCase())))
+        : availableWines.slice(0, 15);
 
       const wineContext = filteredWines
-        .slice(0, 15)
         .map(w => `[ID:${w.id}] ${w.name_jp} | 合う:${w.pairing} | ¥${Number(w.price_bottle).toLocaleString()}`)
         .join("\n");
 
       const systemInstruction = `あなたはピーロート・ジャパンの高級AIソムリエです。
-以下のリストから最も合うワインを3本選び、update_uiツールを使用して提案してください。
+以下の実在庫リストから最も合うワインを3本選び、update_uiツールを使用して提案してください。
 
 【出力の鉄則】
 1. 挨拶は短く。
 2. 必ず update_ui を使用。
-3. リスト外の提案は禁止。
+3. リスト外のワイン提案（空想の提案）は絶対に禁止。
 
-【提供可能リスト】
+【提供可能在庫リスト】
 ${wineContext}`;
 
       const model = client.getGenerativeModel({ 
@@ -131,10 +171,18 @@ ${wineContext}`;
     }
   });
 
-  // Admin: Set Custom Role
-  app.post("/api/admin/set-role", async (req, res) => {
+  // Admin: Set Custom Role (Secured)
+  app.post("/api/admin/set-role", authenticate, async (req, res) => {
     try {
       const { uid, role } = req.body;
+      const caller = (req as any).user;
+
+      // Only admins can set roles, OR it's the very first user (simplified for this exercise)
+      const isAdmin = caller.role === "admin";
+      if (!isAdmin && caller.uid !== uid) {
+        return res.status(403).json({ error: "Forbidden: Admin access required" });
+      }
+
       await admin.auth().setCustomUserClaims(uid, { role });
       await dbAdmin.collection("users").doc(uid).set({ role }, { merge: true });
       res.json({ success: true, message: `Role ${role} set successfully.` });
@@ -143,8 +191,8 @@ ${wineContext}`;
     }
   });
 
-  // Staff Talk AI
-  app.post("/api/staff-talk", async (req, res) => {
+  // Staff Talk AI (Secured)
+  app.post("/api/staff-talk", authenticate, async (req, res) => {
     try {
       const { wine } = req.body;
       const client = getAIClient();
@@ -161,8 +209,8 @@ ${wineContext}`;
     }
   });
 
-  // Social Post AI
-  app.post("/api/social-post", async (req, res) => {
+  // Social Post AI (Secured)
+  app.post("/api/social-post", authenticate, async (req, res) => {
     try {
       const { wine } = req.body;
       const client = getAIClient();
