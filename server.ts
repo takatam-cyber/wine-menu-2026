@@ -70,7 +70,8 @@ async function startServer() {
 
       const client = getAIClient();
       
-      // 1. Fetch Store Inventory (Real RAG)
+      // 1. Fetch Store Inventory (Real-time Inventory Link)
+      // We list up to 30 active items (Firestore IN query limit)
       const inventorySnap = await dbAdmin
         .collection("stores")
         .doc(storeId)
@@ -89,6 +90,7 @@ async function startServer() {
       }
 
       // 2. Fetch Detailed Wine Data for available IDs
+      // This is the "Verification" step to ensure we only use data from winesMaster
       const winesSnap = await dbAdmin
         .collection("winesMaster")
         .where(admin.firestore.FieldPath.documentId(), "in", inventoryIds)
@@ -96,7 +98,7 @@ async function startServer() {
 
       const availableWines = winesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
 
-      // 3. Intent Analysis
+      // 3. Keyword Extraction for local filtering (since Firestore doesn't support full-text search)
       const analyzerModel = client.getGenerativeModel({ model: "models/gemini-1.5-flash" });
       const analysisResult = await analyzerModel.generateContent(`
         ユーザーの要望から検索ワード(色,タイプ,料理等)を3つ抽出してJSONで返してください。
@@ -111,45 +113,34 @@ async function startServer() {
         if (jsonMatch) keywords = JSON.parse(jsonMatch[0]).keywords || [];
       } catch (e) {}
 
-      // 4. RAG Filtering
+      // 4. Inventory Filtering based on keywords
       const filteredWines = keywords.length > 0 
         ? availableWines.filter(w => keywords.some(k => JSON.stringify(w).toLowerCase().includes(k.toLowerCase())))
         : availableWines;
 
-      const wineContext = filteredWines
+      // Ensure we don't send too much data and stay within the inventory limit
+      const contextWines = filteredWines.slice(0, 15);
+
+      const wineContext = contextWines
         .map(w => `[ID:${w.id}] ${w.name_jp} | 合う料理:${w.pairing} | 価格:¥${Number(w.price_bottle).toLocaleString()}`)
         .join("\n");
 
       const systemInstruction = `あなたはピーロート・ジャパンの高級AIソムリエです。
-以下の実在庫リストから最も合うワインを3本選び、update_uiツールを使用して提案してください。
+以下の実在庫リストから、ユーザーの要望に最も合うワインを3本選び、[SELECT:商品ID] を使用して提案してください。
 
 【出力の鉄則】
-1. 挨拶は短く。
-2. 必ず update_ui を使用。
-3. リスト外のワイン提案（空想の提案）は絶対に禁止。
+1. 挨拶や自己紹介は一切不要。
+2. 提案形式: 「ワイン名 [SELECT:ID]」
+3. 解説は100文字以内で極めて簡潔に。
+4. リスト外のワイン提案は絶対に禁止。
+5. 返答の末尾は必ず [SELECT:ID] または [BUTTON:ラベル] で終わらせてください。
 
 【提供可能在庫リスト】
 ${wineContext}`;
 
       const model = client.getGenerativeModel({ 
         model: "models/gemini-3-flash-preview",
-        systemInstruction,
-        tools: [{
-          functionDeclarations: [{
-            name: "update_ui",
-            description: "UIの表示内容を更新します。",
-            parameters: {
-              type: Type.OBJECT,
-              properties: {
-                message: { type: Type.STRING },
-                buttons: { type: Type.ARRAY, items: { type: Type.STRING } },
-                wineIds: { type: Type.ARRAY, items: { type: Type.STRING } }
-              },
-              required: ["message"]
-            }
-          }]
-        }],
-        toolConfig: { functionCallingConfig: { mode: "ANY", allowedFunctionNames: ["update_ui"] } }
+        systemInstruction
       });
 
       const geminiHistory = history?.map((h: any) => ({
@@ -161,10 +152,8 @@ ${wineContext}`;
         contents: [...geminiHistory, { role: "user", parts: [{ text: userQuery }] }]
       });
 
-      const calls = result.response.functionCalls();
-      if (calls && calls.length > 0) return res.json(calls[0].args);
-      
-      res.json({ message: result.response.text(), buttons: ["最初から探す"] });
+      const responseText = result.response.text();
+      res.json({ message: responseText });
     } catch (error: any) {
       console.error("Sommelier Error:", error);
       res.status(500).json({ error: error.message });
@@ -177,13 +166,14 @@ ${wineContext}`;
       const { uid, role } = req.body;
       const caller = (req as any).user;
 
+      // Strict enforcement: Only users who already have 'admin' claims can change roles
       if (caller.role !== "admin") {
         return res.status(403).json({ error: "Forbidden: Admin access required" });
       }
 
       await admin.auth().setCustomUserClaims(uid, { role });
       await dbAdmin.collection("users").doc(uid).set({ role }, { merge: true });
-      res.json({ success: true, message: `Role ${role} set successfully.` });
+      res.json({ success: true, message: `Role ${role} set successfully for ${uid}.` });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

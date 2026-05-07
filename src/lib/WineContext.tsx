@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { WineMaster, UserProfile, Role, Store } from '../types';
 import { auth, db, onAuthStateChanged } from './firebase';
-import { doc, getDoc, setDoc, collection, query, where, getDocs, limit } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, query, where, getDocs, limit, startAfter, QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from './firestore-errors';
 
 interface WineContextType {
@@ -10,8 +10,10 @@ interface WineContextType {
   user: UserProfile | null;
   loading: boolean;
   stores: Store[];
-  refreshStores: (limitCount?: number) => Promise<void>;
-  refreshWines: (limitCount?: number) => Promise<void>;
+  refreshStores: (isNext?: boolean, limitCount?: number) => Promise<void>;
+  refreshWines: (isNext?: boolean, limitCount?: number) => Promise<void>;
+  hasMoreStores: boolean;
+  hasMoreWines: boolean;
 }
 
 const WineContext = createContext<WineContextType | undefined>(undefined);
@@ -21,6 +23,11 @@ export const WineProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [stores, setStores] = useState<Store[]>([]);
+  
+  const [lastStoreDoc, setLastStoreDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const [lastWineDoc, setLastWineDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const [hasMoreStores, setHasMoreStores] = useState(true);
+  const [hasMoreWines, setHasMoreWines] = useState(true);
 
   const fetchProfile = async (uid: string, email: string) => {
     const docPath = `users/${uid}`;
@@ -61,34 +68,62 @@ export const WineProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const refreshWines = async (limitCount: number = 50) => {
+  const refreshWines = async (isNext: boolean = false, limitCount: number = 50) => {
     const path = 'winesMaster';
     try {
-      const q = query(collection(db, 'winesMaster'), limit(limitCount));
+      let q = query(collection(db, 'winesMaster'), limit(limitCount));
+      
+      if (isNext && lastWineDoc) {
+        q = query(collection(db, 'winesMaster'), startAfter(lastWineDoc), limit(limitCount));
+      }
+
       const querySnapshot = await getDocs(q);
       const fetchedWines = querySnapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as object) } as WineMaster));
-      setWines(fetchedWines);
+      
+      if (isNext) {
+        setWines(prev => [...prev, ...fetchedWines]);
+      } else {
+        setWines(fetchedWines);
+      }
+
+      setLastWineDoc(querySnapshot.docs[querySnapshot.docs.length - 1] || null);
+      setHasMoreWines(querySnapshot.docs.length === limitCount);
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, path);
     }
   };
 
-  const refreshStores = async (limitCount: number = 20) => {
+  const refreshStores = async (isNext: boolean = false, limitCount: number = 20) => {
     if (!user) return;
     const path = 'stores';
     try {
       let q;
+      const constraints = [];
+      
       if (user.role === 'rep') {
-        q = query(collection(db, 'stores'), where('repId', '==', user.uid), limit(limitCount));
+        constraints.push(where('repId', '==', user.uid));
       } else if (user.role === 'owner' && user.storeId) {
-        q = query(collection(db, 'stores'), where('id', '==', user.storeId));
-      } else {
-        q = query(collection(db, 'stores'), limit(limitCount));
+        constraints.push(where('id', '==', user.storeId));
       }
+      
+      constraints.push(limit(limitCount));
+      if (isNext && lastStoreDoc) {
+        constraints.push(startAfter(lastStoreDoc));
+      }
+
+      q = query(collection(db, 'stores'), ...constraints);
 
       const querySnapshot = await getDocs(q);
       const fetchedStores = querySnapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as object) } as Store));
-      setStores(fetchedStores);
+      
+      if (isNext) {
+        setStores(prev => [...prev, ...fetchedStores]);
+      } else {
+        setStores(fetchedStores);
+      }
+
+      setLastStoreDoc(querySnapshot.docs[querySnapshot.docs.length - 1] || null);
+      setHasMoreStores(querySnapshot.docs.length === limitCount);
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, path);
     }
@@ -102,6 +137,8 @@ export const WineProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setUser(null);
         setStores([]);
         setWines([]);
+        setLastStoreDoc(null);
+        setLastWineDoc(null);
       }
       setLoading(false);
     });
@@ -111,8 +148,8 @@ export const WineProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   useEffect(() => {
     if (user) {
-      refreshStores();
-      refreshWines();
+      refreshStores(false);
+      refreshWines(false);
     }
   }, [user]);
 
@@ -123,8 +160,10 @@ export const WineProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     loading,
     stores,
     refreshStores,
-    refreshWines
-  }), [wines, user, loading, stores]);
+    refreshWines,
+    hasMoreStores,
+    hasMoreWines
+  }), [wines, user, loading, stores, hasMoreStores, hasMoreWines]);
 
   return (
     <WineContext.Provider value={contextValue}>

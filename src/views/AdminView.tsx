@@ -14,9 +14,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import Papa from 'papaparse';
 
 export const AdminView: React.FC = () => {
-  const { wines, setWines, user, stores, refreshStores, refreshWines } = useWines();
-  const [storeLimit, setStoreLimit] = useState(12);
-  const [wineLimit, setWineLimit] = useState(50);
+  const { wines, setWines, user, stores, refreshStores, refreshWines, hasMoreStores, hasMoreWines } = useWines();
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
   const [searchId, setSearchId] = useState('');
   const [selectedWines, setSelectedWines] = useState<WineMaster[]>([]);
@@ -35,20 +33,12 @@ export const AdminView: React.FC = () => {
   const [selectedMasterIds, setSelectedMasterIds] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  useEffect(() => {
-    refreshStores(storeLimit);
-  }, [storeLimit]);
-
-  useEffect(() => {
-    refreshWines(wineLimit);
-  }, [wineLimit]);
-
   const handleLoadMoreStores = () => {
-    setStoreLimit(prev => prev + 12);
+    refreshStores(true, 12);
   };
 
   const handleLoadMoreWines = () => {
-    setWineLimit(prev => prev + 50);
+    refreshWines(true, 50);
   };
   const selectedStore = stores.find(s => s.id === selectedStoreId);
 
@@ -620,7 +610,7 @@ export const AdminView: React.FC = () => {
                   </motion.div>
                 ))}
                 
-                {stores.length >= storeLimit && (
+                {hasMoreStores && (
                   <div className="col-span-full py-10 flex justify-center">
                     <button 
                       onClick={handleLoadMoreStores}
@@ -863,7 +853,7 @@ export const AdminView: React.FC = () => {
                   })}
                 </div>
 
-                {wines.length >= wineLimit && (
+                {hasMoreWines && (
                   <div className="py-10 flex justify-center">
                     <button 
                       onClick={handleLoadMoreWines}

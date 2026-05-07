@@ -4,7 +4,7 @@ import { useWines } from '../lib/WineContext';
 import { WineProfile } from '../components/WineProfile';
 import { AISommelier } from '../components/AISommelier';
 import { db } from '../lib/firebase';
-import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { ChevronRight, Info, Wine, Utensils, Award, Loader2, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -77,21 +77,28 @@ export const CustomerView: React.FC = () => {
         
         const activeItems = invItems.filter((item: any) => item.isActive !== false && item.visible !== false);
         
-        // Fetch matching master data from Firestore for these inventory items
-        // (Since we are removing static MASTER_WINES)
+        // Fetch matching master data from Firestore for these inventory items using bulk queries
         const enriched: WineMaster[] = [];
+        const activeIds = activeItems.map((item: any) => item.id);
         
-        for (const item of activeItems) {
-          const masterDoc = await getDoc(doc(db, 'winesMaster', item.id));
-          if (masterDoc.exists()) {
-            const masterData = masterDoc.data() as WineMaster;
-            enriched.push({
-              ...masterData,
-              id: masterDoc.id,
-              price_bottle: item.price_bottle || masterData.price_bottle,
-              price_glass: item.price_glass || masterData.price_glass
-            });
-          }
+        // Firestore 'in' query limit is 30
+        for (let i = 0; i < activeIds.length; i += 30) {
+          const chunk = activeIds.slice(i, i + 30);
+          const q = query(collection(db, 'winesMaster'), where('__name__', 'in', chunk));
+          const masterSnaps = await getDocs(q);
+          
+          masterSnaps.forEach(docSnap => {
+            const masterData = docSnap.data() as WineMaster;
+            const invItem = activeItems.find((item: any) => item.id === docSnap.id) as any;
+            if (invItem) {
+              enriched.push({
+                ...masterData,
+                id: docSnap.id,
+                price_bottle: invItem.price_bottle || masterData.price_bottle,
+                price_glass: invItem.price_glass || masterData.price_glass
+              });
+            }
+          });
         }
         
         setInventory(enriched);
