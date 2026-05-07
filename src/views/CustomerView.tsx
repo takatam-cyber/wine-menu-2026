@@ -104,10 +104,8 @@ export const CustomerView: React.FC = () => {
   };
 
   useEffect(() => {
-    if (wines.length > 0) {
-      fetchStoreData();
-    }
-  }, [wines]);
+    fetchStoreData();
+  }, []);
 
   if (loading) {
      return (

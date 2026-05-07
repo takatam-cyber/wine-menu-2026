@@ -14,8 +14,9 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import Papa from 'papaparse';
 
 export const AdminView: React.FC = () => {
-  const { wines, setWines, user, stores, refreshStores } = useWines();
+  const { wines, setWines, user, stores, refreshStores, refreshWines } = useWines();
   const [storeLimit, setStoreLimit] = useState(12);
+  const [wineLimit, setWineLimit] = useState(50);
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
   const [searchId, setSearchId] = useState('');
   const [selectedWines, setSelectedWines] = useState<WineMaster[]>([]);
@@ -38,8 +39,16 @@ export const AdminView: React.FC = () => {
     refreshStores(storeLimit);
   }, [storeLimit]);
 
+  useEffect(() => {
+    refreshWines(wineLimit);
+  }, [wineLimit]);
+
   const handleLoadMoreStores = () => {
     setStoreLimit(prev => prev + 12);
+  };
+
+  const handleLoadMoreWines = () => {
+    setWineLimit(prev => prev + 50);
   };
   const selectedStore = stores.find(s => s.id === selectedStoreId);
 
@@ -853,6 +862,17 @@ export const AdminView: React.FC = () => {
                     );
                   })}
                 </div>
+
+                {wines.length >= wineLimit && (
+                  <div className="py-10 flex justify-center">
+                    <button 
+                      onClick={handleLoadMoreWines}
+                      className="px-10 py-4 bg-slate-50 border border-slate-200 rounded-full text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:border-brand-wine hover:text-brand-wine transition-all shadow-sm"
+                    >
+                      さらにマスターデータを読み込む
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="p-8 border-t border-slate-100 bg-white flex items-center justify-between">
