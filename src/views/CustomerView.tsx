@@ -4,13 +4,13 @@ import { useWines } from '../lib/WineContext';
 import { WineProfile } from '../components/WineProfile';
 import { AISommelier } from '../components/AISommelier';
 import { db } from '../lib/firebase';
-import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, query, where, setDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { ChevronRight, Info, Wine, Utensils, Award, Loader2, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export const CustomerView: React.FC = () => {
-  const { wines } = useWines();
+  const { wines, user } = useWines();
   const [selectedWine, setSelectedWine] = useState<WineMaster | null>(null);
   const [store, setStore] = useState<Store | null>(null);
   const [inventory, setInventory] = useState<WineMaster[]>([]);
@@ -56,6 +56,9 @@ export const CustomerView: React.FC = () => {
       element.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   };
+
+  const [isOrdering, setIsOrdering] = useState(false);
+  const [orderSuccess, setOrderSuccess] = useState(false);
 
   const fetchStoreData = async () => {
     const params = new URLSearchParams(window.location.search);
@@ -113,6 +116,36 @@ export const CustomerView: React.FC = () => {
   useEffect(() => {
     fetchStoreData();
   }, []);
+
+  const handleOrder = async () => {
+    if (!selectedWine || !store) return;
+    
+    setIsOrdering(true);
+    try {
+      const orderId = `ORD-${Date.now()}`;
+      await setDoc(doc(db, 'orders', orderId), {
+        id: orderId,
+        storeId: store.id,
+        storeName: store.name,
+        wineId: selectedWine.id,
+        wineName: selectedWine.name_jp,
+        price: selectedWine.price_bottle,
+        customerEmail: user?.email || 'anonymous',
+        status: 'pending',
+        createdAt: new Date().toISOString()
+      });
+
+      setOrderSuccess(true);
+      setTimeout(() => {
+        setOrderSuccess(false);
+        setSelectedWine(null);
+      }, 3000);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'orders');
+    } finally {
+      setIsOrdering(false);
+    }
+  };
 
   if (loading) {
      return (
@@ -376,8 +409,21 @@ export const CustomerView: React.FC = () => {
                      <span className="serif text-2xl md:text-3xl text-brand-gold tracking-tighter">¥{selectedWine.price_glass?.toLocaleString()}</span>
                    </div>
                  </div>
-                 <button className="w-full bg-brand-gold text-brand-wine py-4 rounded-2xl font-bold text-[12px] tracking-[0.4em] uppercase shadow-[0_10px_40px_rgba(212,175,55,0.4)] hover:brightness-110 active:scale-95 transition-all">
-                   オーダーする
+                 <button 
+                   onClick={handleOrder}
+                   disabled={isOrdering || orderSuccess}
+                   className="w-full bg-brand-gold text-brand-wine py-4 rounded-2xl font-bold text-[12px] tracking-[0.4em] uppercase shadow-[0_10px_40px_rgba(212,175,55,0.4)] hover:brightness-110 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100"
+                 >
+                   {isOrdering ? (
+                     <Loader2 className="w-5 h-5 animate-spin mx-auto" />
+                   ) : orderSuccess ? (
+                     <span className="flex items-center justify-center gap-2">
+                       <Award className="w-4 h-4" />
+                       オーダー完了
+                     </span>
+                   ) : (
+                     "オーダーする"
+                   )}
                  </button>
               </div>
             </motion.div>

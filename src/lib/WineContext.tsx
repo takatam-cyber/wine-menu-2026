@@ -43,7 +43,7 @@ export const WineProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           uid,
           email,
           name: email.split('@')[0],
-          role: 'owner' // Sandbox default
+          role: 'customer' // Default to safest role for production
         };
         await setDoc(docRef, profile);
       }
