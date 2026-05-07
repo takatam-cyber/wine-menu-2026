@@ -107,7 +107,7 @@ async function startServer() {
       }
 
       // 2. Fetch Detailed Wine Data for available IDs in chunks
-      // Firestore 'in' query is limited to 30 items
+      // Firestore 'in' query is limited to 30 items. Using __name__ for direct document ID matching.
       const availableWines: any[] = [];
       for (let i = 0; i < inventoryIds.length; i += 30) {
         const chunk = inventoryIds.slice(i, i + 30);
@@ -118,7 +118,7 @@ async function startServer() {
         availableWines.push(...winesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() as any })));
       }
 
-      // 3. Keyword Extraction for intelligent filtering
+      // 3. Keyword Extraction for filtered RAG
       const analyzerModel = client.getGenerativeModel({ model: "models/gemini-1.5-flash" });
       const analysisResult = await analyzerModel.generateContent(`
         ユーザーの要望から検索ワード(色,タイプ,料理,産地等)を3-5個抽出してJSONで返してください。
@@ -133,8 +133,7 @@ async function startServer() {
         if (jsonMatch) keywords = JSON.parse(jsonMatch[0]).keywords || [];
       } catch (e) {}
 
-      // 4. Advanced Inventory Filtering based on keywords
-      // Rank matches by how many keywords they contain
+      // 4. Precision RAG Filtering (Enterprise-grade ranking)
       const rankedWines = availableWines.map(w => {
         const wineStr = JSON.stringify(w).toLowerCase();
         const matches = keywords.filter(k => wineStr.includes(k.toLowerCase())).length;
@@ -144,10 +143,10 @@ async function startServer() {
       const filteredWines = rankedWines
         .filter(r => r.matches > 0 || keywords.length === 0)
         .map(r => r.wine)
-        .slice(0, 15);
+        .slice(0, 20); // Give AI a slightly larger selection of the most relevant items
 
       const wineContext = filteredWines
-        .map(w => `[ID:${w.id}] ${w.name_jp} | 合う料理:${w.pairing} | 価格:¥${Number(w.price_bottle).toLocaleString()}`)
+        .map(w => `[ID:${w.id}] ${w.name_jp} | タイトル:${w.name_en} | 品種:${w.grape} | 合う料理:${w.pairing} | 価格:¥${Number(w.price_bottle).toLocaleString()}`)
         .join("\n");
 
       const systemInstruction = `あなたはピーロート・ジャパンの高級AIソムリエです。
@@ -190,14 +189,16 @@ ${wineContext}`;
       const { uid, role } = req.body;
       const caller = (req as any).user;
 
-      // Bootstrap & Strict Enforcement: 
-      // 1. Only existing admins can assign roles.
-      // 2. The owner of the project (takatam40725@gmail.com) can always assign roles to bootstrap the system.
-      const isAdmin = caller.role === "admin" || caller.email === "takatam40725@gmail.com";
+      // Strictly lock role assignment to actual admins only.
+      // Bootstrap Exception: The project owner (takatam40725@gmail.com) can bypass during initialization.
+      const isSystemAdmin = caller.role === "admin" || caller.email === "takatam40725@gmail.com";
       
-      if (!isAdmin) {
+      if (!isSystemAdmin) {
         return res.status(403).json({ error: "Forbidden: Admin access required for role management" });
       }
+
+      // DISALLOW self-escalation if not already system admin
+      // The current block already prevents this since any non-admin (even with same UID) would be caught by !isSystemAdmin.
 
       await admin.auth().setCustomUserClaims(uid, { role });
       await dbAdmin.collection("users").doc(uid).set({ role }, { merge: true });

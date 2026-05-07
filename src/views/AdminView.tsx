@@ -3,7 +3,7 @@ import { WineMaster, Store } from '../types';
 import { useWines } from '../lib/WineContext';
 import { calculateProfit, calculateGlassProfit } from '../lib/profit-calc';
 import { db } from '../lib/firebase';
-import { doc, setDoc, collection, getDocs, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { doc, setDoc, collection, getDocs, getDoc, updateDoc, deleteDoc, query, where } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { initializeApp, deleteApp, getApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
@@ -124,27 +124,28 @@ export const AdminView: React.FC = () => {
       const items = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() as any }));
       
       const enrichedWines: WineMaster[] = [];
+      const itemIds = items.map(item => item.id);
 
-      for (const item of items) {
-        let master = wines.find(w => w.id === item.id);
+      // Fetch master data in chunks of 30 to avoid N+1
+      for (let i = 0; i < itemIds.length; i += 30) {
+        const chunk = itemIds.slice(i, i + 30);
+        const q = query(collection(db, 'winesMaster'), where('__name__', 'in', chunk));
+        const masterSnaps = await getDocs(q);
         
-        // Fetch from Firestore if not in memory
-        if (!master) {
-          const mDoc = await getDoc(doc(db, 'winesMaster', item.id));
-          if (mDoc.exists()) {
-            master = { id: mDoc.id, ...mDoc.data() } as WineMaster;
+        masterSnaps.forEach(docSnap => {
+          const masterData = docSnap.data() as WineMaster;
+          const invItem = items.find(item => item.id === docSnap.id);
+          if (invItem) {
+            enrichedWines.push({ 
+              ...masterData, 
+              id: docSnap.id,
+              price_bottle: invItem.price_bottle ?? masterData.price_bottle,
+              price_glass: invItem.price_glass ?? masterData.price_glass,
+              cost: invItem.cost ?? masterData.cost,
+              glasses_per_bottle: invItem.glasses_per_bottle ?? 6
+            });
           }
-        }
-
-        if (master) {
-          enrichedWines.push({ 
-            ...master, 
-            price_bottle: item.price_bottle ?? master.price_bottle,
-            price_glass: item.price_glass ?? master.price_glass,
-            cost: item.cost ?? master.cost,
-            glasses_per_bottle: item.glasses_per_bottle ?? 6
-          });
-        }
+        });
       }
       
       setSelectedWines(enrichedWines);
