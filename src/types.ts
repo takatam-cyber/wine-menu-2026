@@ -47,6 +47,7 @@ export interface Store {
   address?: string;
   isActive: boolean;
   hasAiSommelier: boolean;
+  owner_api_key?: string;
 }
 
 export type Role = 'admin' | 'rep' | 'owner' | 'customer';

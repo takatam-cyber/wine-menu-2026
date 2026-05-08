@@ -71,7 +71,10 @@ async function startServer() {
 
   // Safe client initialization
   let genAI: any = null;
-  function getAIClient() {
+  function getAIClient(customApiKey?: string) {
+    if (customApiKey) {
+      return new GoogleGenAI({ apiKey: customApiKey });
+    }
     if (!genAI) {
       const apiKey = process.env.MY_SOMMELIER_KEY;
       if (!apiKey || apiKey === "AI Studio Free Tier") {
@@ -88,9 +91,14 @@ async function startServer() {
       const { userQuery, history, storeId } = req.body;
       if (!storeId) return res.status(400).json({ error: "storeId is required" });
 
+      // 1. Fetch Store Doc to check for custom API key and AI enablement
+      const storeDoc = await dbAdmin.collection("stores").doc(storeId).get();
+      if (!storeDoc.exists) return res.status(404).json({ error: "Store not found" });
+      const storeData = storeDoc.data();
+
       let client;
       try {
-        client = getAIClient();
+        client = getAIClient(storeData?.owner_api_key);
       } catch (e) {
         return res.json({ 
           message: "ただいまAIソムリエが休暇を頂いております（システム準備中）。時間を置いて再度お越しくださいませ。", 

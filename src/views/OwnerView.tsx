@@ -6,6 +6,8 @@ import { db } from '../lib/firebase';
 import { collection, getDocs, doc, getDoc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { Wine, Camera, MessageSquare, Save, Eye, EyeOff, Loader2, Sparkles, X, Trash2, Plus, Search, Edit2 } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
+import { calculateProfit } from '../lib/profit-calc';
 import { motion, AnimatePresence } from 'motion/react';
 
 export const OwnerView: React.FC = () => {
@@ -21,6 +23,9 @@ export const OwnerView: React.FC = () => {
   const [isEditingStore, setIsEditingStore] = useState(false);
   const [editStoreData, setEditStoreData] = useState<Partial<Store>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [editingWineId, setEditingWineId] = useState<string | null>(null);
+  const [editWineData, setEditWineData] = useState<{ price_bottle: number; price_glass: number; stock: number }>({ price_bottle: 0, price_glass: 0, stock: 0 });
+  const [isAnalysing, setIsAnalysing] = useState(false);
 
   const sid = new URLSearchParams(window.location.search).get('storeId') || user?.storeId;
 
@@ -44,17 +49,19 @@ export const OwnerView: React.FC = () => {
 
       // Fetch Inventory
       const querySnapshot = await getDocs(collection(db, 'stores', sid, 'inventory'));
-      const items = querySnapshot.docs.map(d => d.data());
+      const items = querySnapshot.docs.map(d => ({ ...d.data(), id: d.id }));
       
       const enriched = items.map(item => {
         const master = wines.find(w => w.id === item.id);
         if (!master) return null;
         return { 
           ...master, 
-          isActive: item.isActive ?? true, 
-          visible: item.visible ?? true,
-          price_bottle: item.price_bottle || master.price_bottle,
-          price_glass: item.price_glass || master.price_glass
+          isActive: (item as any).isActive ?? true, 
+          visible: (item as any).visible ?? true,
+          price_bottle: (item as any).price_bottle || master.price_bottle,
+          price_glass: (item as any).price_glass || master.price_glass,
+          stock: (item as any).stock ?? master.stock,
+          cost: master.cost || 2000 // Fallback cost if missing
         };
       }).filter(w => w !== null) as WineMaster[];
 
@@ -81,7 +88,8 @@ export const OwnerView: React.FC = () => {
         name: editStoreData.name,
         cuisine_type: editStoreData.cuisine_type,
         address: editStoreData.address,
-        hasAiSommelier: editStoreData.hasAiSommelier ?? true
+        hasAiSommelier: editStoreData.hasAiSommelier ?? true,
+        owner_api_key: editStoreData.owner_api_key || ''
       });
 
       // Update User Profile Name if changed
@@ -152,6 +160,34 @@ export const OwnerView: React.FC = () => {
     setIsGenerating(false);
   };
 
+  const handleSaveWineEdit = async (wineId: string) => {
+    if (!sid) return;
+    setIsSaving(true);
+    try {
+      await updateDoc(doc(db, 'stores', sid, 'inventory', wineId), {
+        price_bottle: editWineData.price_bottle,
+        price_glass: editWineData.price_glass,
+        stock: editWineData.stock,
+        updatedAt: new Date().toISOString()
+      });
+      setInventory(prev => prev.map(w => w.id === wineId ? { ...w, ...editWineData } : w));
+      setEditingWineId(null);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `stores/${sid}/inventory/${wineId}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const startEditingWine = (wine: WineMaster) => {
+    setEditingWineId(wine.id);
+    setEditWineData({
+      price_bottle: wine.price_bottle,
+      price_glass: wine.price_glass,
+      stock: wine.stock || 0
+    });
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-full py-24 gap-4">
@@ -200,17 +236,29 @@ export const OwnerView: React.FC = () => {
                   onChange={e => setEditStoreData({...editStoreData, address: e.target.value})}
                 />
               </div>
-              <div className="flex items-center justify-between bg-white/5 p-4 rounded-xl border border-brand-gold/10">
-                <div>
-                  <div className="text-xs font-bold text-brand-gold uppercase tracking-wider">AIソムリエ機能を有効にする</div>
-                  <div className="text-[9px] text-gray-500 uppercase tracking-widest mt-0.5">お客様がチャットで相談できるようになります</div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-center justify-between bg-white/5 p-4 rounded-xl border border-brand-gold/10">
+                  <div>
+                    <div className="text-xs font-bold text-brand-gold uppercase tracking-wider">AIソムリエ機能</div>
+                    <div className="text-[9px] text-gray-500 uppercase tracking-widest mt-0.5">有効にするとお客様の相談を受けられます</div>
+                  </div>
+                  <button 
+                    onClick={() => setEditStoreData({...editStoreData, hasAiSommelier: !editStoreData.hasAiSommelier})}
+                    className={`w-12 h-6 rounded-full transition-all relative ${editStoreData.hasAiSommelier ? 'bg-brand-gold' : 'bg-gray-700'}`}
+                  >
+                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${editStoreData.hasAiSommelier ? 'right-1' : 'left-1'}`} />
+                  </button>
                 </div>
-                <button 
-                  onClick={() => setEditStoreData({...editStoreData, hasAiSommelier: !editStoreData.hasAiSommelier})}
-                  className={`w-12 h-6 rounded-full transition-all relative ${editStoreData.hasAiSommelier ? 'bg-brand-gold' : 'bg-gray-700'}`}
-                >
-                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${editStoreData.hasAiSommelier ? 'right-1' : 'left-1'}`} />
-                </button>
+                <div>
+                  <label className="text-[9px] font-bold text-brand-gold/60 uppercase tracking-widest block mb-1">Gemini API Key</label>
+                  <input 
+                    type="password"
+                    placeholder="自分のAPIキーを使用する場合のみ入力"
+                    className="w-full bg-white/5 border border-brand-gold/20 rounded-lg px-3 py-2 text-brand-ivory text-sm outline-none focus:border-brand-gold"
+                    value={editStoreData.owner_api_key || ''}
+                    onChange={e => setEditStoreData({...editStoreData, owner_api_key: e.target.value})}
+                  />
+                </div>
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <button onClick={() => setIsEditingStore(false)} className="px-4 py-2 text-[10px] uppercase font-bold text-gray-400 hover:text-white transition-colors">キャンセル</button>
@@ -247,6 +295,70 @@ export const OwnerView: React.FC = () => {
         </button>
       </header>
 
+      {/* Analytics Dashboard */}
+      {inventory.length > 0 && (
+        <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 glass-panel p-6 rounded-3xl border border-brand-gold/10 relative overflow-hidden">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-xs font-bold text-brand-gold uppercase tracking-widest">収益分析：銘柄別利益（ボトル）</h3>
+                <p className="text-[10px] text-gray-500 mt-1 uppercase">トップパフォーマーの可視化</p>
+              </div>
+            </div>
+            <div className="h-[250px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={inventory.map(w => ({ name: w.name_jp.slice(0, 10), profit: w.price_bottle - w.cost })).sort((a,b) => b.profit - a.profit).slice(0, 8)}>
+                  <XAxis dataKey="name" stroke="#D4AF37" fontSize={9} tickLine={false} axisLine={false} />
+                  <YAxis stroke="#D4AF37" fontSize={9} tickLine={false} axisLine={false} tickFormatter={(val) => `¥${val/1000}k`} />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#1A0505', border: '1px solid #D4AF37', borderRadius: '8px', fontSize: '10px' }}
+                    itemStyle={{ color: '#D4AF37' }}
+                  />
+                  <Bar dataKey="profit" fill="#D4AF37" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="glass-panel p-6 rounded-3xl border border-brand-gold/10 flex flex-col justify-between">
+            <div>
+              <h3 className="text-xs font-bold text-brand-gold uppercase tracking-widest">全体の利益率構成</h3>
+              <p className="text-[10px] text-gray-500 mt-1 uppercase">平均原価率: {Math.round(inventory.reduce((acc, w) => acc + (w.cost / w.price_bottle * 100), 0) / inventory.length)}%</p>
+            </div>
+            <div className="h-[200px] flex items-center justify-center">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={[
+                      { name: '40%以上', value: inventory.filter(w => (w.cost/w.price_bottle) > 0.4).length },
+                      { name: '30-40%', value: inventory.filter(w => (w.cost/w.price_bottle) > 0.3 && (w.cost/w.price_bottle) <= 0.4).length },
+                      { name: '30%未満', value: inventory.filter(w => (w.cost/w.price_bottle) <= 0.3).length },
+                    ]}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    <Cell fill="#7E1D1D" /> {/* Heavy Wine Color */}
+                    <Cell fill="#D4AF37" /> {/* Gold */}
+                    <Cell fill="#2F4F4F" /> {/* Dark Slate */}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-tighter">
+                 <span className="text-brand-gold">Profitability:</span>
+                 <span className="text-brand-ivory">{inventory.filter(w => w.price_bottle > w.cost * 3).length} High Yield Items</span>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
       <div className="grid gap-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-brand-gold/20 pb-3 mb-2 gap-4">
           <h3 className="text-xs font-bold uppercase tracking-widest text-brand-gold flex items-center justify-center md:justify-start gap-2">
@@ -278,35 +390,93 @@ export const OwnerView: React.FC = () => {
                     <div className="text-[10px] md:text-[11px] text-brand-gold/60 font-mono tracking-tighter font-bold uppercase mt-1">
                       {wine.grape} • {wine.vintage}
                     </div>
-                    <div className="text-[11px] md:text-xs text-brand-ivory/80 font-bold mt-1.5 flex items-center gap-3">
-                      <span className="bg-brand-gold/10 px-2 py-0.5 rounded border border-brand-gold/20">BTL: ¥{wine.price_bottle?.toLocaleString()}</span>
-                    </div>
+                    
+                    {editingWineId === wine.id ? (
+                      <div className="mt-3 grid grid-cols-3 gap-2 animate-in fade-in slide-in-from-left duration-300">
+                        <div>
+                          <label className="text-[8px] text-brand-gold/60 uppercase block">Bottle</label>
+                          <input 
+                            type="number"
+                            className="w-full bg-white/10 border border-brand-gold/30 rounded px-2 py-1 text-xs text-brand-ivory outline-none"
+                            value={editWineData.price_bottle}
+                            onChange={e => setEditWineData({...editWineData, price_bottle: parseInt(e.target.value)}) }
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[8px] text-brand-gold/60 uppercase block">Glass</label>
+                          <input 
+                            type="number"
+                            className="w-full bg-white/10 border border-brand-gold/30 rounded px-2 py-1 text-xs text-brand-ivory outline-none"
+                            value={editWineData.price_glass}
+                            onChange={e => setEditWineData({...editWineData, price_glass: parseInt(e.target.value)}) }
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[8px] text-brand-gold/60 uppercase block">Stock</label>
+                          <input 
+                            type="number"
+                            className="w-full bg-white/10 border border-brand-gold/30 rounded px-2 py-1 text-xs text-brand-ivory outline-none"
+                            value={editWineData.stock}
+                            onChange={e => setEditWineData({...editWineData, stock: parseInt(e.target.value)}) }
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-[10px] text-brand-ivory/80 font-bold mt-2 flex flex-wrap items-center gap-2">
+                        <span className="bg-brand-gold/5 px-2 py-0.5 rounded border border-brand-gold/10">BTL: ¥{wine.price_bottle?.toLocaleString()}</span>
+                        <span className="bg-brand-gold/5 px-2 py-0.5 rounded border border-brand-gold/10">GLS: ¥{wine.price_glass?.toLocaleString()}</span>
+                        <span className="bg-brand-gold/5 px-2 py-0.5 rounded border border-brand-gold/10">STOCK: {wine.stock}</span>
+                        <span className="text-[9px] text-brand-gold/40">MAR: {Math.round((wine.price_bottle - wine.cost) / wine.price_bottle * 100)}%</span>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                  <button
-                    onClick={() => handleGenerateAI(wine)}
-                    className="p-2.5 text-brand-gold hover:bg-brand-gold hover:text-brand-wine rounded-xl transition-all border border-brand-gold/30 shadow-[0_0_10px_rgba(212,175,55,0.1)]"
-                    title="AIインテリジェンス"
-                  >
-                    <Sparkles className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleToggleActive(wine.id, wine.isActive || false)}
-                    className={`p-2.5 rounded-xl transition-all border flex items-center justify-center shrink-0 ${
-                      wine.isActive 
-                      ? 'border-brand-gold bg-brand-gold/10 text-brand-gold shadow-[0_0_15px_rgba(212,175,55,0.2)]' 
-                      : 'border-white/10 bg-white/5 text-gray-600'
-                    }`}
-                  >
-                    {wine.isActive ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                  </button>
-                  <button
-                    onClick={() => handleDeleteWine(wine.id)}
-                    className="p-2.5 text-red-400 hover:bg-red-500 hover:text-white rounded-xl transition-all border border-red-500/20 hover:border-red-500"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  {editingWineId === wine.id ? (
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => setEditingWineId(null)} className="p-2 text-gray-400 hover:text-white transition-colors">キャンセル</button>
+                      <button 
+                        onClick={() => handleSaveWineEdit(wine.id)}
+                        className="bg-brand-gold text-brand-wine px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2"
+                      >
+                        {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                        保存
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => startEditingWine(wine)}
+                        className="p-2.5 text-brand-gold/60 hover:text-brand-gold hover:bg-brand-gold/10 rounded-xl transition-all border border-brand-gold/10"
+                        title="価格・在庫編集"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleGenerateAI(wine)}
+                        className="p-2.5 text-brand-gold hover:bg-brand-gold hover:text-brand-wine rounded-xl transition-all border border-brand-gold/30 shadow-[0_0_10px_rgba(212,175,55,0.1)]"
+                        title="AIインテリジェンス"
+                      >
+                        <Sparkles className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleToggleActive(wine.id, wine.isActive || false)}
+                        className={`p-2.5 rounded-xl transition-all border flex items-center justify-center shrink-0 ${
+                          wine.isActive 
+                          ? 'border-brand-gold bg-brand-gold/10 text-brand-gold shadow-[0_0_15px_rgba(212,175,55,0.2)]' 
+                          : 'border-white/10 bg-white/5 text-gray-600'
+                        }`}
+                      >
+                        {wine.isActive ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteWine(wine.id)}
+                        className="p-2.5 text-red-400 hover:bg-red-500 hover:text-white rounded-xl transition-all border border-red-500/20 hover:border-red-500"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             ))}
