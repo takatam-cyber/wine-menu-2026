@@ -304,8 +304,9 @@ export const AdminView: React.FC = () => {
       // Try decoding with UTF-8 first
       try {
         const decoded = decoders[0].decode(buffer);
-        // Basic check for mojibake replacements or common broken chars
-        if (decoded.includes('') || decoded.includes('ｿ')) {
+        // \ufffd is the replacement character for invalid UTF-8
+        // 'ｿ' (half-width so) is often a sign of mojibake when S-JIS is read as UTF-8
+        if (decoded.includes('\ufffd') || decoded.includes('ｿ')) {
           resultsCsv = decoders[1].decode(buffer);
           usedSjis = true;
         } else {
@@ -335,14 +336,18 @@ export const AdminView: React.FC = () => {
               });
 
               const getString = (keys: string[]) => {
-                const key = keys.find(k => normalizedRow[k] !== undefined);
-                return key ? String(normalizedRow[key]).trim() : '';
+                const key = keys.find(k => normalizedRow[k] !== undefined && normalizedRow[k] !== null);
+                if (!key) return '';
+                const val = normalizedRow[key];
+                return String(val).trim();
               };
               const getNumber = (keys: string[]) => {
-                const key = keys.find(k => normalizedRow[k] !== undefined);
+                const key = keys.find(k => normalizedRow[k] !== undefined && normalizedRow[k] !== null);
                 if (!key) return 0;
                 const val = normalizedRow[key];
-                return typeof val === 'number' ? val : parseFloat(String(val).replace(/[^0-9.]/g, '')) || 0;
+                if (typeof val === 'number') return val;
+                const strVal = String(val).replace(/[^0-9.]/g, '');
+                return parseFloat(strVal) || 0;
               };
 
               return {
