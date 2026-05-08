@@ -182,7 +182,7 @@ export const CustomerView: React.FC = () => {
   if (inventory.length === 0) {
     return (
       <div className="min-h-screen bg-brand-wine flex flex-col items-center justify-center p-8 text-center text-brand-gold overflow-hidden">
-        {/* Animated background elements */}
+        {/* Animated background elements for premium feel */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -top-24 -left-24 w-96 h-96 bg-brand-gold/5 rounded-full blur-3xl animate-pulse" />
           <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-brand-gold/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
@@ -191,7 +191,7 @@ export const CustomerView: React.FC = () => {
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1 }}
+          transition={{ duration: 1.2, ease: "easeOut" }}
           className="relative z-10"
         >
           <motion.div 
@@ -199,45 +199,63 @@ export const CustomerView: React.FC = () => {
             transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
             className="mb-12 relative inline-block"
           >
-            <div className="absolute inset-0 bg-brand-gold/20 blur-2xl rounded-full scale-150 opacity-50" />
-            <Wine className="w-24 h-24 text-brand-gold/30 relative z-10" strokeWidth={1} />
+            <div className="absolute inset-0 bg-brand-gold/20 blur-2xl rounded-full scale-150 opacity-30" />
+            <Wine className="w-20 h-20 text-brand-gold/40 relative z-10" strokeWidth={0.5} />
             <motion.div
-              animate={{ opacity: [0.2, 0.6, 0.2] }}
+              animate={{ opacity: [0.3, 0.7, 0.3] }}
               transition={{ duration: 4, repeat: Infinity }}
               className="absolute -top-4 -right-4"
             >
-              <Sparkles className="w-10 h-10 text-brand-gold/40" />
+              <Sparkles className="w-8 h-8 text-brand-gold/50" />
             </motion.div>
           </motion.div>
 
-          <div className="space-y-6">
-            <h2 className="serif text-3xl md:text-4xl text-brand-gold mb-4 tracking-[0.2em] font-light leading-snug">
-              THE CELLAR IS<br/>
-              <span className="italic opacity-80 decoration-brand-gold/30 underline underline-offset-8 decoration-1 uppercase text-lg tracking-[0.4em]">Under Preparation</span>
-            </h2>
+          <div className="space-y-8">
+            <div>
+              <h2 className="serif text-3xl md:text-4xl text-brand-gold mb-2 tracking-[0.25em] font-light leading-snug uppercase">
+                THE CELLAR
+              </h2>
+              <div className="flex items-center justify-center gap-4">
+                <div className="h-px w-8 bg-brand-gold/30" />
+                <span className="italic opacity-60 serif text-xs tracking-[0.3em] uppercase">Under Selection</span>
+                <div className="h-px w-8 bg-brand-gold/30" />
+              </div>
+            </div>
             
-            <div className="w-12 h-px bg-brand-gold/40 mx-auto my-8" />
-            
-            <p className="text-[11px] text-brand-ivory/60 leading-relaxed max-w-[280px] mx-auto serif italic tracking-[0.2em] uppercase">
-              現在、ソムリエが在庫状況の最終確認および<br/>
-              ワインリストの調整を行っております。<br/>
-              まもなく公開されますので、少々お待ちください。
-            </p>
+            <div className="space-y-4">
+              <p className="text-[11px] text-brand-ivory/80 leading-relaxed max-w-[320px] mx-auto serif italic tracking-[0.15em] uppercase">
+                現在、ソムリエが在庫状況の最終確認および<br/>
+                ワインリストの調整を行っております。<br/>
+                まもなく公開されますので、少々お待ちください。
+              </p>
+              <p className="text-[10px] text-brand-gold/60 leading-relaxed max-w-[280px] mx-auto serif tracking-[0.1em]">
+                恐れ入りますが、お急ぎの場合は<br/>近くのスタッフまでお声がけください。
+              </p>
+            </div>
+
+            <div className="text-[9px] text-brand-gold/30 tracking-[0.4em] uppercase font-bold pt-4">
+              Est. Preparation Time: Moments
+            </div>
           </div>
 
-          <div className="mt-16 flex flex-col gap-4">
+          <div className="mt-20 flex flex-col gap-5 items-center">
              <button 
                 onClick={() => {
                   setLoading(true);
                   fetchStoreData();
                 }}
-                className="px-12 py-4 bg-brand-gold/10 border border-brand-gold/40 text-brand-gold text-[10px] uppercase tracking-[0.4em] rounded-full hover:bg-brand-gold/20 active:scale-95 transition-all font-bold backdrop-blur-md shadow-[0_0_30px_rgba(212,175,55,0.1)]"
+                className="px-14 py-4 bg-transparent border border-brand-gold/30 text-brand-gold text-[10px] uppercase tracking-[0.4em] rounded-full hover:bg-brand-gold/10 hover:border-brand-gold/60 active:scale-95 transition-all font-bold backdrop-blur-md shadow-lg"
               >
-                リストを更新
+                リストを更新する
               </button>
-              <p className="text-[9px] text-brand-gold/30 uppercase tracking-widest font-mono">
-                Store: {store.name}
-              </p>
+              
+              <div className="flex items-center gap-3 opacity-30">
+                <div className="w-1 h-1 rounded-full bg-brand-gold" />
+                <p className="text-[8px] text-brand-gold uppercase tracking-[0.5em] font-mono">
+                  {store.name}
+                </p>
+                <div className="w-1 h-1 rounded-full bg-brand-gold" />
+              </div>
           </div>
         </motion.div>
       </div>

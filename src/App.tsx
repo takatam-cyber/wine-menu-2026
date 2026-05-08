@@ -61,11 +61,6 @@ export default function App() {
       return <OwnerView />;
     }
     
-    // If someone is just looking at a store menu
-    if (storeIdParam && !viewAs) {
-      return <CustomerView />;
-    }
-
     switch (user.role) {
       case 'admin':
       case 'rep':
