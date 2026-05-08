@@ -6,7 +6,10 @@ import dotenv from "dotenv";
 import { rateLimit } from "express-rate-limit";
 import admin from "firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
-import firebaseConfig from "./firebase-applet-config.json";
+import { readFileSync } from "fs";
+const firebaseConfig = JSON.parse(
+  readFileSync(new URL("./firebase-applet-config.json", import.meta.url), "utf-8")
+);
 
 dotenv.config();
 
