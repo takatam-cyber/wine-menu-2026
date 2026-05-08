@@ -36,6 +36,11 @@ export default function App() {
     }
   }, [loading, user, storeIdParam, viewAs]);
 
+  // If a storeId is provided and no explicit role switcher is active, default to Customer View (for QR scanning simulation)
+  if (storeIdParam && !viewAs) {
+    return <CustomerView />;
+  }
+
   if (loading || isAnonLoading) {
     return (
       <div className="min-h-screen bg-brand-wine flex flex-col items-center justify-center gap-6">

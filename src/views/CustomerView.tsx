@@ -177,6 +177,31 @@ export const CustomerView: React.FC = () => {
     );
   }
 
+  if (inventory.length === 0) {
+    return (
+      <div className="min-h-screen bg-brand-wine flex flex-col items-center justify-center p-8 text-center text-brand-gold">
+        <motion.div 
+          animate={{ scale: [1, 1.1, 1], rotate: [0, 5, -5, 0] }}
+          transition={{ duration: 4, repeat: Infinity }}
+          className="relative mb-8"
+        >
+          <Wine className="w-20 h-20 text-brand-gold/20" />
+          <Sparkles className="absolute -top-2 -right-2 w-8 h-8 text-brand-gold/40 animate-pulse" />
+        </motion.div>
+        <h2 className="serif text-2xl mb-4 tracking-[0.2em] font-light">ただいまセラーを<br/>準備しております</h2>
+        <p className="text-[10px] text-brand-ivory/50 leading-relaxed max-w-[240px] serif italic tracking-widest uppercase">
+          ソムリエが在庫状況を確認しております。<br/>少々お待ちくださいませ。
+        </p>
+        <button 
+          onClick={fetchStoreData}
+          className="mt-12 px-10 py-4 border border-brand-gold/30 text-brand-gold text-[10px] uppercase tracking-[0.3em] rounded-full hover:bg-brand-gold/10 transition-all font-bold backdrop-blur-sm"
+        >
+          メニューを更新
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div id="customer-view" className="min-h-screen sleek-bg md:py-8 md:px-4 flex justify-center items-start md:items-center overflow-x-hidden">
       <div className="w-full md:max-w-[420px] md:h-[850px] md:phone-frame bg-brand-ivory overflow-hidden flex flex-col relative animate-in zoom-in duration-500 md:border md:border-brand-gold/20 md:rounded-[3rem] md:shadow-[0_0_100px_rgba(0,0,0,0.8)] min-h-screen md:min-h-0">

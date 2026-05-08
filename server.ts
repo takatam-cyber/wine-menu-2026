@@ -88,9 +88,15 @@ async function startServer() {
       const { userQuery, history, storeId } = req.body;
       if (!storeId) return res.status(400).json({ error: "storeId is required" });
 
-      const client = getAIClient();
-      
-      // 1. Fetch Store Inventory (Real-time Inventory Link)
+      let client;
+      try {
+        client = getAIClient();
+      } catch (e) {
+        return res.json({ 
+          message: "ただいまAIソムリエが休暇を頂いております（システム準備中）。時間を置いて再度お越しくださいませ。", 
+          buttons: ["最初から探す"] 
+        });
+      }
       // Fetch up to 100 active items to give AI a better selection
       const inventorySnap = await dbAdmin
         .collection("stores")
@@ -194,7 +200,7 @@ async function startServer() {
 ${wineContext}`;
 
       const model = client.getGenerativeModel({ 
-        model: "models/gemini-3-flash-preview",
+        model: "models/gemini-1.5-flash",
         systemInstruction
       });
 
@@ -258,8 +264,13 @@ ${wineContext}`;
   app.post("/api/staff-talk", authenticateUser, async (req, res) => {
     try {
       const { wine } = req.body;
-      const client = getAIClient();
-      const model = client.getGenerativeModel({ model: "models/gemini-3-flash-preview" });
+      let client;
+      try {
+        client = getAIClient();
+      } catch (e) {
+        return res.status(503).json({ error: "AIサービス準備中です。環境変数 MY_SOMMELIER_KEY を設定してください。" });
+      }
+      const model = client.getGenerativeModel({ model: "models/gemini-1.5-flash" });
       const prompt = `スタッフ向けの30秒セールストークを作成してください。
 ワイン: ${wine.name_jp}
 特徴: ${wine.ai_explanation}
@@ -276,8 +287,13 @@ ${wineContext}`;
   app.post("/api/social-post", authenticateUser, async (req, res) => {
     try {
       const { wine } = req.body;
-      const client = getAIClient();
-      const model = client.getGenerativeModel({ model: "models/gemini-3-flash-preview" });
+      let client;
+      try {
+        client = getAIClient();
+      } catch (e) {
+        return res.status(503).json({ error: "AIサービス準備中です。環境変数 MY_SOMMELIER_KEY を設定してください。" });
+      }
+      const model = client.getGenerativeModel({ model: "models/gemini-1.5-flash" });
       const prompt = `Instagram投稿用のキャプションを作成してください。
 ワイン: ${wine.name_jp}
 ハッシュタグを5つ含めて。150文字以内。`;
