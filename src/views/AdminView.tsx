@@ -320,7 +320,7 @@ export const AdminView: React.FC = () => {
         header: true,
         skipEmptyLines: true,
         dynamicTyping: true,
-        complete: (results) => {
+        complete: async (results) => {
           try {
             if (!results.data || results.data.length === 0) {
               throw new Error('CSVファイルにデータが見つかりません');
@@ -389,6 +389,11 @@ export const AdminView: React.FC = () => {
 
             setWines(importedWines);
             
+            // インポートした全銘柄を Firestore の winesMaster コレクションに保存
+            const saveMasterPromises = importedWines.map(wine => {
+              return setDoc(doc(db, 'winesMaster', wine.id), wine);
+            });
+            await Promise.all(saveMasterPromises);
             // If a store is selected, also add these wines to the store's inventory simulation/view
             if (selectedStoreId) {
               const newSelection = importedWines.map(w => ({

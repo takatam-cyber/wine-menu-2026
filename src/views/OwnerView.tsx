@@ -64,10 +64,10 @@ export const OwnerView: React.FC = () => {
   };
 
   useEffect(() => {
-    if (user && wines.length > 0) {
+    if (user) {
       fetchData();
     }
-  }, [user, wines]);
+  }, [user]);
 
   const handleUpdateStore = async () => {
     if (!sid || !user?.uid) return;
