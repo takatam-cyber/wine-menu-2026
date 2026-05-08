@@ -121,48 +121,76 @@ async function startServer() {
         availableWines.push(...winesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() as any })));
       }
 
-      // 3. Keyword Extraction for filtered RAG
+      // 3. Flavor Mapping Analysis (Sophisticated Inference)
       const analyzerModel = client.getGenerativeModel({ model: "models/gemini-1.5-flash" });
-      const analysisResult = await analyzerModel.generateContent(`
-        ユーザーの要望から検索ワード(色,タイプ,料理,産地等)を3-5個抽出してJSONで返してください。
-        例: {"keywords": ["赤", "フルボディ", "牛肉", "ボルドー"]}
+      const mappingResult = await analyzerModel.generateContent(`
+        ユーザーの要望を分析し、最適なワインのプロファイルを作成してください。
+        以下のJSON形式で返答してください：
+        {
+          "keywords": ["抽出されたキーワード1", "キーワード2"],
+          "profile": {
+            "sweetness": 1, // 1(ドライ) - 5(極甘口)
+            "body": 3,      // 1(ライト) - 5(フル)
+            "acidity": 3,   // 1(低) - 5(高)
+            "tannins": 3    // 1(低) - 5(高)
+          },
+          "mood": "この要望にぴったりのシチュエーションを一言で"
+        }
         要望: ${userQuery}
       `);
       
-      let keywords: string[] = [];
+      let mapping: any = { keywords: [], profile: {} };
       try {
-        const text = analysisResult.response.text();
+        const text = mappingResult.response.text();
         const jsonMatch = text.match(/\{.*\}/s);
-        if (jsonMatch) keywords = JSON.parse(jsonMatch[0]).keywords || [];
+        if (jsonMatch) mapping = JSON.parse(jsonMatch[0]);
       } catch (e) {}
 
-      // 4. Precision RAG Filtering (Enterprise-grade ranking)
+      // 4. Mathematical Flavor Logic (Distance-based Ranking)
       const rankedWines = availableWines.map(w => {
+        let score = 0;
+        
+        // Characteristic Match (Euclidean-ish distance)
+        if (mapping.profile) {
+          const charDiff = 
+            Math.abs((w.sweetness || 1) - (mapping.profile.sweetness || 3)) +
+            Math.abs((w.body || 3) - (mapping.profile.body || 3)) +
+            Math.abs((w.acidity || 3) - (mapping.profile.acidity || 3)) +
+            Math.abs((w.tannins || 3) - (mapping.profile.tannins || 3));
+          score += (10 - charDiff); // Lower diff = higher score
+        }
+
+        // Keyword Match Boost
         const wineStr = JSON.stringify(w).toLowerCase();
-        const matches = keywords.filter(k => wineStr.includes(k.toLowerCase())).length;
-        return { wine: w, matches };
-      }).sort((a, b) => b.matches - a.matches);
+        const keywordMatches = mapping.keywords?.filter((k: string) => wineStr.includes(k.toLowerCase())).length || 0;
+        score += (keywordMatches * 5);
+
+        return { wine: w, score };
+      }).sort((a, b) => b.score - a.score);
 
       const filteredWines = rankedWines
-        .filter(r => r.matches > 0 || keywords.length === 0)
-        .map(r => r.wine)
-        .slice(0, 20); // Give AI a slightly larger selection of the most relevant items
+        .slice(0, 15)
+        .map(r => r.wine);
 
       const wineContext = filteredWines
-        .map(w => `[ID:${w.id}] ${w.name_jp} | タイトル:${w.name_en} | 品種:${w.grape} | 合う料理:${w.pairing} | 価格:¥${Number(w.price_bottle).toLocaleString()}`)
+        .map(w => `[ID:${w.id}] ${w.name_jp} | 特徴:${w.ai_explanation} | 品種:${w.grape} | 価格:¥${Number(w.price_bottle).toLocaleString()}`)
         .join("\n");
 
-      const systemInstruction = `あなたはピーロート・ジャパンの高級AIソムリエです。
-以下の実在庫リストから、ユーザーの要望に最も合うワインを3本選び、[SELECT:商品ID] を使用して提案してください。
+      const systemInstruction = `あなたはピーロート・ジャパンの専属シニアソムリエです。
+高級ホテルのラウンジでお客様をお迎えするように、優雅で、それでいて情熱的にワインを提案してください。
+
+【お客様のご要望に対する分析（Mapping）】
+- 推奨理由には、お客様が大切にされている「香り」や「ムード」に触れてください。
+- ピーロートのブランドカラーである「信頼と革新」を体現するような言葉遣いを。
 
 【出力の鉄則】
-1. 挨拶や自己紹介は一切不要。
+1. 挨拶や自己紹介（「私はソムリエです」等）は不要。即座に提案に入ってください。
 2. 提案形式: 「ワイン名 [SELECT:ID]」
-3. 解説は100文字以内で極めて簡潔に。
-4. リスト外のワイン提案は絶対に禁止。
+3. 解説は100文字以内で、非常に情緒的かつプロフェッショナルに。
+4. 提供可能リスト外のワインは、たとえ知識として知っていても絶対に提案しないでください。
 5. 返答の末尾は必ず [SELECT:ID] または [BUTTON:ラベル] で終わらせてください。
 
-【提供可能在庫リスト】
+【本日ご提案可能なセラー（実在庫）】
 ${wineContext}`;
 
       const model = client.getGenerativeModel({ 

@@ -14,7 +14,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import Papa from 'papaparse';
 
 export const AdminView: React.FC = () => {
-  const { wines, setWines, user, stores, refreshStores, refreshWines, hasMoreStores, hasMoreWines } = useWines();
+  const { wines, setWines, user, stores, refreshStores, refreshWines, searchMasterWines, hasMoreStores, hasMoreWines } = useWines();
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
   const [searchId, setSearchId] = useState('');
   const [selectedWines, setSelectedWines] = useState<WineMaster[]>([]);
@@ -32,6 +32,20 @@ export const AdminView: React.FC = () => {
   const [showCatalogSelection, setShowCatalogSelection] = useState(false);
   const [selectedMasterIds, setSelectedMasterIds] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleSearchMaster = (term: string) => {
+    setMasterSearchTerm(term);
+    const timeout = setTimeout(() => {
+      searchMasterWines(term);
+    }, 500);
+    return () => clearTimeout(timeout);
+  };
+
+  useEffect(() => {
+    if (showMasterCatalog && masterSearchTerm === '') {
+      refreshWines(false);
+    }
+  }, [showMasterCatalog, masterSearchTerm, refreshWines]);
   
   const handleLoadMoreStores = () => {
     refreshStores(true, 12);
@@ -394,11 +408,17 @@ export const AdminView: React.FC = () => {
 
             setWines(importedWines);
             
-            // インポートした全銘柄を Firestore の winesMaster コレクションに保存
-            const saveMasterPromises = importedWines.map(wine => {
-              return setDoc(doc(db, 'winesMaster', wine.id), wine);
-            });
-            await Promise.all(saveMasterPromises);
+            // インポートした全銘柄を Firestore の winesMaster コレクションに保存 (チャンク分割して実行)
+            const CHUNK_SIZE = 50;
+            for (let i = 0; i < importedWines.length; i += CHUNK_SIZE) {
+              const chunk = importedWines.slice(i, i + CHUNK_SIZE);
+              const saveMasterPromises = chunk.map(wine => {
+                return setDoc(doc(db, 'winesMaster', wine.id), wine);
+              });
+              await Promise.all(saveMasterPromises);
+              console.log(`[Import] Saved chunk ${i / CHUNK_SIZE + 1}...`);
+            }
+
             // If a store is selected, also add these wines to the store's inventory simulation/view
             if (selectedStoreId) {
               const newSelection = importedWines.map(w => ({
@@ -543,10 +563,10 @@ export const AdminView: React.FC = () => {
                 <div className="relative flex-1 w-full">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input 
-                    placeholder="ワイン名、産地、品種、商品コードでマスターを検索..."
+                    placeholder="ワイン名でマスターを検索 (前方一致)..."
                     className="w-full bg-slate-50 border border-slate-200 rounded-full pl-12 pr-6 py-3 text-sm outline-none focus:border-brand-wine transition-all"
                     value={masterSearchTerm}
-                    onChange={e => setMasterSearchTerm(e.target.value)}
+                    onChange={e => handleSearchMaster(e.target.value)}
                   />
                 </div>
                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
@@ -555,13 +575,7 @@ export const AdminView: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {wines.filter(w => 
-                  w.name_jp.toLowerCase().includes(masterSearchTerm.toLowerCase()) ||
-                  w.name_en.toLowerCase().includes(masterSearchTerm.toLowerCase()) ||
-                  w.country.toLowerCase().includes(masterSearchTerm.toLowerCase()) ||
-                  w.grape.toLowerCase().includes(masterSearchTerm.toLowerCase()) ||
-                  w.id.toLowerCase().includes(masterSearchTerm.toLowerCase())
-                ).map(wine => (
+                {wines.map(wine => (
                   <div key={wine.id} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex gap-4 group hover:border-brand-wine transition-all">
                     <div className="w-16 h-24 bg-slate-50 rounded-xl flex items-center justify-center p-2 border border-slate-100 shrink-0">
                       <img src={wine.image_url} alt="" className="h-full object-contain" />

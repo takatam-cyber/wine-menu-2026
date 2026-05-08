@@ -6,7 +6,7 @@ import { AISommelier } from '../components/AISommelier';
 import { db } from '../lib/firebase';
 import { doc, getDoc, collection, getDocs, query, where, setDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
-import { ChevronRight, Info, Wine, Utensils, Award, Loader2, Sparkles } from 'lucide-react';
+import { ChevronRight, Info, Wine, Utensils, Award, Loader2, Sparkles, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export const CustomerView: React.FC = () => {
@@ -59,7 +59,18 @@ export const CustomerView: React.FC = () => {
 
   const [isOrdering, setIsOrdering] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(false);
+  const [isCalling, setIsCalling] = useState(false);
+  const [callSuccess, setCallSuccess] = useState(false);
 
+  const handleCallSommelier = () => {
+    setIsCalling(true);
+    // Simulate real notification delay
+    setTimeout(() => {
+      setIsCalling(false);
+      setCallSuccess(true);
+      setTimeout(() => setCallSuccess(false), 3000);
+    }, 1500);
+  };
   const fetchStoreData = async () => {
     const params = new URLSearchParams(window.location.search);
     const storeId = params.get('storeId');
@@ -330,8 +341,18 @@ export const CustomerView: React.FC = () => {
                  </motion.button>
                )}
              </AnimatePresence>
-             <button className="w-full bg-brand-gold text-brand-wine py-4 rounded-2xl font-bold text-[11px] tracking-[0.4em] uppercase border border-brand-gold shadow-[0_0_30px_rgba(212,175,55,0.3)] hover:scale-[1.02] active:scale-95 transition-all">
-               ソムリエを呼ぶ
+             <button 
+               onClick={handleCallSommelier}
+               disabled={isCalling}
+               className={`w-full py-4 rounded-2xl font-bold text-[11px] tracking-[0.4em] uppercase border shadow-md transition-all flex items-center justify-center gap-3 ${
+                 isCalling ? 'bg-slate-100 text-slate-400 border-slate-200' : 
+                 callSuccess ? 'bg-green-500 text-white border-green-600' :
+                 'bg-brand-gold text-brand-wine border-brand-gold shadow-[0_0_30px_rgba(212,175,55,0.3)] hover:scale-[1.02] active:scale-95'
+               }`}
+             >
+               {isCalling ? <Loader2 className="w-4 h-4 animate-spin" /> : 
+                callSuccess ? <CheckCircle2 className="w-4 h-4" /> : null}
+               {isCalling ? '通知中...' : callSuccess ? 'ソムリエが向かっています' : 'ソムリエを呼ぶ'}
              </button>
            </div>
         </div>
@@ -340,10 +361,15 @@ export const CustomerView: React.FC = () => {
         <AnimatePresence>
           {selectedWine && (
             <motion.div
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              transition={{ type: "spring", damping: 30, stiffness: 300 }}
+              initial={{ y: "100%", opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: "100%", opacity: 0 }}
+              transition={{ 
+                type: "spring", 
+                damping: 32, 
+                stiffness: 280,
+                mass: 1.2
+              }}
               className="absolute inset-x-0 bottom-0 top-0 md:top-12 z-[100] bg-black/98 backdrop-blur-3xl overflow-hidden flex flex-col md:rounded-t-[2.5rem] border-t border-brand-gold/30 shadow-[0_-20px_500px_rgba(0,0,0,1)]"
             >
               <div className="p-8 pb-4 flex justify-between items-center bg-black/40">

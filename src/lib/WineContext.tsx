@@ -12,6 +12,7 @@ interface WineContextType {
   stores: Store[];
   refreshStores: (isNext?: boolean, limitCount?: number) => Promise<void>;
   refreshWines: (isNext?: boolean, limitCount?: number) => Promise<void>;
+  searchMasterWines: (term: string) => Promise<void>;
   hasMoreStores: boolean;
   hasMoreWines: boolean;
 }
@@ -68,7 +69,7 @@ export const WineProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const refreshWines = async (isNext: boolean = false, limitCount: number = 50) => {
+  const refreshWines = async (isNext: boolean = false, limitCount: number = 20) => {
     const path = 'winesMaster';
     try {
       let q = query(collection(db, 'winesMaster'), limit(limitCount));
@@ -90,6 +91,27 @@ export const WineProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setHasMoreWines(querySnapshot.docs.length === limitCount);
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, path);
+    }
+  };
+
+  const searchMasterWines = async (term: string) => {
+    if (!term) {
+      refreshWines(false);
+      return;
+    }
+    setLoading(true);
+    try {
+      // Basic prefix search (case sensitive and limited in Firestore, better to use multiple queries or separate search index)
+      // Here we simulate by searching for ID match first, then filtering if small or just communicating limit
+      const q = query(collection(db, 'winesMaster'), where('name_jp', '>=', term), where('name_jp', '<=', term + '\uf8ff'), limit(20));
+      const snap = await getDocs(q);
+      const results = snap.docs.map(d => ({ id: d.id, ...d.data() } as WineMaster));
+      setWines(results);
+      setHasMoreWines(false);
+    } catch (error) {
+      console.error("Search error:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -161,6 +183,7 @@ export const WineProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     stores,
     refreshStores,
     refreshWines,
+    searchMasterWines,
     hasMoreStores,
     hasMoreWines
   }), [wines, user, loading, stores, hasMoreStores, hasMoreWines]);

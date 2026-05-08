@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AdminView } from './views/AdminView';
 import { OwnerView } from './views/OwnerView';
 import { CustomerView } from './views/CustomerView';
@@ -7,18 +7,36 @@ import { useWines } from './lib/WineContext';
 import { Role } from './types';
 import { User, Shield, Wine, Menu as MenuIcon, X, LogOut, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { logout } from './lib/firebase';
+import { logout, signInAnonymously, auth } from './lib/firebase';
 
 export default function App() {
   const { user, loading } = useWines();
   const [showRoleSwitcher, setShowRoleSwitcher] = useState(false);
+  const [isAnonLoading, setIsAnonLoading] = useState(false);
 
   // Preview / Simulation logic
   const params = new URLSearchParams(window.location.search);
   const viewAs = params.get('view_as');
   const storeIdParam = params.get('storeId');
 
-  if (loading) {
+  // Trigger anonymous login for customers if no user is present but storeId is provided
+  useEffect(() => {
+    if (!loading && !user && storeIdParam && !viewAs) {
+      const performAnonLogin = async () => {
+        setIsAnonLoading(true);
+        try {
+          await signInAnonymously(auth);
+        } catch (e) {
+          console.error("Anonymous login failed:", e);
+        } finally {
+          setIsAnonLoading(false);
+        }
+      };
+      performAnonLogin();
+    }
+  }, [loading, user, storeIdParam, viewAs]);
+
+  if (loading || isAnonLoading) {
     return (
       <div className="min-h-screen bg-brand-wine flex flex-col items-center justify-center gap-6">
         <Loader2 className="w-12 h-12 animate-spin text-brand-gold" />

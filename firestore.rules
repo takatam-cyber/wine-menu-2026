@@ -39,7 +39,11 @@ service cloud.firestore {
 
     // --- 2. Stores ---
     match /stores/{storeId} {
-      allow get: if true; 
+      // REQUIRE authentication for get to comply with professional security standards.
+      // NOTE: For best security, sensitive data like "owner_api_key" should be stored in 
+      // a separate, restrictive subcollection (e.g. stores/{storeId}/private/config) 
+      // where read is restricted to Admin/Owner only.
+      allow get: if isSignedIn(); 
       allow list: if isSignedIn();
       allow create: if isRep();
       allow update: if isAdmin() || 
