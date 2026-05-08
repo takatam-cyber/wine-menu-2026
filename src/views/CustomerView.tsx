@@ -181,25 +181,65 @@ export const CustomerView: React.FC = () => {
 
   if (inventory.length === 0) {
     return (
-      <div className="min-h-screen bg-brand-wine flex flex-col items-center justify-center p-8 text-center text-brand-gold">
+      <div className="min-h-screen bg-brand-wine flex flex-col items-center justify-center p-8 text-center text-brand-gold overflow-hidden">
+        {/* Animated background elements */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-24 -left-24 w-96 h-96 bg-brand-gold/5 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-brand-gold/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
+        </div>
+
         <motion.div 
-          animate={{ scale: [1, 1.1, 1], rotate: [0, 5, -5, 0] }}
-          transition={{ duration: 4, repeat: Infinity }}
-          className="relative mb-8"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 1 }}
+          className="relative z-10"
         >
-          <Wine className="w-20 h-20 text-brand-gold/20" />
-          <Sparkles className="absolute -top-2 -right-2 w-8 h-8 text-brand-gold/40 animate-pulse" />
+          <motion.div 
+            animate={{ scale: [1, 1.05, 1] }}
+            transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+            className="mb-12 relative inline-block"
+          >
+            <div className="absolute inset-0 bg-brand-gold/20 blur-2xl rounded-full scale-150 opacity-50" />
+            <Wine className="w-24 h-24 text-brand-gold/30 relative z-10" strokeWidth={1} />
+            <motion.div
+              animate={{ opacity: [0.2, 0.6, 0.2] }}
+              transition={{ duration: 4, repeat: Infinity }}
+              className="absolute -top-4 -right-4"
+            >
+              <Sparkles className="w-10 h-10 text-brand-gold/40" />
+            </motion.div>
+          </motion.div>
+
+          <div className="space-y-6">
+            <h2 className="serif text-3xl md:text-4xl text-brand-gold mb-4 tracking-[0.2em] font-light leading-snug">
+              THE CELLAR IS<br/>
+              <span className="italic opacity-80 decoration-brand-gold/30 underline underline-offset-8 decoration-1 uppercase text-lg tracking-[0.4em]">Under Preparation</span>
+            </h2>
+            
+            <div className="w-12 h-px bg-brand-gold/40 mx-auto my-8" />
+            
+            <p className="text-[11px] text-brand-ivory/60 leading-relaxed max-w-[280px] mx-auto serif italic tracking-[0.2em] uppercase">
+              現在、ソムリエが在庫状況の最終確認および<br/>
+              ワインリストの調整を行っております。<br/>
+              まもなく公開されますので、少々お待ちください。
+            </p>
+          </div>
+
+          <div className="mt-16 flex flex-col gap-4">
+             <button 
+                onClick={() => {
+                  setLoading(true);
+                  fetchStoreData();
+                }}
+                className="px-12 py-4 bg-brand-gold/10 border border-brand-gold/40 text-brand-gold text-[10px] uppercase tracking-[0.4em] rounded-full hover:bg-brand-gold/20 active:scale-95 transition-all font-bold backdrop-blur-md shadow-[0_0_30px_rgba(212,175,55,0.1)]"
+              >
+                リストを更新
+              </button>
+              <p className="text-[9px] text-brand-gold/30 uppercase tracking-widest font-mono">
+                Store: {store.name}
+              </p>
+          </div>
         </motion.div>
-        <h2 className="serif text-2xl mb-4 tracking-[0.2em] font-light">ただいまセラーを<br/>準備しております</h2>
-        <p className="text-[10px] text-brand-ivory/50 leading-relaxed max-w-[240px] serif italic tracking-widest uppercase">
-          ソムリエが在庫状況を確認しております。<br/>少々お待ちくださいませ。
-        </p>
-        <button 
-          onClick={fetchStoreData}
-          className="mt-12 px-10 py-4 border border-brand-gold/30 text-brand-gold text-[10px] uppercase tracking-[0.3em] rounded-full hover:bg-brand-gold/10 transition-all font-bold backdrop-blur-sm"
-        >
-          メニューを更新
-        </button>
       </div>
     );
   }
