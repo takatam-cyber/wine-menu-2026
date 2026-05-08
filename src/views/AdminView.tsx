@@ -418,24 +418,30 @@ export const AdminView: React.FC = () => {
                 return setDoc(doc(db, 'winesMaster', wine.id), wine);
               });
               await Promise.all(saveMasterPromises);
-              console.log(`[Import] Saved chunk ${i / CHUNK_SIZE + 1}...`);
+              console.log(`[Import] Saved master chunk ${i / CHUNK_SIZE + 1}...`);
             }
 
-            // If a store is selected, also add these wines to the store's inventory simulation/view
+            // If a store is selected, also add these wines to the store's inventory in Firestore
             if (selectedStoreId) {
-              const newSelection = importedWines.map(w => ({
-                ...w,
-                price_bottle: w.price_bottle || Math.round(w.cost * 3 / 100) * 100,
-                price_glass: w.price_glass || 0,
-                glasses_per_bottle: 6
-              }));
-              
-              // Avoid duplicates
-              setSelectedWines(prev => {
-                const prevIds = new Set(prev.map(p => p.id));
-                const filteredNew = newSelection.filter(n => !prevIds.has(n.id));
-                return [...prev, ...filteredNew];
-              });
+              for (let i = 0; i < importedWines.length; i += CHUNK_SIZE) {
+                const chunk = importedWines.slice(i, i + CHUNK_SIZE);
+                const saveInvPromises = chunk.map(wine => {
+                  const invItem = {
+                    id: wine.id,
+                    price_bottle: wine.price_bottle || Math.round(wine.cost * 3 / 100) * 100,
+                    price_glass: wine.price_glass || 0,
+                    glasses_per_bottle: 6,
+                    stock: wine.stock || 0,
+                    isActive: true,
+                    visible: true,
+                    updatedAt: new Date().toISOString()
+                  };
+                  return setDoc(doc(db, 'stores', selectedStoreId, 'inventory', wine.id), invItem);
+                });
+                await Promise.all(saveInvPromises);
+                console.log(`[Import] Saved inventory chunk ${i / CHUNK_SIZE + 1} for store ${selectedStoreId}...`);
+              }
+              await fetchStoreInventory(selectedStoreId);
             }
 
             setImportStatus({ 
@@ -728,6 +734,23 @@ export const AdminView: React.FC = () => {
                     className={`w-10 h-5 rounded-full transition-all relative ${editStoreData.hasAiSommelier ? 'bg-brand-gold' : 'bg-slate-300'}`}
                   >
                     <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${editStoreData.hasAiSommelier ? 'right-0.5' : 'left-0.5'}`} />
+                  </button>
+                </div>
+                <div className="flex flex-col items-center justify-center bg-white p-6 rounded-2xl border border-slate-200 shadow-inner">
+                  <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">モバイル用QRコード</div>
+                  <div className="p-3 bg-white border border-slate-100 rounded-xl shadow-lg mb-4">
+                    <img 
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(window.location.origin + '/?storeId=' + selectedStoreId)}`}
+                      alt="Store QR Code"
+                      className="w-32 h-32"
+                    />
+                  </div>
+                  <button 
+                    onClick={() => window.open(`/?storeId=${selectedStoreId}`, '_blank')}
+                    className="text-[10px] text-brand-wine font-bold uppercase tracking-widest hover:underline flex items-center gap-2"
+                  >
+                    <Wine className="w-3.5 h-3.5" />
+                    メニューをプレビュー
                   </button>
                 </div>
                 <div>

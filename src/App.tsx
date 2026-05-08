@@ -36,12 +36,6 @@ export default function App() {
     }
   }, [loading, user, storeIdParam, viewAs]);
 
-  // If a storeId is provided (QR scan / Preview) or the user is a customer, 
-  // render CustomerView standalone without the global business shell.
-  if ((storeIdParam && (!viewAs || viewAs === 'customer')) || user?.role === 'customer') {
-    return <CustomerView />;
-  }
-
   if (loading || isAnonLoading) {
     return (
       <div className="min-h-screen bg-brand-wine flex flex-col items-center justify-center gap-6">
@@ -49,6 +43,12 @@ export default function App() {
         <p className="serif italic text-brand-gold/60 text-lg tracking-widest">AUTHENTICATING...</p>
       </div>
     );
+  }
+
+  // If a storeId is provided (QR scan / Preview) or the user is a customer, 
+  // render CustomerView standalone without the global business shell.
+  if ((storeIdParam && (!viewAs || viewAs === 'customer')) || user?.role === 'customer') {
+    return <CustomerView />;
   }
 
   if (!user) {
