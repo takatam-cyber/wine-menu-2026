@@ -19,6 +19,8 @@ export const CustomerView: React.FC = () => {
   const [showReturnToAI, setShowReturnToAI] = useState(false);
   const [showReturnFloating, setShowReturnFloating] = useState(false);
   const [isSommelierOpen, setIsSommelierOpen] = useState(false);
+  const [sortBy, setSortBy] = useState<'price_asc' | 'price_desc' | 'vintage'>('price_asc');
+  const [filterColor, setFilterColor] = useState<string>('all');
 
   // スクロール監視
   useEffect(() => {
@@ -202,6 +204,15 @@ export const CustomerView: React.FC = () => {
     );
   }
 
+  const displayedInventory = [...inventory]
+    .filter(w => filterColor === 'all' || w.color === filterColor)
+    .sort((a, b) => {
+      if (sortBy === 'price_asc') return a.price_bottle - b.price_bottle;
+      if (sortBy === 'price_desc') return b.price_bottle - a.price_bottle;
+      if (sortBy === 'vintage') return (b.vintage || '').localeCompare(a.vintage || '');
+      return 0;
+    });
+
   return (
     <div id="customer-view" className="min-h-screen sleek-bg md:py-8 md:px-4 flex justify-center items-start md:items-center overflow-x-hidden">
       <div className="w-full md:max-w-[420px] md:h-[850px] md:phone-frame bg-brand-ivory overflow-hidden flex flex-col relative animate-in zoom-in duration-500 md:border md:border-brand-gold/20 md:rounded-[3rem] md:shadow-[0_0_100px_rgba(0,0,0,0.8)] min-h-screen md:min-h-0">
@@ -245,15 +256,19 @@ export const CustomerView: React.FC = () => {
               <h4 className="serif text-brand-gold italic text-[10px] mb-0.5 tracking-[0.2em] opacity-80 font-light">{store.name}</h4>
               <h3 className="text-lg font-serif tracking-[0.3em] text-brand-gold uppercase">蔵出しワインリスト</h3>
             </div>
-            <button 
-              onClick={() => setIsSommelierOpen(true)}
-              className="flex flex-col items-center gap-1 text-brand-gold hover:opacity-80 transition-all group"
-            >
-              <div className="w-10 h-10 rounded-full bg-brand-gold/10 flex items-center justify-center border border-brand-gold/20 group-hover:scale-110 transition-transform">
-                <Sparkles className="w-5 h-5" />
-              </div>
-              <span className="text-[8px] font-bold tracking-tighter">AIソムリエ</span>
-            </button>
+            {store.hasAiSommelier !== false ? (
+              <button 
+                onClick={() => setIsSommelierOpen(true)}
+                className="flex flex-col items-center gap-1 text-brand-gold hover:opacity-80 transition-all group"
+              >
+                <div className="w-10 h-10 rounded-full bg-brand-gold/10 flex items-center justify-center border border-brand-gold/20 group-hover:scale-110 transition-transform">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <span className="text-[8px] font-bold tracking-tighter">AIソムリエ</span>
+              </button>
+            ) : (
+              <div className="w-10" />
+            )}
           </header>
 
           {/* Scrollable Content */}
@@ -276,23 +291,59 @@ export const CustomerView: React.FC = () => {
             </AnimatePresence>
 
             {/* AI Sommelier Section */}
-            <AISommelier 
-              availableWines={inventory} 
-              storeId={store.id}
-              cuisineType={store.cuisine_type} 
-              onSelectWine={handleSelectWine}
-              isOpen={isSommelierOpen}
-              setIsOpen={setIsSommelierOpen}
-            />
+            {store.hasAiSommelier !== false && (
+              <AISommelier 
+                availableWines={inventory} 
+                storeId={store.id}
+                cuisineType={store.cuisine_type} 
+                onSelectWine={handleSelectWine}
+                isOpen={isSommelierOpen}
+                setIsOpen={setIsSommelierOpen}
+              />
+            )}
 
             <div className="space-y-6">
-              <div className="flex items-center justify-between border-b border-brand-gold/30 pb-2 mb-8">
-                <h2 className="serif text-2xl text-brand-wine tracking-tight">ソムリエ厳選銘柄</h2>
-                <span className="text-[10px] font-bold text-brand-gold uppercase tracking-[0.2em]">Digital List</span>
+              <div className="flex flex-col gap-4 border-b border-brand-gold/30 pb-4 mb-2">
+                <div className="flex items-center justify-between">
+                  <h2 className="serif text-2xl text-brand-wine tracking-tight">ソムリエ厳選銘柄</h2>
+                  <div className="flex items-center gap-2">
+                    <select 
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value as any)}
+                      className="bg-transparent text-[10px] font-bold text-brand-gold/80 uppercase tracking-widest outline-none border-none cursor-pointer hover:text-brand-gold transition-colors"
+                    >
+                      <option value="price_asc">価格が安い順</option>
+                      <option value="price_desc">価格が高い順</option>
+                      <option value="vintage">年号が新しい順</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                  {[
+                    { id: 'all', label: 'すべて' },
+                    { id: '赤', label: '赤ワイン' },
+                    { id: '白', label: '白ワイン' },
+                    { id: '泡', label: 'スパークリング' },
+                    { id: 'ロゼ', label: 'ロゼ' }
+                  ].map(tab => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setFilterColor(tab.id)}
+                      className={`px-4 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-widest transition-all shrink-0 border ${
+                        filterColor === tab.id 
+                          ? 'bg-brand-gold text-brand-wine border-brand-gold shadow-md' 
+                          : 'bg-white/50 text-brand-wine/60 border-brand-wine/10'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
               </div>
               
               <div className="grid gap-6">
-                {inventory.map((wine) => (
+                {displayedInventory.map((wine) => (
                   <motion.div
                     key={wine.id}
                     id={`wine-${wine.id}`}
@@ -353,19 +404,21 @@ export const CustomerView: React.FC = () => {
         <div className="absolute bottom-8 inset-x-6 md:inset-x-8 z-40 bg-gradient-to-t from-brand-ivory via-brand-ivory to-transparent pt-12 pointer-events-none">
            <div className="flex flex-col gap-3 pointer-events-auto">
              <AnimatePresence>
-               {showReturnToAI && (
-                 <motion.button
-                   initial={{ opacity: 0, y: 20 }}
-                   animate={{ opacity: 1, y: 0 }}
-                   exit={{ opacity: 0, y: 20 }}
-                   onClick={() => setIsSommelierOpen(true)}
-                   className="w-full bg-white/90 backdrop-blur-md text-brand-wine py-3 rounded-2xl font-bold text-[10px] tracking-[0.2em] uppercase border border-brand-gold/30 shadow-lg flex items-center justify-center gap-2 hover:bg-white transition-all shadow-[0_4px_20px_rgba(212,175,55,0.2)]"
-                 >
-                   <Sparkles className="w-3 h-3 text-brand-gold" />
-                   ソムリエに相談する
-                 </motion.button>
-               )}
-             </AnimatePresence>
+                {showReturnToAI && store.hasAiSommelier !== false && (
+                  <motion.button
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 20 }}
+                    onClick={() => setIsSommelierOpen(true)}
+                    className="w-full bg-white/90 backdrop-blur-md text-brand-wine py-3 rounded-2xl font-bold text-[10px] tracking-[0.2em] uppercase border border-brand-gold/30 shadow-lg flex items-center justify-center gap-2 hover:bg-white transition-all shadow-[0_4px_20px_rgba(212,175,55,0.2)]"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-3 h-3 text-brand-gold" />
+                      ソムリエに相談する
+                    </div>
+                  </motion.button>
+                )}
+              </AnimatePresence>
              <button 
                onClick={handleCallSommelier}
                disabled={isCalling}

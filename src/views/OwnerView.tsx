@@ -36,7 +36,10 @@ export const OwnerView: React.FC = () => {
       if (storeDoc.exists()) {
         const storeData = { id: storeDoc.id, ...storeDoc.data() } as Store;
         setStore(storeData);
-        setEditStoreData(storeData);
+        setEditStoreData({
+          ...storeData,
+          hasAiSommelier: storeData.hasAiSommelier ?? true
+        });
       }
 
       // Fetch Inventory
@@ -77,7 +80,8 @@ export const OwnerView: React.FC = () => {
       await updateDoc(doc(db, 'stores', sid), {
         name: editStoreData.name,
         cuisine_type: editStoreData.cuisine_type,
-        address: editStoreData.address
+        address: editStoreData.address,
+        hasAiSommelier: editStoreData.hasAiSommelier ?? true
       });
 
       // Update User Profile Name if changed
@@ -195,6 +199,18 @@ export const OwnerView: React.FC = () => {
                   value={editStoreData.address || ''}
                   onChange={e => setEditStoreData({...editStoreData, address: e.target.value})}
                 />
+              </div>
+              <div className="flex items-center justify-between bg-white/5 p-4 rounded-xl border border-brand-gold/10">
+                <div>
+                  <div className="text-xs font-bold text-brand-gold uppercase tracking-wider">AIソムリエ機能を有効にする</div>
+                  <div className="text-[9px] text-gray-500 uppercase tracking-widest mt-0.5">お客様がチャットで相談できるようになります</div>
+                </div>
+                <button 
+                  onClick={() => setEditStoreData({...editStoreData, hasAiSommelier: !editStoreData.hasAiSommelier})}
+                  className={`w-12 h-6 rounded-full transition-all relative ${editStoreData.hasAiSommelier ? 'bg-brand-gold' : 'bg-gray-700'}`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${editStoreData.hasAiSommelier ? 'right-1' : 'left-1'}`} />
+                </button>
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <button onClick={() => setIsEditingStore(false)} className="px-4 py-2 text-[10px] uppercase font-bold text-gray-400 hover:text-white transition-colors">キャンセル</button>

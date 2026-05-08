@@ -184,6 +184,7 @@ export const AdminView: React.FC = () => {
         repId: user?.uid || '',
         cuisine_type: 'フレンチ',
         isActive: true,
+        hasAiSommelier: true,
         address: '〒106-0032 東京都港区六本木...'
       };
       
@@ -246,7 +247,8 @@ export const AdminView: React.FC = () => {
 
         await updateDoc(doc(db, 'stores', selectedStoreId), {
           ownerId: ownerUid,
-          owner_email: emailToUse
+          owner_email: emailToUse,
+          hasAiSommelier: true // Default for new stores
         });
 
         await signOut(secondaryAuth);
@@ -716,6 +718,18 @@ export const AdminView: React.FC = () => {
                     </button>
                   </div>
                 </div>
+                <div className="flex items-center justify-between bg-white p-3 rounded-lg border border-slate-200">
+                  <div>
+                    <div className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">AIソムリエ機能</div>
+                    <div className="text-[8px] text-slate-400 font-bold uppercase">有効にするとAI相談が可能</div>
+                  </div>
+                  <button 
+                    onClick={() => setEditStoreData({...editStoreData, hasAiSommelier: !editStoreData.hasAiSommelier})}
+                    className={`w-10 h-5 rounded-full transition-all relative ${editStoreData.hasAiSommelier ? 'bg-brand-gold' : 'bg-slate-300'}`}
+                  >
+                    <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${editStoreData.hasAiSommelier ? 'right-0.5' : 'left-0.5'}`} />
+                  </button>
+                </div>
                 <div>
                   <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">住所</label>
                   <input 
@@ -750,7 +764,8 @@ export const AdminView: React.FC = () => {
                         name: selectedStore?.name,
                         cuisine_type: selectedStore?.cuisine_type || 'フレンチ',
                         address: selectedStore?.address,
-                        isActive: selectedStore?.isActive
+                        isActive: selectedStore?.isActive,
+                        hasAiSommelier: selectedStore?.hasAiSommelier ?? true
                       });
                       setIsEditingStore(true);
                     }}

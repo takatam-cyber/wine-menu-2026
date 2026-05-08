@@ -46,6 +46,7 @@ export interface Store {
   cuisine_type: string;
   address?: string;
   isActive: boolean;
+  hasAiSommelier: boolean;
 }
 
 export type Role = 'admin' | 'rep' | 'owner' | 'customer';
