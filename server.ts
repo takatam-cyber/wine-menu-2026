@@ -58,7 +58,7 @@ const limiter = rateLimit({
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT || 8080;
 
   // Trust Cloud Run's proxy
   app.set("trust proxy", 1);
@@ -272,7 +272,7 @@ ${wineContext}`;
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  app.listen(Number(PORT), "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
 }
