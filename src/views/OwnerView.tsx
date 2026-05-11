@@ -499,10 +499,10 @@ export const OwnerView: React.FC = () => {
                                editWineData.isFeatured ? 'bg-brand-gold text-brand-wine border-brand-gold' : 'border-gray-700 text-gray-500'
                              }`}
                            >
-                              ★ Featured
+                              ★ おすすめ設定
                            </button>
                            <input 
-                              placeholder="Promo Label (e.g. Recommended)"
+                              placeholder="プロモーションラベル（例：今月のおすすめ）"
                               className="flex-1 bg-white/5 border border-brand-gold/20 rounded px-3 py-1 text-[10px] text-brand-ivory outline-none"
                               value={editWineData.promoLabel}
                               onChange={e => setEditWineData({...editWineData, promoLabel: e.target.value})}
@@ -511,10 +511,10 @@ export const OwnerView: React.FC = () => {
                       </>
                     ) : (
                       <div className="text-[10px] text-brand-ivory/80 font-bold mt-2 flex flex-wrap items-center gap-2">
-                        <span className="bg-brand-gold/5 px-2 py-0.5 rounded border border-brand-gold/10">BTL: ¥{wine.price_bottle?.toLocaleString()}</span>
-                        <span className="bg-brand-gold/5 px-2 py-0.5 rounded border border-brand-gold/10">GLS: ¥{wine.price_glass?.toLocaleString()}</span>
-                        <span className="bg-brand-gold/5 px-2 py-0.5 rounded border border-brand-gold/10">STOCK: {wine.stock}</span>
-                        <span className="text-[9px] text-brand-gold/40">MAR: {Math.round((wine.price_bottle - wine.cost) / wine.price_bottle * 100)}%</span>
+                        <span className="bg-brand-gold/5 px-2 py-0.5 rounded border border-brand-gold/10">ボトル: ¥{wine.price_bottle?.toLocaleString()}</span>
+                        <span className="bg-brand-gold/5 px-2 py-0.5 rounded border border-brand-gold/10">グラス: ¥{wine.price_glass?.toLocaleString()}</span>
+                        <span className="bg-brand-gold/5 px-2 py-0.5 rounded border border-brand-gold/10">在庫: {wine.stock}</span>
+                        <span className="text-[9px] text-brand-gold/40">粗利: {Math.round((wine.price_bottle - wine.cost) / wine.price_bottle * 100)}%</span>
                       </div>
                     )}
                   </div>

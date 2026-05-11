@@ -381,9 +381,16 @@ ${wineContext}`;
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.resolve(__dirname, "dist");
+    // In production, server.js is inside dist/
+    // The static assets (assets/, index.html, etc.) are also in dist/
+    const distPath = path.resolve(__dirname);
     app.use(express.static(distPath));
-    app.get("*", (req, res) => {
+    
+    // Catch-all route must be LAST and serve index.html from dist
+    app.get("*", (req, res, next) => {
+      // Skip if it's an API route (though they are defined earlier, good to be safe)
+      if (req.path.startsWith("/api/")) return next();
+      
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
