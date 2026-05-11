@@ -753,7 +753,7 @@ export const AdminView: React.FC = () => {
                   <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">モバイル用QRコード</div>
                   <div className="p-3 bg-white border border-slate-100 rounded-xl shadow-lg mb-4">
                     <img 
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(window.location.origin + '/menu/' + selectedStoreId)}`}
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(PRODUCTION_DOMAIN + '/menu/' + selectedStoreId)}`}
                       alt="Store QR Code"
                       className="w-48 h-48"
                     />
@@ -775,7 +775,7 @@ export const AdminView: React.FC = () => {
                     </button>
                     <button 
                       onClick={() => {
-                        const url = window.location.origin + '/menu/' + selectedStoreId;
+                        const url = PRODUCTION_DOMAIN + '/menu/' + selectedStoreId;
                         navigator.clipboard.writeText(url);
                         alert('URLをコピーしました');
                       }}

@@ -8,6 +8,7 @@ import { rateLimit } from "express-rate-limit";
 import admin from "firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
 import { readFileSync } from "fs";
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -67,16 +68,6 @@ async function startServer() {
 
   app.use(express.json());
   app.use("/api/", limiter);
-
-  // In production, serve assets explicitly to avoid MIME type issues
-  if (process.env.NODE_ENV === "production") {
-    const distPath = path.resolve(__dirname);
-    app.use("/assets", express.static(path.join(distPath, "assets"), {
-      setHeaders: (res) => {
-        res.set("X-Content-Type-Options", "nosniff");
-      }
-    }));
-  }
 
   // Safe client initialization
   let genAI: any = null;
@@ -411,17 +402,16 @@ ${wineContext}`;
     }
   });
 
-  // Vite Integration
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
-  } else {
-    // In production, server.js is inside dist/
-    // The static assets (assets/, index.html, etc.) are also in dist/
+  // In production, serve assets explicitly to avoid MIME type issues
+  if (process.env.NODE_ENV === "production") {
     const distPath = path.resolve(__dirname);
+    // Explicitly serve assets first
+    app.use("/assets", express.static(path.join(distPath, "assets"), {
+      setHeaders: (res) => {
+        res.set("X-Content-Type-Options", "nosniff");
+      }
+    }));
+    
     app.use(express.static(distPath));
     
     // Catch-all route must be LAST and serve index.html from dist
@@ -429,13 +419,20 @@ ${wineContext}`;
       // Skip if it's an API route
       if (req.path.startsWith("/api/")) return next();
       
-      // Skip if it looks like an asset request or a file with extension (to prevent MIME type errors)
+      // CRITICAL: Skip if it looks like a file or asset request (contains dot or starts with /assets/)
+      // to prevent serving index.html as a script/style/image (MIME type mismatch)
       if (req.path.includes(".") || req.path.startsWith("/assets/")) {
         return next();
       }
       
       res.sendFile(path.join(distPath, "index.html"));
     });
+  } else {
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: "spa",
+    });
+    app.use(vite.middlewares);
   }
 
   app.listen(Number(PORT), "0.0.0.0", () => {
