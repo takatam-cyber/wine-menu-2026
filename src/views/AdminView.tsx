@@ -15,6 +15,16 @@ import Papa from 'papaparse';
 
 const PRODUCTION_DOMAIN = "https://ais-pre-3hdh5bfu2wsxmjvi2wumqd-509939825672.asia-east1.run.app";
 
+const getBaseUrl = () => {
+  if (typeof window === 'undefined') return '';
+  const origin = window.location.origin;
+  // If in the internal editor OR cloud shell, use the shared URL as fallback
+  if (origin.includes('googleusercontent.com') || origin.includes('localhost') || origin.includes('cloudshell.dev') || origin.includes('asia-east1.run.app') && origin.includes('-vfs-')) {
+    return "https://ais-pre-3hdh5bfu2wsxmjvi2wumqd-509939825672.asia-east1.run.app";
+  }
+  return origin;
+};
+
 export const AdminView: React.FC = () => {
   const { wines, setWines, user, stores, refreshStores, refreshWines, searchMasterWines, hasMoreStores, hasMoreWines } = useWines();
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
@@ -753,7 +763,7 @@ export const AdminView: React.FC = () => {
                   <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">モバイル用QRコード</div>
                   <div className="p-3 bg-white border border-slate-100 rounded-xl shadow-lg mb-4">
                     <img 
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(PRODUCTION_DOMAIN + '/menu/' + selectedStoreId)}`}
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(getBaseUrl() + '/menu/' + selectedStoreId)}`}
                       alt="Store QR Code"
                       className="w-48 h-48"
                     />
@@ -767,7 +777,7 @@ export const AdminView: React.FC = () => {
                       店舗オーナーとして管理
                     </button>
                     <button 
-                      onClick={() => window.open(`/menu/${selectedStoreId}`, '_blank')}
+                      onClick={() => window.open(`${getBaseUrl()}/menu/${selectedStoreId}`, '_blank')}
                       className="w-full py-3 bg-brand-gold text-brand-wine rounded-xl text-[10px] font-bold uppercase tracking-widest hover:brightness-110 flex items-center justify-center gap-2 shadow-sm"
                     >
                       <Eye className="w-3.5 h-3.5" />
@@ -775,7 +785,7 @@ export const AdminView: React.FC = () => {
                     </button>
                     <button 
                       onClick={() => {
-                        const url = PRODUCTION_DOMAIN + '/menu/' + selectedStoreId;
+                        const url = getBaseUrl() + '/menu/' + selectedStoreId;
                         navigator.clipboard.writeText(url);
                         alert('URLをコピーしました');
                       }}
