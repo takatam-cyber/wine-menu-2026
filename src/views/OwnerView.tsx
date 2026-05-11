@@ -381,8 +381,8 @@ export const OwnerView: React.FC = () => {
 
           <div className="glass-panel p-6 rounded-3xl border border-brand-gold/10 flex flex-col justify-between">
             <div>
-              <h3 className="text-xs font-bold text-brand-gold uppercase tracking-widest">全体の利益率構成</h3>
-              <p className="text-[10px] text-gray-500 mt-1 uppercase">平均原価率: {Math.round(inventory.reduce((acc, w) => acc + (w.cost / w.price_bottle * 100), 0) / inventory.length)}%</p>
+              <h3 className="text-xs font-bold text-brand-gold uppercase tracking-widest">原価率別・銘柄構成</h3>
+              <p className="text-[10px] text-gray-500 mt-1 uppercase">平均原価率: {inventory.length > 0 ? Math.round(inventory.reduce((acc, w) => acc + (w.cost / w.price_bottle * 100), 0) / inventory.length) : 0}%</p>
             </div>
             <div className="h-[200px] flex items-center justify-center">
               <ResponsiveContainer width="100%" height="100%">
@@ -410,8 +410,8 @@ export const OwnerView: React.FC = () => {
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-tighter">
-                 <span className="text-brand-gold">収益性：</span>
-                 <span className="text-brand-ivory">{inventory.filter(w => w.price_bottle > w.cost * 3).length}件の高収益アイテム</span>
+                 <span className="text-brand-gold">ポテンシャル：</span>
+                 <span className="text-brand-ivory">{inventory.filter(w => w.price_bottle > w.cost * 3).length}件の高収益アイテムを検知</span>
               </div>
             </div>
           </div>

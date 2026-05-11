@@ -162,9 +162,8 @@ export default function App() {
   }
 
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* Redirect Root to proper place based on role */}
+    <Routes>
+      {/* Redirect Root to proper place based on role */}
         <Route path="/" element={
           (() => {
             const params = new URLSearchParams(window.location.search);
@@ -212,6 +211,5 @@ export default function App() {
         {/* Catch all */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </BrowserRouter>
-  );
+    );
 }

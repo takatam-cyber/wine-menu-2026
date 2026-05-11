@@ -1012,7 +1012,7 @@ export const AdminView: React.FC = () => {
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8">
           <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-            <p className="text-[10px] md:text-xs uppercase text-slate-400 font-bold mb-2 tracking-widest">管理中ボトル数</p>
+            <p className="text-[10px] md:text-xs uppercase text-slate-400 font-bold mb-2 tracking-widest">登録銘柄数</p>
             <h3 className="text-3xl md:text-4xl font-serif text-slate-900">{selectedWines.length.toLocaleString()} <span className="text-base md:text-lg text-slate-400">銘柄</span></h3>
             <div className="mt-6 h-1.5 md:h-2 w-full bg-slate-100 rounded-full overflow-hidden">
               <div 
@@ -1034,15 +1034,15 @@ export const AdminView: React.FC = () => {
             </div>
           </div>
           <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-            <p className="text-[10px] md:text-xs uppercase text-slate-400 font-bold mb-2 tracking-widest">AI提案 採用率</p>
+            <p className="text-[10px] md:text-xs uppercase text-slate-400 font-bold mb-2 tracking-widest">高収益アイテム割合</p>
             <h3 className="text-3xl md:text-4xl font-serif text-slate-900">
               {selectedWines.length > 0 
-                ? `${Math.round((selectedWines.filter(w => w.price_bottle >= w.cost * 2.8).length / selectedWines.length) * 100)}%`
+                ? `${Math.round((selectedWines.filter(w => w.price_bottle >= w.cost * 3).length / selectedWines.length) * 100)}%`
                 : "0%"
               }
             </h3>
             <p className="text-xs md:text-sm text-slate-500 mt-4 italic font-serif truncate">
-              {selectedWines.length > 0 ? "マスター推奨価格との一致率" : "データ未登録"}
+              {selectedWines.length > 0 ? "原価率33%以下の銘柄比率" : "データ未登録"}
             </p>
           </div>
         </div>
