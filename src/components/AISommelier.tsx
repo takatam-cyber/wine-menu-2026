@@ -67,8 +67,14 @@ export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, storeI
     try {
       const response = await getSommelierAdvice(userMessage, storeId, { 
         cuisine: cuisineType,
-        history: [...messages, { role: 'user', content: userMessage }]
+        history: [...messages.filter(m => m.role !== 'ai' || !m.content.includes('エラー詳細')), { role: 'user', content: userMessage }]
       });
+
+      // Check if it's an error message returned as a normal response
+      if (response.message.includes('エラー詳細')) {
+        setError(`ソムリエAI: ${response.message}`);
+      }
+
       setMessages((prev) => [...prev, { 
         role: 'ai', 
         content: response.message,

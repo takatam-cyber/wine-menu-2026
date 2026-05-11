@@ -109,9 +109,15 @@ async function startServer() {
       if (!storeDoc.exists) return res.status(404).json({ error: "Store not found" });
       const storeData = storeDoc.data();
 
-      // Authorization Check: Must be the store owner OR a system admin
-      const isAuthorized = caller.role === 'admin' || caller.role === 'rep' || caller.uid === storeData?.ownerId;
-      if (!isAuthorized && caller.role !== 'customer') {
+      // Authorization Check: Relaxed for customers and initial claims sync
+      const isAuthorized = 
+        caller.role === 'admin' || 
+        caller.role === 'rep' || 
+        caller.uid === storeData?.ownerId || 
+        caller.role === 'customer' || 
+        !caller.role; // Allow initial users without claims yet
+      
+      if (!isAuthorized) {
           return res.status(403).json({ error: "Forbidden: You do not have access to this store's AI features" });
       }
 
@@ -137,7 +143,7 @@ async function startServer() {
       
       if (inventoryIds.length === 0) {
         return res.json({ 
-          message: "申し訳ありません。現在、この店舗には提案可能な在庫がございません。", 
+          message: "現在、ソムリエがセラーを準備中です。後ほどお試しください。", 
           buttons: ["最初から探す"] 
         });
       }

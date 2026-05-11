@@ -49,10 +49,12 @@ export const WineProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await setDoc(docRef, profile);
       }
       setUser(profile);
+      setLoading(true); // Maintain loading while syncing
 
       // --- Sync Custom Claims for Enterprise-grade performance ---
       const idTokenResult = await auth.currentUser?.getIdTokenResult();
-      if (idTokenResult?.claims.role !== profile.role) {
+      // Force sync if role claim is missing or doesn't match profile
+      if (!idTokenResult?.claims.role || idTokenResult?.claims.role !== profile.role) {
         console.log(`[Enterprise] Syncing role claims for ${profile.role}...`);
         const idToken = await auth.currentUser?.getIdToken();
         await fetch('/api/auth/sync-claims', {
@@ -66,6 +68,8 @@ export const WineProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     } catch (error) {
       handleFirestoreError(error, OperationType.GET, docPath);
+    } finally {
+      setLoading(false);
     }
   };
 
