@@ -16,8 +16,20 @@ export async function getSommelierAdvice(
   context: { cuisine?: string; history?: { role: 'user' | 'ai'; content: string }[] } = {}
 ): Promise<AISommelierResponse> {
   try {
-    const idToken = await auth.currentUser?.getIdToken();
-    if (!idToken) throw new Error("認証が必要です。ログインし直してください。");
+    // Wait briefly if auth is still initializing
+    let currentUser = auth.currentUser;
+    if (!currentUser) {
+      // Small delay to allow onAuthStateChanged to fire if it's in progress
+      await new Promise(resolve => setTimeout(resolve, 500));
+      currentUser = auth.currentUser;
+    }
+
+    if (!currentUser) {
+      throw new Error("認証セッションが開始されていません。画面を再読み込みしてください。");
+    }
+
+    const idToken = await currentUser.getIdToken();
+    if (!idToken) throw new Error("認証トークンの取得に失敗しました。");
 
     const response = await fetch("/api/sommelier", {
       method: "POST",

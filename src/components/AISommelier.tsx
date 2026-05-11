@@ -76,7 +76,20 @@ export const AISommelier: React.FC<AISommelierProps> = ({ availableWines, storeI
         wineIds: response.wineIds
       }]);
     } catch (err: any) {
-      setError(err.message || 'エラーが発生しました');
+      console.error("Sommelier Error:", err);
+      let errorToast = "ソムリエとの接続に問題が発生しました。";
+      
+      if (err.message.includes('401') || err.message.includes('認証')) {
+        errorToast = "認証エラーが発生しました。一度画面を更新してください。";
+      } else if (err.message.includes('403')) {
+        errorToast = "アクセス権限がありません。";
+      } else if (err.message.includes('500')) {
+        errorToast = "サーバー内部エラーが発生しました。しばらくお待ちください。";
+      } else if (err.message) {
+        errorToast = `エラー: ${err.message}`;
+      }
+      
+      setError(errorToast);
     } finally {
       setLoading(false);
     }

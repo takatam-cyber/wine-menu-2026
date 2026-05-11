@@ -4,7 +4,8 @@ import { WineMaster, Store } from '../types';
 import { useWines } from '../lib/WineContext';
 import { WineProfile } from '../components/WineProfile';
 import { AISommelier } from '../components/AISommelier';
-import { db } from '../lib/firebase';
+import { db, auth } from '../lib/firebase';
+import { signInAnonymously } from 'firebase/auth';
 import { doc, getDoc, collection, getDocs, query, where, setDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { ChevronRight, Info, Wine, Utensils, Award, Loader2, Sparkles, CheckCircle2, Search, AlertCircle, Edit2 } from 'lucide-react';
@@ -30,6 +31,19 @@ export const CustomerView: React.FC = () => {
   useEffect(() => {
     const finalStoreId = routeStoreId || new URLSearchParams(window.location.search).get('storeId');
     if (!finalStoreId) return;
+
+    // --- Anonymous Auth for Customers ---
+    const handleAuth = async () => {
+      if (!auth.currentUser) {
+        try {
+          console.log('[Auth] Attempting anonymous sign-in...');
+          await signInAnonymously(auth);
+        } catch (error) {
+          console.error('[Auth] Anonymous sign-in failed:', error);
+        }
+      }
+    };
+    handleAuth();
 
     const checkSession = () => {
       const sessionKey = `pieroth_session_${finalStoreId}`;
