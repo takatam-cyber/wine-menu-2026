@@ -499,7 +499,12 @@ export const OwnerView: React.FC = () => {
                 <div className="flex items-center gap-4 w-full">
                   <div className="w-16 h-20 bg-black/40 flex items-center justify-center p-2 rounded-lg relative border border-white/5 overflow-hidden shadow-inner shrink-0">
                     <div className="absolute inset-0 opacity-5 bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]"></div>
-                    <img src={wine.image_url} alt="" className="w-full h-full object-contain relative z-10 scale-125" />
+                    <img 
+                      src={wine.image_url} 
+                      alt="" 
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-contain relative z-10 scale-125" 
+                    />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="font-bold text-brand-ivory text-base md:text-lg leading-tight truncate">{wine.name_jp}</div>
@@ -768,7 +773,12 @@ export const OwnerView: React.FC = () => {
                     <div key={w.id} className="bg-white/5 border border-white/5 rounded-2xl p-4 flex items-center justify-between group hover:border-brand-gold/30 hover:bg-white/10 transition-all">
                       <div className="flex items-center gap-4 flex-1">
                         <div className="w-12 h-16 bg-black/40 rounded-lg flex items-center justify-center p-2 border border-white/10 shrink-0">
-                          <img src={w.image_url} alt="" className="h-full object-contain" />
+                          <img 
+                            src={w.image_url} 
+                            alt="" 
+                            referrerPolicy="no-referrer"
+                            className="h-full object-contain" 
+                          />
                         </div>
                         <div className="min-w-0">
                           <div className="text-brand-ivory font-bold text-sm truncate">{w.name_jp}</div>

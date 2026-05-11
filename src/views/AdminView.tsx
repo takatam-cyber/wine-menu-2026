@@ -608,7 +608,12 @@ export const AdminView: React.FC = () => {
                 {wines.map(wine => (
                   <div key={wine.id} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex gap-4 group hover:border-brand-wine transition-all">
                     <div className="w-16 h-24 bg-slate-50 rounded-xl flex items-center justify-center p-2 border border-slate-100 shrink-0">
-                      <img src={wine.image_url} alt="" className="h-full object-contain" />
+                      <img 
+                        src={wine.image_url} 
+                        alt="" 
+                        referrerPolicy="no-referrer" 
+                        className="h-full object-contain" 
+                      />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-[9px] font-bold text-brand-gold uppercase tracking-widest">{wine.country} • {wine.vintage}</div>
@@ -765,6 +770,7 @@ export const AdminView: React.FC = () => {
                     <img 
                       src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(getBaseUrl() + '/menu/' + selectedStoreId)}`}
                       alt="Store QR Code"
+                      referrerPolicy="no-referrer"
                       className="w-48 h-48"
                     />
                   </div>
@@ -968,7 +974,12 @@ export const AdminView: React.FC = () => {
                             {isChecked && <CheckCircle2 className="w-4 h-4" />}
                           </div>
                           <div className="w-16 h-24 bg-slate-50 rounded-xl flex items-center justify-center p-2 border border-slate-100">
-                            <img src={wine.image_url} alt="" className="h-full object-contain" />
+                            <img 
+                              src={wine.image_url} 
+                              alt="" 
+                              referrerPolicy="no-referrer" 
+                              className="h-full object-contain" 
+                            />
                           </div>
                         </div>
                         <div className="flex-1 min-w-0">

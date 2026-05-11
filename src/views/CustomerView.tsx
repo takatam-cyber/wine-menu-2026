@@ -524,6 +524,7 @@ export const CustomerView: React.FC = () => {
                                 <img
                                   src={wine.image_url}
                                   alt=""
+                                  referrerPolicy="no-referrer"
                                   className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-1000 ease-out drop-shadow-2xl"
                                 />
                               </div>
@@ -584,6 +585,7 @@ export const CustomerView: React.FC = () => {
                           <img
                             src={wine.image_url}
                             alt=""
+                            referrerPolicy="no-referrer"
                             className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-700"
                           />
                         </div>
@@ -651,7 +653,12 @@ export const CustomerView: React.FC = () => {
                 <div className="text-center pt-4">
                   <div className="w-full aspect-square md:aspect-[4/5] bg-black/40 border border-brand-gold/20 rounded-3xl mb-8 flex items-center justify-center p-8 relative shadow-inner group overflow-hidden">
                     <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,rgba(212,175,55,0.15),transparent_70%)]" />
-                    <img src={selectedWine.image_url} alt="" className="h-full object-contain relative z-10 transition-transform duration-2000 group-hover:scale-105" />
+                    <img 
+                      src={selectedWine.image_url} 
+                      alt="" 
+                      referrerPolicy="no-referrer"
+                      className="h-full object-contain relative z-10 transition-transform duration-2000 group-hover:scale-105" 
+                    />
                   </div>
                   <h2 className="serif text-2xl md:text-3xl text-brand-gold mb-3 tracking-tight leading-tight">{selectedWine.name_jp}</h2>
                   <p className="text-[9px] md:text-[10px] text-gray-400 tracking-[0.3em] uppercase font-bold">{selectedWine.name_en}</p>
