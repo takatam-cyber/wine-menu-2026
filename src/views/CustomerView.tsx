@@ -21,6 +21,7 @@ export const CustomerView: React.FC = () => {
   const [isSommelierOpen, setIsSommelierOpen] = useState(false);
   const [sortBy, setSortBy] = useState<'price_asc' | 'price_desc' | 'vintage'>('price_asc');
   const [filterColor, setFilterColor] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // スクロール監視
   useEffect(() => {
@@ -160,11 +161,39 @@ export const CustomerView: React.FC = () => {
     }
   };
 
+  const SkeletonItem = () => (
+    <div className="flex gap-5 p-4 rounded-[2rem] border border-brand-wine/5 animate-in fade-in duration-700">
+      <div className="w-28 h-32 skeleton shrink-0" />
+      <div className="flex-1 flex flex-col justify-center gap-3">
+        <div className="h-3 w-1/2 skeleton" />
+        <div className="h-5 w-3/4 skeleton" />
+        <div className="flex justify-between items-center mt-2">
+          <div className="h-8 w-24 skeleton" />
+          <div className="w-10 h-10 rounded-full skeleton" />
+        </div>
+      </div>
+    </div>
+  );
+
   if (loading) {
      return (
-       <div className="min-h-screen bg-brand-wine flex flex-col items-center justify-center gap-6">
-         <Loader2 className="w-12 h-12 animate-spin text-brand-gold" />
-         <p className="serif italic text-brand-gold/60 text-lg tracking-widest">PREPARING MENU...</p>
+       <div className="min-h-screen bg-brand-ivory flex justify-center items-start md:items-center">
+         <div className="w-full md:max-w-[420px] md:h-[850px] bg-brand-ivory overflow-hidden flex flex-col relative md:border md:border-brand-gold/20 md:rounded-[3rem] shadow-2xl">
+           <header className="p-6 border-b border-brand-gold/20 bg-white/80 backdrop-blur-md sticky top-0 z-50">
+             <div className="h-4 w-24 skeleton mx-auto mb-2" />
+             <div className="h-6 w-48 skeleton mx-auto" />
+           </header>
+           <div className="p-6 space-y-8">
+             <div className="h-10 w-full skeleton mb-8" />
+             <div className="space-y-6">
+               <SkeletonItem />
+               <SkeletonItem />
+               <SkeletonItem />
+               <SkeletonItem />
+               <SkeletonItem />
+             </div>
+           </div>
+         </div>
        </div>
      );
   }
@@ -263,8 +292,20 @@ export const CustomerView: React.FC = () => {
   }
 
   const displayedInventory = [...inventory]
-    .filter(w => filterColor === 'all' || w.color === filterColor)
+    .filter(w => {
+      const matchColor = filterColor === 'all' || w.color === filterColor;
+      const matchSearch = searchQuery === '' || 
+        w.name_jp.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        w.name_en.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        w.region.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        w.grape.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchColor && matchSearch;
+    })
     .sort((a, b) => {
+      // Prioritize featured wines
+      if (a.isFeatured && !b.isFeatured) return -1;
+      if (!a.isFeatured && b.isFeatured) return 1;
+
       if (sortBy === 'price_asc') return a.price_bottle - b.price_bottle;
       if (sortBy === 'price_desc') return b.price_bottle - a.price_bottle;
       if (sortBy === 'vintage') return (b.vintage || '').localeCompare(a.vintage || '');
@@ -382,13 +423,14 @@ export const CustomerView: React.FC = () => {
                     { id: 'all', label: 'すべて' },
                     { id: '赤', label: '赤ワイン' },
                     { id: '白', label: '白ワイン' },
-                    { id: '泡', label: 'スパークリング' },
+                    { id: '泡', label: '泡' },
+                    { id: 'デザート', label: 'デザート' },
                     { id: 'ロゼ', label: 'ロゼ' }
                   ].map(tab => (
                     <button
                       key={tab.id}
                       onClick={() => setFilterColor(tab.id)}
-                      className={`px-4 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-widest transition-all shrink-0 border ${
+                      className={`px-4 py-2 rounded-full text-[9px] font-bold uppercase tracking-widest transition-all shrink-0 border ${
                         filterColor === tab.id 
                           ? 'bg-brand-gold text-brand-wine border-brand-gold shadow-md' 
                           : 'bg-white/50 text-brand-wine/60 border-brand-wine/10'
@@ -397,6 +439,20 @@ export const CustomerView: React.FC = () => {
                       {tab.label}
                     </button>
                   ))}
+                </div>
+
+                {/* Real-time Keyword Search */}
+                <div className="relative group">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="産地、品種、キーワードで検索..."
+                    className="w-full bg-brand-wine/5 border border-brand-gold/10 rounded-2xl py-3 pl-4 pr-10 text-xs text-brand-wine placeholder:text-brand-wine/30 focus:outline-none focus:border-brand-gold/40 focus:bg-white transition-all shadow-inner"
+                  />
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 text-brand-gold opacity-40">
+                    <Sparkles className="w-4 h-4" />
+                  </div>
                 </div>
               </div>
               
@@ -423,12 +479,24 @@ export const CustomerView: React.FC = () => {
                       ease: "easeOut"
                     } : {}}
                     onClick={() => setSelectedWine(wine)}
-                    className={`group cursor-pointer flex gap-5 border border-transparent p-4 rounded-[2rem] transition-all duration-1000 ${
+                    className={`group cursor-pointer flex gap-5 border p-4 rounded-[2rem] transition-all duration-700 relative overflow-hidden ${
                       highlightedId === wine.id 
                         ? 'z-20 border-brand-gold bg-brand-gold/5' 
-                        : 'border-b border-brand-wine/5 hover:bg-brand-gold/5'
+                        : wine.isFeatured
+                          ? 'border-brand-gold/40 bg-brand-gold/5 shadow-[0_0_20px_rgba(212,175,55,0.1)]'
+                          : 'border-transparent border-b border-brand-wine/5 hover:bg-brand-gold/5'
                     }`}
                   >
+                    {wine.isFeatured && (
+                      <div className="absolute top-0 right-0 bg-brand-gold text-brand-wine text-[7px] font-black px-3 py-1 rounded-bl-xl tracking-[0.2em] uppercase z-10 shadow-sm">
+                        Special Selection
+                      </div>
+                    )}
+                    {wine.promoLabel && (
+                      <div className="absolute top-6 right-0 bg-brand-wine text-brand-gold text-[7px] font-bold px-2 py-0.5 rounded-l-sm tracking-widest z-10 opacity-90 scale-90 origin-right">
+                        {wine.promoLabel}
+                      </div>
+                    )}
                     <div className="w-28 h-32 bg-white/50 backdrop-blur-sm flex items-center justify-center p-4 rounded-3xl relative border border-brand-gold/10 shadow-sm group-hover:border-brand-gold/30 transition-all overflow-hidden shrink-0">
                       <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]" />
                       <img

@@ -34,6 +34,8 @@ export interface WineMaster {
   visible: boolean;
   isActive?: boolean;
   glasses_per_bottle?: number;
+  isFeatured?: boolean;
+  promoLabel?: string;
 }
 
 export interface Store {

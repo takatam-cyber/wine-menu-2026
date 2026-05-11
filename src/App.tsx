@@ -19,9 +19,39 @@ export default function App() {
   const viewAs = params.get('view_as');
   const storeIdParam = params.get('storeId');
 
+  // Session check for QR access
+  const [sessionExpired, setSessionExpired] = useState(false);
+
+  useEffect(() => {
+    if (storeIdParam && !viewAs) {
+      const sessionKey = `pieroth_session_${storeIdParam}`;
+      const savedTime = localStorage.getItem(sessionKey);
+      const currentTime = Date.now();
+      const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+
+      if (savedTime) {
+        if (currentTime - parseInt(savedTime) > TWO_HOURS_MS) {
+          setSessionExpired(true);
+        }
+      } else {
+        localStorage.setItem(sessionKey, currentTime.toString());
+      }
+
+      // Periodically check if still open
+      const interval = setInterval(() => {
+        const now = Date.now();
+        if (now - (parseInt(localStorage.getItem(sessionKey) || "0")) > TWO_HOURS_MS) {
+          setSessionExpired(true);
+        }
+      }, 60000); // Check every minute
+
+      return () => clearInterval(interval);
+    }
+  }, [storeIdParam, viewAs]);
+
   // Trigger anonymous login for customers if no user is present but storeId is provided
   useEffect(() => {
-    if (!loading && !user && storeIdParam && !viewAs) {
+    if (!loading && !user && storeIdParam && !viewAs && !sessionExpired) {
       const performAnonLogin = async () => {
         setIsAnonLoading(true);
         try {
@@ -41,6 +71,56 @@ export default function App() {
       <div className="min-h-screen bg-brand-wine flex flex-col items-center justify-center gap-6">
         <Loader2 className="w-12 h-12 animate-spin text-brand-gold" />
         <p className="serif italic text-brand-gold/60 text-lg tracking-widest">AUTHENTICATING...</p>
+      </div>
+    );
+  }
+
+  if (sessionExpired) {
+    return (
+      <div className="min-h-screen bg-brand-wine flex flex-col items-center justify-center p-8 text-center text-brand-gold overflow-hidden">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-brand-gold/5 rounded-full blur-3xl" />
+          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-brand-gold/5 rounded-full blur-3xl" />
+        </div>
+        
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          className="max-w-md w-full glass-panel p-10 md:p-14 rounded-[3rem] border-brand-gold/20 shadow-2xl relative z-10"
+        >
+          <div className="mb-8 inline-block p-4 rounded-full bg-brand-gold/10 border border-brand-gold/20">
+            <Shield className="w-10 h-10 text-brand-gold" />
+          </div>
+          
+          <h2 className="serif text-3xl md:text-4xl mb-6 tracking-[0.2em] font-light leading-tight uppercase">
+            SESSION<br/>
+            <span className="text-lg opacity-40 font-sans tracking-[0.4em]">Expired</span>
+          </h2>
+          
+          <div className="w-12 h-px bg-brand-gold/40 mx-auto my-8" />
+          
+          <div className="space-y-4 mb-12">
+            <p className="text-[11px] text-brand-ivory/80 leading-relaxed serif italic tracking-[0.2em] uppercase">
+              ご来店から2時間が経過しました。<br/>
+              セキュリティ保護のため、<br/>
+              一度メニューを閉じさせていただきます。
+            </p>
+            <p className="text-[10px] text-brand-gold font-bold tracking-[0.1em] uppercase">
+              再度QRコードを読み取って<br/>
+              最新のリストをご覧ください。
+            </p>
+          </div>
+
+          <button 
+            onClick={() => {
+              if (storeIdParam) localStorage.removeItem(`pieroth_session_${storeIdParam}`);
+              window.location.reload();
+            }}
+            className="w-full py-4 bg-brand-gold text-brand-wine text-[10px] uppercase tracking-[0.4em] rounded-full hover:bg-white hover:text-brand-wine transition-all font-bold shadow-lg"
+          >
+            メニューを再読込する
+          </button>
+        </motion.div>
       </div>
     );
   }
