@@ -18,17 +18,12 @@ const __dirname = path.dirname(__filename);
 dotenv.config();
 
 // Firebase Admin initialization
-let firebaseApp: admin.app.App;
-try {
-  firebaseApp = admin.initializeApp({
-    projectId: firebaseConfig.projectId,
-    credential: admin.credential.applicationDefault()
+if (!admin.apps.length) {
+  admin.initializeApp({
+    projectId: firebaseConfig.projectId
   });
-} catch (e) {
-  // If app already exists, handle it
-  firebaseApp = admin.apps.find(a => a?.options.projectId === firebaseConfig.projectId) || admin.app();
 }
-
+const firebaseApp = admin.app();
 const dbAdmin = getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId);
 
 // Authentication Middleware
@@ -336,13 +331,13 @@ ${wineContext}`;
         logo_url: storeData?.logo_url,
       };
 
-      // 2. Get Inventory
-      const invSnap = await dbAdmin.collection("stores").doc(storeId).collection("inventory")
-        .where("isActive", "==", true)
-        .where("visible", "==", true)
-        .get();
+      // 2. Get Inventory (Fetch all and filter in-memory to handle missing fields/defaults)
+      const invSnap = await dbAdmin.collection("stores").doc(storeId).collection("inventory").get();
       
-      const inventoryItems = invSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const inventoryItems = invSnap.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter((item: any) => item.isActive !== false && item.visible !== false);
+      
       const masterIds = inventoryItems.map((item: any) => item.id);
 
       // 3. Get Master Data in chunks

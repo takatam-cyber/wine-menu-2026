@@ -131,9 +131,12 @@ export default function App() {
   const { user, loading } = useWines();
   const [isAnonLoading, setIsAnonLoading] = useState(false);
 
-  // Trigger anonymous login for customers in background
+  // Trigger anonymous login for customers in background 
   useEffect(() => {
-    const isMenuPath = window.location.pathname.startsWith('/menu/');
+    const params = new URLSearchParams(window.location.search);
+    const hasLegacyStoreId = params.get('storeId');
+    const isMenuPath = window.location.pathname.startsWith('/menu/') || !!hasLegacyStoreId;
+    
     if (!loading && !user && isMenuPath) {
       const performAnonLogin = async () => {
         setIsAnonLoading(true);
@@ -163,10 +166,20 @@ export default function App() {
       <Routes>
         {/* Redirect Root to proper place based on role */}
         <Route path="/" element={
-          !user ? <Navigate to="/login" replace /> :
-          (user.role === 'admin' || user.role === 'rep') ? <Navigate to="/admin" replace /> :
-          user.role === 'owner' ? <Navigate to="/owner" replace /> :
-          <Navigate to="/login" replace />
+          (() => {
+            const params = new URLSearchParams(window.location.search);
+            const legacyStoreId = params.get('storeId');
+            
+            if (legacyStoreId) {
+              return <Navigate to={`/menu/${legacyStoreId}`} replace />;
+            }
+            
+            if (!user) return <Navigate to="/login" replace />;
+            
+            if (user.role === 'admin' || user.role === 'rep') return <Navigate to="/admin" replace />;
+            if (user.role === 'owner') return <Navigate to="/owner" replace />;
+            return <Navigate to="/login" replace />;
+          })()
         } />
 
         {/* Public / Login */}
