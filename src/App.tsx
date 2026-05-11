@@ -17,7 +17,7 @@ export default function App() {
   // Preview / Simulation logic
   const params = new URLSearchParams(window.location.search);
   const viewAs = params.get('view_as');
-  const storeIdParam = params.get('storeId');
+  const storeIdParam = params.get('storeId')?.trim();
 
   // Session check for QR access
   const [sessionExpired, setSessionExpired] = useState(false);

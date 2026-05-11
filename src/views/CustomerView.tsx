@@ -10,11 +10,11 @@ import { ChevronRight, Info, Wine, Utensils, Award, Loader2, Sparkles, CheckCirc
 import { motion, AnimatePresence } from 'motion/react';
 
 export const CustomerView: React.FC = () => {
-  const { wines, user } = useWines();
+  const { wines, user, loading: authLoading } = useWines();
   const [selectedWine, setSelectedWine] = useState<WineMaster | null>(null);
   const [store, setStore] = useState<Store | null>(null);
   const [inventory, setInventory] = useState<WineMaster[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [isDataFetching, setIsDataFetching] = useState(true);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [showReturnToAI, setShowReturnToAI] = useState(false);
   const [showReturnFloating, setShowReturnFloating] = useState(false);
@@ -35,7 +35,7 @@ export const CustomerView: React.FC = () => {
 
     container.addEventListener('scroll', handleScroll);
     return () => container.removeEventListener('scroll', handleScroll);
-  }, [loading]);
+  }, [isDataFetching]);
 
   const handleSelectWine = (id: string) => {
     const element = document.getElementById(`wine-${id}`);
@@ -76,20 +76,30 @@ export const CustomerView: React.FC = () => {
   };
   const fetchStoreData = async () => {
     const params = new URLSearchParams(window.location.search);
-    const storeId = params.get('storeId');
+    let storeId = params.get('storeId')?.trim();
+    
+    // Clean trailing slashes if any (common in some QR scanners)
+    if (storeId) {
+      storeId = storeId.replace(/\/$/, '');
+    }
+    
+    // Fallback to user's registered storeId if URL param is missing
+    const finalStoreId = storeId || user?.storeId;
 
-    if (!storeId) {
-      setLoading(false);
+    if (!finalStoreId) {
+      // If we're still loading auth but don't have URL param, wait
+      if (authLoading) return; 
+      setIsDataFetching(false);
       return;
     }
 
     try {
-      const storeDoc = await getDoc(doc(db, 'stores', storeId));
+      const storeDoc = await getDoc(doc(db, 'stores', finalStoreId));
       if (storeDoc.exists()) {
         const storeData = { id: storeDoc.id, ...storeDoc.data() } as Store;
         setStore(storeData);
         
-        const invSnap = await getDocs(collection(db, 'stores', storeId, 'inventory'));
+        const invSnap = await getDocs(collection(db, 'stores', finalStoreId, 'inventory'));
         const invItems = invSnap.docs.map(d => ({ id: d.id, ...d.data() }));
         
         const activeItems = invItems.filter((item: any) => item.isActive !== false && item.visible !== false);
@@ -121,15 +131,15 @@ export const CustomerView: React.FC = () => {
         setInventory(enriched);
       }
     } catch (error) {
-      handleFirestoreError(error, OperationType.GET, `stores/${storeId}`);
+      handleFirestoreError(error, OperationType.GET, `stores/${finalStoreId}`);
     } finally {
-      setLoading(false);
+      setIsDataFetching(false);
     }
   };
 
   useEffect(() => {
     fetchStoreData();
-  }, []);
+  }, [user]);
 
   const handleOrder = async () => {
     if (!selectedWine || !store) return;
@@ -175,7 +185,7 @@ export const CustomerView: React.FC = () => {
     </div>
   );
 
-  if (loading) {
+  if (isDataFetching) {
      return (
        <div className="min-h-screen bg-brand-ivory flex justify-center items-start md:items-center">
          <div className="w-full md:max-w-[420px] md:h-[850px] bg-brand-ivory overflow-hidden flex flex-col relative md:border md:border-brand-gold/20 md:rounded-[3rem] shadow-2xl">
@@ -270,7 +280,7 @@ export const CustomerView: React.FC = () => {
           <div className="mt-20 flex flex-col gap-5 items-center">
              <button 
                 onClick={() => {
-                  setLoading(true);
+                  setIsDataFetching(true);
                   fetchStoreData();
                 }}
                 className="px-14 py-4 bg-transparent border border-brand-gold/30 text-brand-gold text-[10px] uppercase tracking-[0.4em] rounded-full hover:bg-brand-gold/10 hover:border-brand-gold/60 active:scale-95 transition-all font-bold backdrop-blur-md shadow-lg"
