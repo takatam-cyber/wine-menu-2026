@@ -300,7 +300,10 @@ export const AdminView: React.FC = () => {
     try {
       await deleteDoc(doc(db, 'stores', storeId));
       setImportStatus({ type: 'success', message: '店舗を削除しました' });
-      refreshStores();
+      if (selectedStoreId === storeId) {
+        setSelectedStoreId(null);
+      }
+      await refreshStores();
     } catch (error: any) {
       handleFirestoreError(error, OperationType.DELETE, `stores/${storeId}`);
     }

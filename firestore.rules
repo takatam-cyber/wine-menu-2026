@@ -18,7 +18,7 @@ service cloud.firestore {
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.role == 'admin' || 
-        request.auth.token.email == 'takatam@pieroth.jp' || 
+        request.auth.token.email.matches('.*@pieroth\\.jp$') || 
         request.auth.token.email == 'takatam40725@gmail.com'
       );
     }
@@ -46,7 +46,7 @@ service cloud.firestore {
       allow get: if isSignedIn(); 
       allow list: if isSignedIn();
       allow create: if isRep();
-      allow update: if isAdmin() || 
+      allow update, delete: if isAdmin() || 
                     (isRep() && resource.data.repId == authUid()) || 
                     (isOwner() && resource.data.ownerId == authUid());
 

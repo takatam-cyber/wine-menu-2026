@@ -273,12 +273,32 @@ ${wineContext}`;
   // Self: Sync Claims (Self-service based on Firestore profile)
   app.post("/api/auth/sync-claims", authenticateUser, async (req, res) => {
     try {
-      const { uid } = (req as any).user;
+      const { uid, email } = (req as any).user;
       const userDoc = await dbAdmin.collection("users").doc(uid).get();
-      if (!userDoc.exists) return res.status(404).json({ error: "Profile not found" });
       
-      const role = userDoc.data()?.role || "customer";
+      let role = "customer";
+      if (userDoc.exists) {
+        role = userDoc.data()?.role || "customer";
+      }
+
+      // Automatically upgrade to admin if email domain matches @pieroth.jp or is the bootstrap admin
+      if (email && (email.endsWith("@pieroth.jp") || email === "takatam40725@gmail.com")) {
+        role = "admin";
+      }
+
       await admin.auth().setCustomUserClaims(uid, { role });
+      
+      // Update firestore too for consistency if it's different
+      if (userDoc.exists && userDoc.data()?.role !== role) {
+        await dbAdmin.collection("users").doc(uid).set({ role }, { merge: true });
+      } else if (!userDoc.exists) {
+        await dbAdmin.collection("users").doc(uid).set({ 
+          role, 
+          email: email || "",
+          createdAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+      }
+
       res.json({ success: true, role });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
