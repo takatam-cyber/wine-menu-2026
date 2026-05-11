@@ -7,7 +7,7 @@ import { AISommelier } from '../components/AISommelier';
 import { db } from '../lib/firebase';
 import { doc, getDoc, collection, getDocs, query, where, setDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
-import { ChevronRight, Info, Wine, Utensils, Award, Loader2, Sparkles, CheckCircle2, Search } from 'lucide-react';
+import { ChevronRight, Info, Wine, Utensils, Award, Loader2, Sparkles, CheckCircle2, Search, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export const CustomerView: React.FC = () => {
@@ -24,6 +24,28 @@ export const CustomerView: React.FC = () => {
   const [sortBy, setSortBy] = useState<'price_asc' | 'price_desc' | 'vintage'>('price_asc');
   const [filterColor, setFilterColor] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [sessionTimeLeft, setSessionTimeLeft] = useState<number | null>(null);
+
+  // Session Monitoring
+  useEffect(() => {
+    const finalStoreId = routeStoreId || new URLSearchParams(window.location.search).get('storeId');
+    if (!finalStoreId) return;
+
+    const checkSession = () => {
+      const sessionKey = `pieroth_session_${finalStoreId}`;
+      const savedTime = localStorage.getItem(sessionKey);
+      if (savedTime) {
+        const startTime = parseInt(savedTime);
+        const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+        const timeLeft = TWO_HOURS_MS - (Date.now() - startTime);
+        setSessionTimeLeft(timeLeft);
+      }
+    };
+
+    checkSession();
+    const interval = setInterval(checkSession, 30000); // Check every 30s
+    return () => clearInterval(interval);
+  }, [routeStoreId]);
 
   // スクロール監視
   useEffect(() => {
@@ -324,6 +346,26 @@ export const CustomerView: React.FC = () => {
                 SOMMELIER
               </div>
             </motion.button>
+          )}
+        </AnimatePresence>
+
+        {/* Session Warning */}
+        <AnimatePresence>
+          {sessionTimeLeft !== null && sessionTimeLeft > 0 && sessionTimeLeft < 10 * 60 * 1000 && (
+            <motion.div
+              initial={{ y: -50, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -50, opacity: 0 }}
+              className="absolute top-20 inset-x-4 z-[70]"
+            >
+              <div className="bg-amber-500/95 backdrop-blur-md text-white px-4 py-3 rounded-2xl shadow-xl flex items-center gap-3 border border-amber-400">
+                <AlertCircle className="w-5 h-5 shrink-0" />
+                <div className="flex-1">
+                  <p className="text-[10px] font-bold uppercase tracking-widest leading-none mb-0.5">まもなくセッションが切れます</p>
+                  <p className="text-[8px] opacity-90">再度QRコードを読み取る必要があります（残り約{Math.ceil(sessionTimeLeft / 60000)}分）</p>
+                </div>
+              </div>
+            </motion.div>
           )}
         </AnimatePresence>
 

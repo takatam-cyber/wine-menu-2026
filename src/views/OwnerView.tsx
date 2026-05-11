@@ -221,7 +221,7 @@ export const OwnerView: React.FC = () => {
     return (
       <div className="flex flex-col items-center justify-center h-full py-24 gap-4">
         <Loader2 className="w-8 h-8 animate-spin text-brand-gold" />
-        <p className="text-brand-gold/60 text-xs font-bold uppercase tracking-widest">Loading Cellar...</p>
+        <p className="text-brand-gold/60 text-xs font-bold uppercase tracking-widest">セラーを読み込み中...</p>
       </div>
     );
   }
@@ -331,7 +331,7 @@ export const OwnerView: React.FC = () => {
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h3 className="text-xs font-bold text-brand-gold uppercase tracking-widest">収益分析：銘柄別利益（ボトル）</h3>
-                <p className="text-[10px] text-gray-500 mt-1 uppercase">トップパフォーマーの可視化</p>
+                <p className="text-[10px] text-gray-500 mt-1 uppercase">利益の高い上位8銘柄を表示</p>
               </div>
             </div>
             <div className="h-[250px] w-full">
@@ -343,7 +343,7 @@ export const OwnerView: React.FC = () => {
                     contentStyle={{ backgroundColor: '#1A0505', border: '1px solid #D4AF37', borderRadius: '8px', fontSize: '10px' }}
                     itemStyle={{ color: '#D4AF37' }}
                   />
-                  <Bar dataKey="profit" fill="#D4AF37" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="profit" name="利益" fill="#D4AF37" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -380,8 +380,8 @@ export const OwnerView: React.FC = () => {
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-tighter">
-                 <span className="text-brand-gold">Profitability:</span>
-                 <span className="text-brand-ivory">{inventory.filter(w => w.price_bottle > w.cost * 3).length} High Yield Items</span>
+                 <span className="text-brand-gold">収益性：</span>
+                 <span className="text-brand-ivory">{inventory.filter(w => w.price_bottle > w.cost * 3).length}件の高収益アイテム</span>
               </div>
             </div>
           </div>
@@ -424,7 +424,7 @@ export const OwnerView: React.FC = () => {
                       <>
                         <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2 animate-in fade-in slide-in-from-left duration-300">
                           <div>
-                            <label className="text-[8px] text-brand-gold/60 uppercase block">Bottle</label>
+                            <label className="text-[8px] text-brand-gold/60 uppercase block">ボトル価格</label>
                             <input 
                               type="number"
                               className="w-full bg-white/10 border border-brand-gold/30 rounded px-2 py-1 text-xs text-brand-ivory outline-none"
@@ -433,7 +433,7 @@ export const OwnerView: React.FC = () => {
                             />
                           </div>
                           <div>
-                            <label className="text-[8px] text-brand-gold/60 uppercase block">Glass</label>
+                            <label className="text-[8px] text-brand-gold/60 uppercase block">グラス価格</label>
                             <input 
                               type="number"
                               className="w-full bg-white/10 border border-brand-gold/30 rounded px-2 py-1 text-xs text-brand-ivory outline-none"
@@ -442,7 +442,7 @@ export const OwnerView: React.FC = () => {
                             />
                           </div>
                           <div>
-                            <label className="text-[8px] text-brand-gold/60 uppercase block">Stock</label>
+                            <label className="text-[8px] text-brand-gold/60 uppercase block">在庫数</label>
                             <input 
                               type="number"
                               className="w-full bg-white/10 border border-brand-gold/30 rounded px-2 py-1 text-xs text-brand-ivory outline-none"
@@ -451,14 +451,14 @@ export const OwnerView: React.FC = () => {
                             />
                           </div>
                           <div>
-                            <label className="text-[8px] text-brand-gold/60 uppercase block">Visibility</label>
+                            <label className="text-[8px] text-brand-gold/60 uppercase block">表示設定</label>
                             <button 
                               onClick={() => setEditWineData({...editWineData, visible: !editWineData.visible})}
                               className={`w-full py-1 rounded text-[10px] font-bold uppercase border transition-all ${
                                 editWineData.visible ? 'bg-green-500/20 border-green-500 text-green-500' : 'bg-gray-700 border-gray-600 text-gray-400'
                               }`}
                             >
-                              {editWineData.visible ? 'Visible' : 'Hidden'}
+                              {editWineData.visible ? '表示' : '非表示'}
                             </button>
                           </div>
                         </div>

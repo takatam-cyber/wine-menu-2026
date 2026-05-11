@@ -8,12 +8,12 @@ interface WineProfileProps {
 
 export const WineProfile: React.FC<WineProfileProps> = ({ wine }) => {
   const data = [
-    { subject: 'Body', A: wine.body, fullMark: 5 },
-    { subject: 'Acidity', A: wine.acidity, fullMark: 5 },
-    { subject: 'Tannins', A: wine.tannins, fullMark: 5 },
-    { subject: 'Complexity', A: wine.complexity, fullMark: 5 },
-    { subject: 'Finish', A: wine.finish, fullMark: 5 },
-    { subject: 'Aroma', A: wine.aroma_intensity, fullMark: 5 },
+    { subject: '甘味', A: wine.sweetness, fullMark: 5 },
+    { subject: '酸味', A: wine.acidity, fullMark: 5 },
+    { subject: 'タンニン', A: wine.tannins, fullMark: 5 },
+    { subject: '複雑さ', A: wine.complexity, fullMark: 5 },
+    { subject: '余韻', A: wine.finish, fullMark: 5 },
+    { subject: 'アロマ', A: wine.aroma_intensity, fullMark: 5 },
   ];
 
   return (

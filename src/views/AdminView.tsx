@@ -13,6 +13,8 @@ import { motion } from 'motion/react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import Papa from 'papaparse';
 
+const PRODUCTION_DOMAIN = "https://ais-pre-3hdh5bfu2wsxmjvi2wumqd-509939825672.asia-east1.run.app";
+
 export const AdminView: React.FC = () => {
   const { wines, setWines, user, stores, refreshStores, refreshWines, searchMasterWines, hasMoreStores, hasMoreWines } = useWines();
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
@@ -624,7 +626,7 @@ export const AdminView: React.FC = () => {
                              </div>
                              <div className="flex flex-col items-end gap-2">
                                <span className={`text-[9px] font-bold uppercase tracking-widest px-3 py-1 rounded-full ${store.isActive ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-red-50 text-red-600 border border-red-100'}`}>
-                                 {store.isActive ? 'Active' : 'Paused'}
+                                 {store.isActive ? '稼働中' : '停止中'}
                                </span>
                                <button 
                                  onClick={(e) => {
@@ -747,7 +749,7 @@ export const AdminView: React.FC = () => {
                   <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">モバイル用QRコード</div>
                   <div className="p-3 bg-white border border-slate-100 rounded-xl shadow-lg mb-4">
                     <img 
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(window.location.origin + '/menu/' + selectedStoreId)}`}
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(PRODUCTION_DOMAIN + '/menu/' + selectedStoreId)}`}
                       alt="Store QR Code"
                       className="w-32 h-32"
                     />
