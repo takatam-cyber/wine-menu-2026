@@ -1171,8 +1171,28 @@ export const AdminView: React.FC = () => {
                       return (
                         <tr key={wine.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors group">
                           <td className="px-8 py-6">
-                            <div className="font-bold text-slate-800 text-sm mb-1">{wine.name_jp}</div>
-                            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">ID: {wine.id} • {wine.region}</div>
+                            <div className="flex items-center gap-3">
+                              <button 
+                                onClick={() => {
+                                  const newWines = [...selectedWines];
+                                  newWines[idx].isFeatured = !newWines[idx].isFeatured;
+                                  setSelectedWines(newWines);
+                                }}
+                                className={`p-2 rounded-full transition-all border ${
+                                  wine.isFeatured ? 'bg-amber-100 border-amber-300 text-amber-600 shadow-sm' : 'bg-slate-50 border-slate-200 text-slate-300 hover:text-slate-400'
+                                }`}
+                                title={wine.isFeatured ? 'おすすめ解除' : 'おすすめに設定'}
+                              >
+                                <Sparkles className={`w-4 h-4 ${wine.isFeatured ? 'fill-current' : ''}`} />
+                              </button>
+                              <div>
+                                <div className="font-bold text-slate-800 text-sm mb-1 flex items-center gap-2">
+                                  {wine.name_jp}
+                                  {wine.isFeatured && <span className="bg-amber-100 text-amber-600 text-[8px] px-2 py-0.5 rounded-full font-bold uppercase tracking-widest">Featured</span>}
+                                </div>
+                                <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">ID: {wine.id} • {wine.region}</div>
+                              </div>
+                            </div>
                           </td>
                           <td className="px-4 py-6">
                             <input
@@ -1242,45 +1262,34 @@ export const AdminView: React.FC = () => {
                             </div>
                           </td>
                           <td className="px-8 py-6 text-right">
-                             <button 
-                               onClick={() => {
-                                 const newWines = [...selectedWines];
-                                 newWines[idx].visible = !newWines[idx].visible;
-                                 setSelectedWines(newWines);
-                               }}
-                               className={`px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest border transition-all ${
-                                 wine.visible 
-                                   ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100' 
-                                   : 'bg-slate-100 border-slate-200 text-slate-400 hover:bg-slate-200'
-                               }`}
-                             >
-                               {wine.visible ? '● 表示' : '○ 非表示'}
-                             </button>
-                          </td>
-                          <td className="px-4 py-6">
-                             <div className="flex flex-col gap-2">
-                               <button 
-                                 onClick={() => {
-                                   const newWines = [...selectedWines];
-                                   newWines[idx].isFeatured = !newWines[idx].isFeatured;
-                                   setSelectedWines(newWines);
-                                 }}
-                                 className={`px-2 py-1 rounded text-[8px] font-bold uppercase transition-all border ${
-                                   wine.isFeatured ? 'bg-amber-50 border-amber-200 text-amber-600' : 'bg-slate-50 border-slate-200 text-slate-400'
-                                 }`}
-                               >
-                                 ★ Featured
-                               </button>
-                               <input 
-                                 placeholder="Promo Label"
-                                 className="text-[8px] bg-slate-50 border border-slate-200 rounded px-2 py-1 outline-none focus:border-brand-wine"
-                                 value={wine.promoLabel || ''}
-                                 onChange={(e) => {
-                                   const newWines = [...selectedWines];
-                                   newWines[idx].promoLabel = e.target.value;
-                                   setSelectedWines(newWines);
-                                 }}
-                               />
+                             <div className="flex flex-col gap-2 items-end">
+                              <button 
+                                onClick={() => {
+                                  const newWines = [...selectedWines];
+                                  newWines[idx].visible = !newWines[idx].visible;
+                                  setSelectedWines(newWines);
+                                }}
+                                className={`px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest border transition-all ${
+                                  wine.visible 
+                                    ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100' 
+                                    : 'bg-slate-100 border-slate-200 text-slate-400 hover:bg-slate-200'
+                                }`}
+                              >
+                                {wine.visible ? '● 表示中' : '○ 非表示'}
+                              </button>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[9px] font-bold text-slate-400 uppercase">ラベル:</span>
+                                <input 
+                                   placeholder="おすすめラベル..."
+                                   className="text-[9px] bg-slate-50 border border-slate-200 rounded px-2 py-1 outline-none focus:border-brand-wine w-24"
+                                   value={wine.promoLabel || ''}
+                                   onChange={(e) => {
+                                     const newWines = [...selectedWines];
+                                     newWines[idx].promoLabel = e.target.value;
+                                     setSelectedWines(newWines);
+                                   }}
+                                 />
+                              </div>
                              </div>
                           </td>
                           <td className="px-8 py-6 text-right">

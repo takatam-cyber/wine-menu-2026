@@ -7,7 +7,7 @@ import { AISommelier } from '../components/AISommelier';
 import { db } from '../lib/firebase';
 import { doc, getDoc, collection, getDocs, query, where, setDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
-import { ChevronRight, Info, Wine, Utensils, Award, Loader2, Sparkles, CheckCircle2, Search, AlertCircle } from 'lucide-react';
+import { ChevronRight, Info, Wine, Utensils, Award, Loader2, Sparkles, CheckCircle2, Search, AlertCircle, Edit2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export const CustomerView: React.FC = () => {
@@ -392,10 +392,28 @@ export const CustomerView: React.FC = () => {
       <div className={`flex-1 mt-0 md:mt-8 flex flex-col overflow-hidden ${isDataFetching ? 'hidden' : ''}`}>
           {/* Header */}
           <header className="p-6 flex items-center justify-between border-b border-brand-gold/30 shrink-0 bg-black/40 backdrop-blur-md sticky top-0 z-50">
-            <div className="w-10" /> {/* Spacer for balance */}
-            <div className="text-center">
-              <h4 className="serif text-brand-gold italic text-[10px] mb-0.5 tracking-[0.2em] opacity-80 font-light">{store.name}</h4>
-              <h3 className="text-lg font-serif tracking-[0.3em] text-brand-gold uppercase">蔵出しワインリスト</h3>
+            <div>
+              {(user?.role === 'admin' || user?.role === 'rep' || user?.role === 'owner') ? (
+                <button 
+                  onClick={() => {
+                    if (user.role === 'admin' || user.role === 'rep') {
+                      window.location.href = `/admin?storeId=${store.id}`;
+                    } else {
+                      window.location.href = `/owner?storeId=${store.id}`;
+                    }
+                  }}
+                  className="w-10 h-10 rounded-full bg-brand-gold/10 flex items-center justify-center border border-brand-gold/20 text-brand-gold hover:bg-brand-gold hover:text-brand-wine transition-all"
+                  title="メニューを編集"
+                >
+                  <Edit2 className="w-5 h-5" />
+                </button>
+              ) : (
+                <div className="w-10" />
+              )}
+            </div>
+            <div className="text-center px-2 flex-1">
+              <h4 className="serif text-brand-gold italic text-[9px] md:text-[10px] mb-0.5 tracking-[0.2em] opacity-80 font-light truncate max-w-[150px] mx-auto">{store.name}</h4>
+              <h3 className="text-sm md:text-lg font-serif tracking-[0.2em] md:tracking-[0.3em] text-brand-gold uppercase truncate">蔵出しワインリスト</h3>
             </div>
             {store.hasAiSommelier !== false ? (
               <button 
