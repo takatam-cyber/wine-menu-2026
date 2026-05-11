@@ -609,8 +609,9 @@ export const AdminView: React.FC = () => {
                   <div key={wine.id} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex gap-4 group hover:border-brand-wine transition-all">
                     <div className="w-16 h-24 bg-slate-50 rounded-xl flex items-center justify-center p-2 border border-slate-100 shrink-0">
                       <img 
-                        src={wine.image_url} 
+                        src={`/api/proxy-image?url=${encodeURIComponent(wine.image_url)}`} 
                         alt="" 
+                        crossOrigin="anonymous"
                         referrerPolicy="no-referrer" 
                         className="h-full object-contain" 
                       />
@@ -975,8 +976,9 @@ export const AdminView: React.FC = () => {
                           </div>
                           <div className="w-16 h-24 bg-slate-50 rounded-xl flex items-center justify-center p-2 border border-slate-100">
                             <img 
-                              src={wine.image_url} 
+                              src={`/api/proxy-image?url=${encodeURIComponent(wine.image_url)}`} 
                               alt="" 
+                              crossOrigin="anonymous"
                               referrerPolicy="no-referrer" 
                               className="h-full object-contain" 
                             />

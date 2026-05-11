@@ -500,8 +500,9 @@ export const OwnerView: React.FC = () => {
                   <div className="w-16 h-20 bg-black/40 flex items-center justify-center p-2 rounded-lg relative border border-white/5 overflow-hidden shadow-inner shrink-0">
                     <div className="absolute inset-0 opacity-5 bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]"></div>
                     <img 
-                      src={wine.image_url} 
+                      src={`/api/proxy-image?url=${encodeURIComponent(wine.image_url)}`} 
                       alt="" 
+                      crossOrigin="anonymous"
                       referrerPolicy="no-referrer"
                       className="w-full h-full object-contain relative z-10 scale-125" 
                     />
@@ -774,8 +775,9 @@ export const OwnerView: React.FC = () => {
                       <div className="flex items-center gap-4 flex-1">
                         <div className="w-12 h-16 bg-black/40 rounded-lg flex items-center justify-center p-2 border border-white/10 shrink-0">
                           <img 
-                            src={w.image_url} 
+                            src={`/api/proxy-image?url=${encodeURIComponent(w.image_url)}`} 
                             alt="" 
+                            crossOrigin="anonymous"
                             referrerPolicy="no-referrer"
                             className="h-full object-contain" 
                           />

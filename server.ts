@@ -66,6 +66,17 @@ async function startServer() {
   // Trust Cloud Run's proxy
   app.set("trust proxy", 1);
 
+  // Normalize trailing slashes (Safari fix for deep links)
+  app.use((req, res, next) => {
+    if (req.path.length > 1 && req.path.endsWith("/") && !req.path.startsWith("/api/")) {
+      const query = req.url.slice(req.path.length);
+      const safepath = req.path.slice(0, -1);
+      res.redirect(301, safepath + query);
+    } else {
+      next();
+    }
+  });
+
   app.use(express.json());
   app.use("/api/", limiter);
 
@@ -402,13 +413,47 @@ ${wineContext}`;
     }
   });
 
+  // Image Proxy to bypass Safari CORS/Referrer issues
+  app.get("/api/proxy-image", async (req, res) => {
+    const imageUrl = req.query.url as string;
+    if (!imageUrl) return res.status(400).send("URL is required");
+
+    try {
+      const response = await fetch(imageUrl, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Referer": "https://www.pieroth.jp/" 
+        }
+      });
+
+      if (!response.ok) throw new Error(`External server returned ${response.status}`);
+
+      const contentType = response.headers.get("content-type");
+      if (contentType) res.setHeader("Content-Type", contentType);
+      
+      res.setHeader("Cache-Control", "public, max-age=86400"); // 1 day cache
+
+      const arrayBuffer = await response.arrayBuffer();
+      res.send(Buffer.from(arrayBuffer));
+    } catch (error) {
+      console.error("Proxy error:", error);
+      res.status(500).send("Failed to proxy image");
+    }
+  });
+
   // In production, serve assets explicitly to avoid MIME type issues
   if (process.env.NODE_ENV === "production") {
     const distPath = path.resolve(__dirname);
-    // Explicitly serve assets first
+    
+    // Explicitly serve assets first with strict headers
     app.use("/assets", express.static(path.join(distPath, "assets"), {
-      setHeaders: (res) => {
+      immutable: true,
+      maxAge: "1y",
+      setHeaders: (res, filePath) => {
         res.set("X-Content-Type-Options", "nosniff");
+        // Ensure correct JS/CSS MIME types for Safari
+        if (filePath.endsWith(".js")) res.set("Content-Type", "application/javascript");
+        if (filePath.endsWith(".css")) res.set("Content-Type", "text/css");
       }
     }));
     
@@ -416,15 +461,14 @@ ${wineContext}`;
     
     // Catch-all route must be LAST and serve index.html from dist
     app.get("*", (req, res, next) => {
-      // Skip if it's an API route
       if (req.path.startsWith("/api/")) return next();
       
-      // CRITICAL: Skip if it looks like a file or asset request (contains dot or starts with /assets/)
-      // to prevent serving index.html as a script/style/image (MIME type mismatch)
       if (req.path.includes(".") || req.path.startsWith("/assets/")) {
         return next();
       }
       
+      // Prevent index.html from being cached to avoid "White Page" on version updates
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
       res.sendFile(path.join(distPath, "index.html"));
     });
   } else {

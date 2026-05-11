@@ -522,8 +522,9 @@ export const CustomerView: React.FC = () => {
                               <div className="w-32 h-40 bg-white flex items-center justify-center p-4 rounded-[2rem] relative border border-brand-gold/20 shadow-xl group-hover:border-brand-gold/50 transition-all overflow-hidden shrink-0">
                                 <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]" />
                                 <img
-                                  src={wine.image_url}
+                                  src={`/api/proxy-image?url=${encodeURIComponent(wine.image_url)}`}
                                   alt=""
+                                  crossOrigin="anonymous"
                                   referrerPolicy="no-referrer"
                                   className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-1000 ease-out drop-shadow-2xl"
                                 />
@@ -583,8 +584,9 @@ export const CustomerView: React.FC = () => {
                       >
                         <div className="w-24 h-28 bg-white/50 backdrop-blur-sm flex items-center justify-center p-3 rounded-2xl relative border border-brand-gold/10 shadow-sm group-hover:border-brand-gold/30 transition-all shrink-0">
                           <img
-                            src={wine.image_url}
+                            src={`/api/proxy-image?url=${encodeURIComponent(wine.image_url)}`}
                             alt=""
+                            crossOrigin="anonymous"
                             referrerPolicy="no-referrer"
                             className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-700"
                           />
@@ -654,8 +656,9 @@ export const CustomerView: React.FC = () => {
                   <div className="w-full aspect-square md:aspect-[4/5] bg-black/40 border border-brand-gold/20 rounded-3xl mb-8 flex items-center justify-center p-8 relative shadow-inner group overflow-hidden">
                     <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,rgba(212,175,55,0.15),transparent_70%)]" />
                     <img 
-                      src={selectedWine.image_url} 
+                      src={`/api/proxy-image?url=${encodeURIComponent(selectedWine.image_url)}`}
                       alt="" 
+                      crossOrigin="anonymous"
                       referrerPolicy="no-referrer"
                       className="h-full object-contain relative z-10 transition-transform duration-2000 group-hover:scale-105" 
                     />
