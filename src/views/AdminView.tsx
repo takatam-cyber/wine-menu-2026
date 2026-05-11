@@ -8,7 +8,7 @@ import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { initializeApp, deleteApp, getApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
-import { Search, Plus, BarChart3, TrendingUp, DollarSign, FileText, Upload, CheckCircle2, AlertCircle, Wine, Shield, UserPlus, Settings, Key, Edit2, Save, X, Trash2, Database, Loader2, Sparkles } from 'lucide-react';
+import { Search, Plus, BarChart3, TrendingUp, DollarSign, FileText, Upload, CheckCircle2, AlertCircle, Wine, Shield, UserPlus, Settings, Key, Edit2, Save, X, Trash2, Database, Loader2, Sparkles, Eye } from 'lucide-react';
 import { motion } from 'motion/react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import Papa from 'papaparse';
@@ -158,7 +158,10 @@ export const AdminView: React.FC = () => {
               price_bottle: invItem.price_bottle ?? masterData.price_bottle,
               price_glass: invItem.price_glass ?? masterData.price_glass,
               cost: invItem.cost ?? masterData.cost,
-              glasses_per_bottle: invItem.glasses_per_bottle ?? 6
+              glasses_per_bottle: invItem.glasses_per_bottle ?? 6,
+              visible: invItem.visible ?? masterData.visible ?? true,
+              isFeatured: invItem.isFeatured ?? masterData.isFeatured ?? false,
+              promoLabel: invItem.promoLabel || masterData.promoLabel || ''
             });
           }
         });
@@ -749,13 +752,25 @@ export const AdminView: React.FC = () => {
                       className="w-32 h-32"
                     />
                   </div>
-                  <button 
-                    onClick={() => window.open(`/?storeId=${selectedStoreId}`, '_blank')}
-                    className="text-[10px] text-brand-wine font-bold uppercase tracking-widest hover:underline flex items-center gap-2"
-                  >
-                    <Wine className="w-3.5 h-3.5" />
-                    メニューをプレビュー
-                  </button>
+                  <div className="flex flex-col gap-2 w-full">
+                    <button 
+                      onClick={() => window.open(`/?storeId=${selectedStoreId}`, '_blank')}
+                      className="w-full py-3 bg-brand-gold text-brand-wine rounded-xl text-[10px] font-bold uppercase tracking-widest hover:brightness-110 flex items-center justify-center gap-2 shadow-sm"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      お客様メニューを表示
+                    </button>
+                    <button 
+                      onClick={() => {
+                        const url = window.location.origin + '/?storeId=' + selectedStoreId;
+                        navigator.clipboard.writeText(url);
+                        alert('URLをコピーしました');
+                      }}
+                      className="w-full py-2 bg-slate-100 text-slate-600 rounded-lg text-[9px] font-bold uppercase tracking-widest hover:bg-slate-200 transition-all border border-slate-200"
+                    >
+                      URLをコピー
+                    </button>
+                  </div>
                 </div>
                 <div>
                   <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">住所</label>

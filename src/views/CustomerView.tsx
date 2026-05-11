@@ -6,7 +6,7 @@ import { AISommelier } from '../components/AISommelier';
 import { db } from '../lib/firebase';
 import { doc, getDoc, collection, getDocs, query, where, setDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
-import { ChevronRight, Info, Wine, Utensils, Award, Loader2, Sparkles, CheckCircle2 } from 'lucide-react';
+import { ChevronRight, Info, Wine, Utensils, Award, Loader2, Sparkles, CheckCircle2, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export const CustomerView: React.FC = () => {
@@ -332,16 +332,16 @@ export const CustomerView: React.FC = () => {
                 setIsSommelierOpen(true);
                 setShowReturnFloating(false);
               }}
-              className="fixed bottom-32 right-6 z-[60] w-28 h-28 bg-gradient-to-br from-brand-gold via-white to-brand-gold text-brand-wine rounded-full shadow-[0_0_50px_rgba(212,175,55,0.7),0_25px_60px_rgba(0,0,0,0.5)] flex flex-col items-center justify-center border-4 border-brand-wine/20 backdrop-blur-xl cursor-pointer group p-2 overflow-hidden"
+              className="fixed bottom-12 right-6 z-[60] w-24 h-24 bg-gradient-to-br from-brand-gold via-white to-brand-gold text-brand-wine rounded-full shadow-[0_0_50px_rgba(212,175,55,0.7),0_25px_60px_rgba(0,0,0,0.5)] flex flex-col items-center justify-center border-4 border-brand-wine/20 backdrop-blur-xl cursor-pointer group p-2 overflow-hidden"
             >
               <div className="absolute inset-0 rounded-full animate-ping bg-brand-gold/10 pointer-events-none" />
               <div className="absolute inset-0 rounded-full animate-pulse bg-brand-gold/20" />
-              <div className="absolute -top-1 -right-1 bg-brand-wine text-brand-gold text-[10px] font-black px-3 py-1 rounded-full border border-brand-gold shadow-2xl z-10">
+              <div className="absolute -top-1 -right-1 bg-brand-wine text-brand-gold text-[10px] font-black px-2 py-0.5 rounded-full border border-brand-gold shadow-2xl z-10">
                 BACK
               </div>
-              <Sparkles className="w-12 h-12 mb-1 group-hover:rotate-12 transition-transform duration-500 text-brand-wine shadow-sm" />
-              <div className="text-[10px] font-black tracking-tighter leading-none text-center uppercase text-brand-wine">
-                ソムリエに<br/>戻る
+              <Sparkles className="w-8 h-8 mb-1 group-hover:rotate-12 transition-transform duration-500 text-brand-wine shadow-sm" />
+              <div className="text-[8px] font-black tracking-tighter leading-none text-center uppercase text-brand-wine">
+                SOMMELIER
               </div>
             </motion.button>
           )}
@@ -371,24 +371,7 @@ export const CustomerView: React.FC = () => {
           </header>
 
           {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-8 pb-40 scroll-smooth">
-            {/* Floating Proposal Banner (Check context) */}
-            <AnimatePresence>
-              {highlightedId && (
-                <motion.div
-                  initial={{ opacity: 0, y: -20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  className="fixed top-24 inset-x-4 z-[55] flex justify-center pointer-events-none"
-                >
-                  <div className="bg-brand-wine/95 backdrop-blur-xl text-brand-gold px-5 py-2.5 rounded-full shadow-2xl border border-brand-gold/40 flex items-center gap-3 text-[10px] font-bold uppercase tracking-[0.2em]">
-                    <div className="w-2 h-2 rounded-full bg-brand-gold animate-pulse" />
-                    提案されたワインを確認中
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
+          <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-8 pb-20 scroll-smooth">
             {/* AI Sommelier Section */}
             {store.hasAiSommelier !== false && (
               <AISommelier 
@@ -404,35 +387,35 @@ export const CustomerView: React.FC = () => {
             <div className="space-y-6">
               <div className="flex flex-col gap-4 border-b border-brand-gold/30 pb-4 mb-2">
                 <div className="flex items-center justify-between">
-                  <h2 className="serif text-2xl text-brand-wine tracking-tight">ソムリエ厳選銘柄</h2>
+                  <h2 className="serif text-lg text-brand-wine tracking-[0.1em] uppercase font-bold">The Collection</h2>
                   <div className="flex items-center gap-2">
                     <select 
                       value={sortBy}
                       onChange={(e) => setSortBy(e.target.value as any)}
-                      className="bg-transparent text-[10px] font-bold text-brand-gold/80 uppercase tracking-widest outline-none border-none cursor-pointer hover:text-brand-gold transition-colors"
+                      className="bg-transparent text-[9px] font-bold text-brand-gold/80 uppercase tracking-[0.2em] outline-none border-none cursor-pointer hover:text-brand-gold transition-colors"
                     >
-                      <option value="price_asc">価格が安い順</option>
-                      <option value="price_desc">価格が高い順</option>
-                      <option value="vintage">年号が新しい順</option>
+                      <option value="price_asc">Price Low to High</option>
+                      <option value="price_desc">Price High to Low</option>
+                      <option value="vintage">Newest Vintage</option>
                     </select>
                   </div>
                 </div>
                 
                 <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
                   {[
-                    { id: 'all', label: 'すべて' },
-                    { id: '赤', label: '赤ワイン' },
-                    { id: '白', label: '白ワイン' },
-                    { id: '泡', label: '泡' },
-                    { id: 'デザート', label: 'デザート' },
-                    { id: 'ロゼ', label: 'ロゼ' }
+                    { id: 'all', label: 'ALL' },
+                    { id: '赤', label: 'RED' },
+                    { id: '白', label: 'WHITE' },
+                    { id: '泡', label: 'SPARKLING' },
+                    { id: 'デザート', label: 'DESSERT' },
+                    { id: 'ロゼ', label: 'ROSE' }
                   ].map(tab => (
                     <button
                       key={tab.id}
                       onClick={() => setFilterColor(tab.id)}
-                      className={`px-4 py-2 rounded-full text-[9px] font-bold uppercase tracking-widest transition-all shrink-0 border ${
+                      className={`px-6 py-2.5 rounded-full text-[9px] font-bold tracking-[0.3em] uppercase transition-all shrink-0 border ${
                         filterColor === tab.id 
-                          ? 'bg-brand-gold text-brand-wine border-brand-gold shadow-md' 
+                          ? 'bg-brand-wine text-brand-gold border-brand-gold shadow-md' 
                           : 'bg-white/50 text-brand-wine/60 border-brand-wine/10'
                       }`}
                     >
@@ -441,22 +424,21 @@ export const CustomerView: React.FC = () => {
                   ))}
                 </div>
 
-                {/* Real-time Keyword Search */}
                 <div className="relative group">
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="産地、品種、キーワードで検索..."
-                    className="w-full bg-brand-wine/5 border border-brand-gold/10 rounded-2xl py-3 pl-4 pr-10 text-xs text-brand-wine placeholder:text-brand-wine/30 focus:outline-none focus:border-brand-gold/40 focus:bg-white transition-all shadow-inner"
+                    placeholder="Search by region, grape, mood..."
+                    className="w-full bg-brand-wine/5 border border-brand-gold/10 rounded-2xl py-3 pl-4 pr-10 text-xs text-brand-wine placeholder:text-brand-wine/30 focus:outline-none focus:border-brand-gold/40 focus:bg-white transition-all shadow-inner uppercase tracking-widest"
                   />
                   <div className="absolute right-4 top-1/2 -translate-y-1/2 text-brand-gold opacity-40">
-                    <Sparkles className="w-4 h-4" />
+                    <Search className="w-4 h-4" strokeWidth={1.5} />
                   </div>
                 </div>
               </div>
               
-              <div className="grid gap-6">
+              <div className="grid gap-8">
                 {displayedInventory.map((wine) => (
                   <motion.div
                     key={wine.id}
@@ -470,34 +452,28 @@ export const CustomerView: React.FC = () => {
                          "0 0 80px 20px rgba(212,175,55,1)", 
                          "0 0 0 0px rgba(212,175,55,0)"
                       ],
-                      scale: [1, 1.08, 1],
-                      filter: ["brightness(1)", "brightness(1.5)", "brightness(1)"]
+                      scale: [1, 1.05, 1]
                     } : {}}
-                    transition={highlightedId === wine.id ? { 
-                      duration: 0.8, 
-                      repeat: 0, 
-                      ease: "easeOut"
-                    } : {}}
+                    transition={highlightedId === wine.id ? { duration: 0.8 } : {}}
                     onClick={() => setSelectedWine(wine)}
-                    className={`group cursor-pointer flex gap-5 border p-4 rounded-[2rem] transition-all duration-700 relative overflow-hidden ${
-                      highlightedId === wine.id 
-                        ? 'z-20 border-brand-gold bg-brand-gold/5' 
-                        : wine.isFeatured
-                          ? 'border-brand-gold/40 bg-brand-gold/5 shadow-[0_0_20px_rgba(212,175,55,0.1)]'
-                          : 'border-transparent border-b border-brand-wine/5 hover:bg-brand-gold/5'
+                    className={`group cursor-pointer flex gap-5 border p-5 rounded-[2.5rem] transition-all duration-700 relative overflow-hidden ${
+                      wine.isFeatured
+                        ? 'border-brand-gold bg-brand-gold/[0.03] shadow-[0_15px_40px_rgba(212,175,55,0.15)] ring-1 ring-brand-gold/20'
+                        : 'border-transparent border-b border-brand-wine/5 hover:bg-brand-gold/[0.02]'
                     }`}
                   >
                     {wine.isFeatured && (
-                      <div className="absolute top-0 right-0 bg-brand-gold text-brand-wine text-[7px] font-black px-3 py-1 rounded-bl-xl tracking-[0.2em] uppercase z-10 shadow-sm">
-                        Special Selection
+                      <div className="absolute top-0 right-0 bg-brand-gold text-brand-wine text-[8px] font-black px-4 py-1.5 rounded-bl-[1.5rem] tracking-[0.2em] uppercase z-10 shadow-sm flex items-center gap-1.5">
+                        <Sparkles className="w-3 h-3" />
+                        Sommelier's Selection
                       </div>
                     )}
                     {wine.promoLabel && (
-                      <div className="absolute top-6 right-0 bg-brand-wine text-brand-gold text-[7px] font-bold px-2 py-0.5 rounded-l-sm tracking-widest z-10 opacity-90 scale-90 origin-right">
+                      <div className="absolute top-8 right-0 bg-brand-wine text-brand-gold text-[7px] font-bold px-3 py-1 rounded-l-md tracking-[0.25em] z-10 opacity-90 scale-90 origin-right uppercase">
                         {wine.promoLabel}
                       </div>
                     )}
-                    <div className="w-28 h-32 bg-white/50 backdrop-blur-sm flex items-center justify-center p-4 rounded-3xl relative border border-brand-gold/10 shadow-sm group-hover:border-brand-gold/30 transition-all overflow-hidden shrink-0">
+                    <div className="w-32 h-36 bg-white flex items-center justify-center p-4 rounded-[2rem] relative border border-brand-gold/10 shadow-sm group-hover:border-brand-gold/30 transition-all overflow-hidden shrink-0">
                       <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]" />
                       <img
                         src={wine.image_url}
@@ -506,16 +482,16 @@ export const CustomerView: React.FC = () => {
                       />
                     </div>
                     <div className="flex-1 flex flex-col justify-center gap-1">
-                      <div className="text-[10px] uppercase font-bold text-brand-gold/80 tracking-[0.3em]">
+                      <div className="text-[9px] uppercase font-bold text-brand-gold tracking-[0.4em] mb-1">
                         {wine.region} · {wine.vintage}
                       </div>
-                      <h3 className="serif text-lg text-brand-wine leading-tight tracking-tight group-hover:text-brand-gold transition-colors">{wine.name_jp}</h3>
-                      <div className="flex items-center justify-between mt-3">
+                      <h3 className="serif text-xl text-brand-wine leading-tight tracking-tight group-hover:text-brand-gold transition-colors">{wine.name_jp}</h3>
+                      <div className="flex items-center justify-between mt-4">
                         <div className="flex flex-col">
-                           <span className="serif text-xl text-brand-wine font-medium tracking-tighter">¥{wine.price_bottle?.toLocaleString()}</span>
+                           <span className="serif text-2xl text-brand-wine font-medium tracking-tighter">¥{wine.price_bottle?.toLocaleString()}</span>
                         </div>
-                        <div className="w-10 h-10 rounded-full bg-brand-gold/10 flex items-center justify-center group-hover:bg-brand-gold group-hover:text-white transition-all">
-                          <ChevronRight className="w-6 h-6 text-brand-gold group-hover:text-white" />
+                        <div className="w-12 h-12 rounded-full bg-brand-gold/10 flex items-center justify-center group-hover:bg-brand-wine group-hover:text-brand-gold transition-all border border-brand-gold/20">
+                          <ChevronRight className="w-7 h-7 text-brand-gold" />
                         </div>
                       </div>
                     </div>
@@ -526,39 +502,22 @@ export const CustomerView: React.FC = () => {
           </div>
         </div>
 
-        {/* Global Footer (QR Action) */}
-        <div className="absolute bottom-8 inset-x-6 md:inset-x-8 z-40 bg-gradient-to-t from-brand-ivory via-brand-ivory to-transparent pt-12 pointer-events-none">
-           <div className="flex flex-col gap-3 pointer-events-auto">
-             <AnimatePresence>
-                {showReturnToAI && store.hasAiSommelier !== false && (
-                  <motion.button
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 20 }}
-                    onClick={() => setIsSommelierOpen(true)}
-                    className="w-full bg-white/90 backdrop-blur-md text-brand-wine py-3 rounded-2xl font-bold text-[10px] tracking-[0.2em] uppercase border border-brand-gold/30 shadow-lg flex items-center justify-center gap-2 hover:bg-white transition-all shadow-[0_4px_20px_rgba(212,175,55,0.2)]"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="w-3 h-3 text-brand-gold" />
-                      ソムリエに相談する
-                    </div>
-                  </motion.button>
-                )}
-              </AnimatePresence>
-             <button 
-               onClick={handleCallSommelier}
-               disabled={isCalling}
-               className={`w-full py-4 rounded-2xl font-bold text-[11px] tracking-[0.4em] uppercase border shadow-md transition-all flex items-center justify-center gap-3 ${
-                 isCalling ? 'bg-slate-100 text-slate-400 border-slate-200' : 
-                 callSuccess ? 'bg-green-500 text-white border-green-600' :
-                 'bg-brand-gold text-brand-wine border-brand-gold shadow-[0_0_30px_rgba(212,175,55,0.3)] hover:scale-[1.02] active:scale-95'
-               }`}
-             >
-               {isCalling ? <Loader2 className="w-4 h-4 animate-spin" /> : 
-                callSuccess ? <CheckCircle2 className="w-4 h-4" /> : null}
-               {isCalling ? '通知中...' : callSuccess ? 'ソムリエが向かっています' : 'ソムリエを呼ぶ'}
-             </button>
-           </div>
+        {/* Global Footer (QR Action Removed) */}
+        <div className="absolute bottom-6 inset-x-6 z-40 flex justify-center pointer-events-none">
+          <AnimatePresence>
+            {showReturnToAI && store.hasAiSommelier !== false && (
+              <motion.button
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 20 }}
+                onClick={() => setIsSommelierOpen(true)}
+                className="pointer-events-auto w-full max-w-[280px] bg-brand-wine text-brand-gold py-3.5 rounded-full font-bold text-[10px] tracking-[0.3em] uppercase border border-brand-gold/30 shadow-[0_15px_40px_rgba(0,0,0,0.5)] flex items-center justify-center gap-2 hover:bg-white hover:text-brand-wine transition-all"
+              >
+                <Sparkles className="w-4 h-4" />
+                Ask the Sommelier
+              </motion.button>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Wine Details Modal */}

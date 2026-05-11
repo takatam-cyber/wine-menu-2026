@@ -79,47 +79,41 @@ export default function App() {
     return (
       <div className="min-h-screen bg-brand-wine flex flex-col items-center justify-center p-8 text-center text-brand-gold overflow-hidden">
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-brand-gold/5 rounded-full blur-3xl" />
-          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-brand-gold/5 rounded-full blur-3xl" />
+          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-brand-gold/5 rounded-full blur-3xl scale-150" />
+          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-brand-gold/5 rounded-full blur-3xl scale-150" />
         </div>
         
         <motion.div 
-          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          initial={{ opacity: 0, scale: 0.9, y: 30 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          className="max-w-md w-full glass-panel p-10 md:p-14 rounded-[3rem] border-brand-gold/20 shadow-2xl relative z-10"
+          transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+          className="max-w-md w-full glass-panel p-12 md:p-16 rounded-[4rem] border-brand-gold/20 shadow-2xl relative z-10 bg-black/40 backdrop-blur-2xl"
         >
-          <div className="mb-8 inline-block p-4 rounded-full bg-brand-gold/10 border border-brand-gold/20">
-            <Shield className="w-10 h-10 text-brand-gold" />
+          <div className="mb-10 inline-block p-6 rounded-full bg-brand-gold/10 border border-brand-gold/20 animate-pulse">
+            <Shield className="w-12 h-12 text-brand-gold" strokeWidth={1} />
           </div>
           
-          <h2 className="serif text-3xl md:text-4xl mb-6 tracking-[0.2em] font-light leading-tight uppercase">
+          <h2 className="serif text-4xl md:text-5xl mb-8 tracking-[0.25em] font-light leading-tight uppercase">
             SESSION<br/>
-            <span className="text-lg opacity-40 font-sans tracking-[0.4em]">Expired</span>
+            <span className="text-xl opacity-40 font-sans tracking-[0.6em] ml-2">EXPIRED</span>
           </h2>
           
-          <div className="w-12 h-px bg-brand-gold/40 mx-auto my-8" />
+          <div className="w-16 h-px bg-brand-gold/40 mx-auto my-10" />
           
-          <div className="space-y-4 mb-12">
-            <p className="text-[11px] text-brand-ivory/80 leading-relaxed serif italic tracking-[0.2em] uppercase">
-              ご来店から2時間が経過しました。<br/>
-              セキュリティ保護のため、<br/>
-              一度メニューを閉じさせていただきます。
+          <div className="space-y-6 mb-14">
+            <p className="text-xs text-brand-ivory/90 leading-relaxed serif italic tracking-[0.25em] uppercase">
+              セッションの有効期限が切れました。
             </p>
-            <p className="text-[10px] text-brand-gold font-bold tracking-[0.1em] uppercase">
-              再度QRコードを読み取って<br/>
+            <p className="text-[12px] text-brand-gold font-bold tracking-[0.15em] uppercase leading-loose">
+              セキュリティ保護のため、<br/>
+              再度店内のQRコードを読み取って<br/>
               最新のリストをご覧ください。
             </p>
           </div>
 
-          <button 
-            onClick={() => {
-              if (storeIdParam) localStorage.removeItem(`pieroth_session_${storeIdParam}`);
-              window.location.reload();
-            }}
-            className="w-full py-4 bg-brand-gold text-brand-wine text-[10px] uppercase tracking-[0.4em] rounded-full hover:bg-white hover:text-brand-wine transition-all font-bold shadow-lg"
-          >
-            メニューを再読込する
-          </button>
+          <div className="text-[9px] text-brand-gold/30 tracking-[0.5em] uppercase mb-10">
+            Security & Privacy Protected
+          </div>
         </motion.div>
       </div>
     );
