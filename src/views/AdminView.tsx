@@ -8,7 +8,7 @@ import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { initializeApp, deleteApp, getApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
-import { Search, Plus, BarChart3, TrendingUp, DollarSign, FileText, Upload, CheckCircle2, AlertCircle, Wine, Shield, UserPlus, Settings, Key, Edit2, Save, X, Trash2, Database, Loader2 } from 'lucide-react';
+import { Search, Plus, BarChart3, TrendingUp, DollarSign, FileText, Upload, CheckCircle2, AlertCircle, Wine, Shield, UserPlus, Settings, Key, Edit2, Save, X, Trash2, Database, Loader2, Sparkles } from 'lucide-react';
 import { motion } from 'motion/react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import Papa from 'papaparse';
@@ -82,6 +82,7 @@ export const AdminView: React.FC = () => {
           glasses_per_bottle: 6,
           stock: 0,
           isActive: true,
+          visible: true,
           updatedAt: new Date().toISOString()
         };
         
@@ -109,6 +110,7 @@ export const AdminView: React.FC = () => {
           glasses_per_bottle: 6,
           stock: 0,
           isActive: true,
+          visible: true,
           updatedAt: new Date().toISOString()
         };
         return setDoc(doc(db, 'stores', selectedStoreId, 'inventory', wine.id), newInventoryItem);
@@ -483,6 +485,8 @@ export const AdminView: React.FC = () => {
           cost: wine.cost,
           glasses_per_bottle: wine.glasses_per_bottle || 6,
           visible: wine.visible ?? true,
+          isFeatured: wine.isFeatured ?? false,
+          promoLabel: wine.promoLabel || '',
           stock: 0,
           isActive: true,
           updatedAt: new Date().toISOString()
@@ -795,6 +799,27 @@ export const AdminView: React.FC = () => {
                     className="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-500 hover:text-slate-900 transition-all border border-slate-200"
                   >
                     <Edit2 className="w-4 h-4" />
+                  </button>
+                  <button 
+                    onClick={async () => {
+                      if (selectedStoreId) {
+                        const newHasAi = !selectedStore?.hasAiSommelier;
+                        try {
+                          await updateDoc(doc(db, 'stores', selectedStoreId), { hasAiSommelier: newHasAi });
+                          await refreshStores();
+                        } catch (e) {
+                          console.error("Failed to toggle AI Sommelier", e);
+                        }
+                      }
+                    }}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] font-bold uppercase transition-all ${
+                      selectedStore?.hasAiSommelier !== false 
+                        ? 'border-brand-gold bg-brand-gold/10 text-brand-gold' 
+                        : 'border-slate-300 bg-slate-50 text-slate-400'
+                    }`}
+                  >
+                    <Sparkles className="w-3 h-3" />
+                    AI: {selectedStore?.hasAiSommelier !== false ? 'ON' : 'OFF'}
                   </button>
                 </div>
                 <p className="text-slate-500 text-[10px] md:text-xs uppercase tracking-[0.3em] font-bold flex items-center gap-2 mt-1 md:mt-0">
@@ -1171,6 +1196,32 @@ export const AdminView: React.FC = () => {
                              >
                                {wine.visible ? '● 表示' : '○ 非表示'}
                              </button>
+                          </td>
+                          <td className="px-4 py-6">
+                             <div className="flex flex-col gap-2">
+                               <button 
+                                 onClick={() => {
+                                   const newWines = [...selectedWines];
+                                   newWines[idx].isFeatured = !newWines[idx].isFeatured;
+                                   setSelectedWines(newWines);
+                                 }}
+                                 className={`px-2 py-1 rounded text-[8px] font-bold uppercase transition-all border ${
+                                   wine.isFeatured ? 'bg-amber-50 border-amber-200 text-amber-600' : 'bg-slate-50 border-slate-200 text-slate-400'
+                                 }`}
+                               >
+                                 ★ Featured
+                               </button>
+                               <input 
+                                 placeholder="Promo Label"
+                                 className="text-[8px] bg-slate-50 border border-slate-200 rounded px-2 py-1 outline-none focus:border-brand-wine"
+                                 value={wine.promoLabel || ''}
+                                 onChange={(e) => {
+                                   const newWines = [...selectedWines];
+                                   newWines[idx].promoLabel = e.target.value;
+                                   setSelectedWines(newWines);
+                                 }}
+                               />
+                             </div>
                           </td>
                           <td className="px-8 py-6 text-right">
                              <button 

@@ -24,7 +24,14 @@ export const OwnerView: React.FC = () => {
   const [editStoreData, setEditStoreData] = useState<Partial<Store>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [editingWineId, setEditingWineId] = useState<string | null>(null);
-  const [editWineData, setEditWineData] = useState<{ price_bottle: number; price_glass: number; stock: number }>({ price_bottle: 0, price_glass: 0, stock: 0 });
+  const [editWineData, setEditWineData] = useState<{ price_bottle: number; price_glass: number; stock: number; visible: boolean; isFeatured: boolean; promoLabel: string }>({ 
+    price_bottle: 0, 
+    price_glass: 0, 
+    stock: 0,
+    visible: true,
+    isFeatured: false,
+    promoLabel: ''
+  });
   const [isAnalysing, setIsAnalysing] = useState(false);
 
   const sid = new URLSearchParams(window.location.search).get('storeId') || user?.storeId;
@@ -51,21 +58,37 @@ export const OwnerView: React.FC = () => {
       const querySnapshot = await getDocs(collection(db, 'stores', sid, 'inventory'));
       const items = querySnapshot.docs.map(d => ({ ...d.data(), id: d.id }));
       
-      const enriched = items.map(item => {
-        const master = wines.find(w => w.id === item.id);
+      const enriched = await Promise.all(items.map(async (item) => {
+        let master = wines.find(w => w.id === item.id);
+        
+        // If not found in context (due to 50 items limit), fetch directly
+        if (!master) {
+          try {
+            const masterDoc = await getDoc(doc(db, 'winesMaster', item.id));
+            if (masterDoc.exists()) {
+              master = { id: masterDoc.id, ...masterDoc.data() } as WineMaster;
+            }
+          } catch (e) {
+            console.error(`Failed to fetch master data for ${item.id}`, e);
+          }
+        }
+
         if (!master) return null;
+
         return { 
           ...master, 
           isActive: (item as any).isActive ?? true, 
           visible: (item as any).visible ?? true,
+          isFeatured: (item as any).isFeatured ?? false,
+          promoLabel: (item as any).promoLabel || '',
           price_bottle: (item as any).price_bottle || master.price_bottle,
           price_glass: (item as any).price_glass || master.price_glass,
           stock: (item as any).stock ?? master.stock,
           cost: master.cost || 2000 // Fallback cost if missing
         };
-      }).filter(w => w !== null) as WineMaster[];
+      }));
 
-      setInventory(enriched);
+      setInventory(enriched.filter(w => w !== null) as WineMaster[]);
     } catch (error) {
       handleFirestoreError(error, OperationType.GET, `stores/${sid}`);
     } finally {
@@ -168,6 +191,9 @@ export const OwnerView: React.FC = () => {
         price_bottle: editWineData.price_bottle,
         price_glass: editWineData.price_glass,
         stock: editWineData.stock,
+        visible: editWineData.visible,
+        isFeatured: editWineData.isFeatured,
+        promoLabel: editWineData.promoLabel,
         updatedAt: new Date().toISOString()
       });
       setInventory(prev => prev.map(w => w.id === wineId ? { ...w, ...editWineData } : w));
@@ -184,7 +210,10 @@ export const OwnerView: React.FC = () => {
     setEditWineData({
       price_bottle: wine.price_bottle,
       price_glass: wine.price_glass,
-      stock: wine.stock || 0
+      stock: wine.stock || 0,
+      visible: wine.visible !== false,
+      isFeatured: wine.isFeatured || false,
+      promoLabel: wine.promoLabel || ''
     });
   };
 
@@ -392,35 +421,64 @@ export const OwnerView: React.FC = () => {
                     </div>
                     
                     {editingWineId === wine.id ? (
-                      <div className="mt-3 grid grid-cols-3 gap-2 animate-in fade-in slide-in-from-left duration-300">
-                        <div>
-                          <label className="text-[8px] text-brand-gold/60 uppercase block">Bottle</label>
-                          <input 
-                            type="number"
-                            className="w-full bg-white/10 border border-brand-gold/30 rounded px-2 py-1 text-xs text-brand-ivory outline-none"
-                            value={editWineData.price_bottle}
-                            onChange={e => setEditWineData({...editWineData, price_bottle: parseInt(e.target.value)}) }
-                          />
+                      <>
+                        <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2 animate-in fade-in slide-in-from-left duration-300">
+                          <div>
+                            <label className="text-[8px] text-brand-gold/60 uppercase block">Bottle</label>
+                            <input 
+                              type="number"
+                              className="w-full bg-white/10 border border-brand-gold/30 rounded px-2 py-1 text-xs text-brand-ivory outline-none"
+                              value={editWineData.price_bottle}
+                              onChange={e => setEditWineData({...editWineData, price_bottle: parseInt(e.target.value)}) }
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[8px] text-brand-gold/60 uppercase block">Glass</label>
+                            <input 
+                              type="number"
+                              className="w-full bg-white/10 border border-brand-gold/30 rounded px-2 py-1 text-xs text-brand-ivory outline-none"
+                              value={editWineData.price_glass}
+                              onChange={e => setEditWineData({...editWineData, price_glass: parseInt(e.target.value)}) }
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[8px] text-brand-gold/60 uppercase block">Stock</label>
+                            <input 
+                              type="number"
+                              className="w-full bg-white/10 border border-brand-gold/30 rounded px-2 py-1 text-xs text-brand-ivory outline-none"
+                              value={editWineData.stock}
+                              onChange={e => setEditWineData({...editWineData, stock: parseInt(e.target.value)}) }
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[8px] text-brand-gold/60 uppercase block">Visibility</label>
+                            <button 
+                              onClick={() => setEditWineData({...editWineData, visible: !editWineData.visible})}
+                              className={`w-full py-1 rounded text-[10px] font-bold uppercase border transition-all ${
+                                editWineData.visible ? 'bg-green-500/20 border-green-500 text-green-500' : 'bg-gray-700 border-gray-600 text-gray-400'
+                              }`}
+                            >
+                              {editWineData.visible ? 'Visible' : 'Hidden'}
+                            </button>
+                          </div>
                         </div>
-                        <div>
-                          <label className="text-[8px] text-brand-gold/60 uppercase block">Glass</label>
-                          <input 
-                            type="number"
-                            className="w-full bg-white/10 border border-brand-gold/30 rounded px-2 py-1 text-xs text-brand-ivory outline-none"
-                            value={editWineData.price_glass}
-                            onChange={e => setEditWineData({...editWineData, price_glass: parseInt(e.target.value)}) }
-                          />
+                        <div className="mt-2 flex gap-2">
+                           <button 
+                             onClick={() => setEditWineData({...editWineData, isFeatured: !editWineData.isFeatured})}
+                             className={`px-3 py-1 rounded text-[9px] font-bold uppercase border transition-all ${
+                               editWineData.isFeatured ? 'bg-brand-gold text-brand-wine border-brand-gold' : 'border-gray-700 text-gray-500'
+                             }`}
+                           >
+                              ★ Featured
+                           </button>
+                           <input 
+                              placeholder="Promo Label (e.g. Recommended)"
+                              className="flex-1 bg-white/5 border border-brand-gold/20 rounded px-3 py-1 text-[10px] text-brand-ivory outline-none"
+                              value={editWineData.promoLabel}
+                              onChange={e => setEditWineData({...editWineData, promoLabel: e.target.value})}
+                           />
                         </div>
-                        <div>
-                          <label className="text-[8px] text-brand-gold/60 uppercase block">Stock</label>
-                          <input 
-                            type="number"
-                            className="w-full bg-white/10 border border-brand-gold/30 rounded px-2 py-1 text-xs text-brand-ivory outline-none"
-                            value={editWineData.stock}
-                            onChange={e => setEditWineData({...editWineData, stock: parseInt(e.target.value)}) }
-                          />
-                        </div>
-                      </div>
+                      </>
                     ) : (
                       <div className="text-[10px] text-brand-ivory/80 font-bold mt-2 flex flex-wrap items-center gap-2">
                         <span className="bg-brand-gold/5 px-2 py-0.5 rounded border border-brand-gold/10">BTL: ¥{wine.price_bottle?.toLocaleString()}</span>

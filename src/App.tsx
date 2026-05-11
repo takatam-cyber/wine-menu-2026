@@ -75,7 +75,7 @@ export default function App() {
     );
   }
 
-  if (sessionExpired) {
+  if (sessionExpired && user?.role !== 'admin' && user?.role !== 'rep' && user?.role !== 'owner') {
     return (
       <div className="min-h-screen bg-brand-wine flex flex-col items-center justify-center p-8 text-center text-brand-gold overflow-hidden">
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
