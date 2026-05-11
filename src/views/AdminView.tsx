@@ -633,10 +633,11 @@ export const AdminView: React.FC = () => {
                                    e.stopPropagation();
                                    handleDeleteStore(store.id);
                                  }}
-                                 className="flex items-center justify-center p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-all shadow-md active:scale-90 pointer-events-auto"
+                                 className="flex items-center justify-center p-2.5 bg-red-500 text-white rounded-full hover:bg-red-600 transition-all shadow-lg active:scale-95 pointer-events-auto"
                                  title="店舗を削除"
+                                 style={{ pointerEvents: 'auto' }}
                                >
-                                 <Trash2 className="w-3.5 h-3.5" />
+                                 <Trash2 className="w-4 h-4" />
                                </button>
                              </div>
                           </div>
@@ -749,9 +750,9 @@ export const AdminView: React.FC = () => {
                   <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">モバイル用QRコード</div>
                   <div className="p-3 bg-white border border-slate-100 rounded-xl shadow-lg mb-4">
                     <img 
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(PRODUCTION_DOMAIN + '/menu/' + selectedStoreId)}`}
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(window.location.origin + '/menu/' + selectedStoreId)}`}
                       alt="Store QR Code"
-                      className="w-36 h-36"
+                      className="w-48 h-48"
                     />
                   </div>
                   <div className="flex flex-col gap-2 w-full">

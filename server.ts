@@ -409,8 +409,10 @@ ${wineContext}`;
       // Skip if it's an API route
       if (req.path.startsWith("/api/")) return next();
       
-      // Skip if it looks like an asset request (to prevent MIME type errors)
-      if (req.path.startsWith("/assets/")) return next();
+      // Skip if it looks like an asset request or a file with extension (to prevent MIME type errors)
+      if (req.path.includes(".") || req.path.startsWith("/assets/")) {
+        return next();
+      }
       
       res.sendFile(path.join(distPath, "index.html"));
     });
