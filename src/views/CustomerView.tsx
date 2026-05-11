@@ -369,7 +369,34 @@ export const CustomerView: React.FC = () => {
           )}
         </AnimatePresence>
 
-        <div className="flex-1 mt-0 md:mt-8 flex flex-col overflow-hidden">
+      {/* Loading Skeleton */}
+      <AnimatePresence>
+        {isDataFetching && (
+          <div className="flex-1 p-6 space-y-8 overflow-hidden bg-brand-ivory">
+            <div className="space-y-4">
+              <div className="w-32 h-4 bg-brand-gold/20 rounded animate-pulse" />
+              <div className="w-64 h-10 bg-brand-wine/10 rounded-2xl animate-pulse" />
+            </div>
+            <div className="grid gap-6">
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="flex gap-5 p-5 border border-brand-wine/5 rounded-[2.5rem] bg-white">
+                  <div className="w-32 h-36 bg-slate-100 rounded-[2rem] animate-pulse" />
+                  <div className="flex-1 space-y-4 py-4">
+                    <div className="w-24 h-3 bg-brand-gold/20 rounded animate-pulse" />
+                    <div className="w-full h-6 bg-brand-wine/10 rounded animate-pulse" />
+                    <div className="flex justify-between items-center pt-4">
+                      <div className="w-20 h-8 bg-brand-wine/5 rounded animate-pulse" />
+                      <div className="w-12 h-12 rounded-full bg-brand-gold/10 animate-pulse" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <div className={`flex-1 mt-0 md:mt-8 flex flex-col overflow-hidden ${isDataFetching ? 'hidden' : ''}`}>
           {/* Header */}
           <header className="p-6 flex items-center justify-between border-b border-brand-gold/30 shrink-0 bg-black/40 backdrop-blur-md sticky top-0 z-50">
             <div className="w-10" /> {/* Spacer for balance */}
@@ -416,21 +443,21 @@ export const CustomerView: React.FC = () => {
                       onChange={(e) => setSortBy(e.target.value as any)}
                       className="bg-transparent text-[9px] font-bold text-brand-gold/80 uppercase tracking-[0.2em] outline-none border-none cursor-pointer hover:text-brand-gold transition-colors"
                     >
-                      <option value="price_asc">Price Low to High</option>
-                      <option value="price_desc">Price High to Low</option>
-                      <option value="vintage">Newest Vintage</option>
+                      <option value="price_asc">価格の安い順</option>
+                      <option value="price_desc">価格の高い順</option>
+                      <option value="vintage">ヴィンテージ順</option>
                     </select>
                   </div>
                 </div>
                 
                 <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
                   {[
-                    { id: 'all', label: 'ALL' },
-                    { id: '赤', label: 'RED' },
-                    { id: '白', label: 'WHITE' },
-                    { id: '泡', label: 'SPARKLING' },
-                    { id: 'デザート', label: 'DESSERT' },
-                    { id: 'ロゼ', label: 'ROSE' }
+                    { id: 'all', label: 'すべて' },
+                    { id: '赤', label: '赤ワイン' },
+                    { id: '白', label: '白ワイン' },
+                    { id: '泡', label: 'スパークリング' },
+                    { id: 'デザート', label: 'デザート' },
+                    { id: 'ロゼ', label: 'ロゼ' }
                   ].map(tab => (
                     <button
                       key={tab.id}
@@ -451,7 +478,7 @@ export const CustomerView: React.FC = () => {
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search by region, grape, mood..."
+                    placeholder="地域、品種、気分から探す..."
                     className="w-full bg-brand-wine/5 border border-brand-gold/10 rounded-2xl py-3 pl-4 pr-10 text-xs text-brand-wine placeholder:text-brand-wine/30 focus:outline-none focus:border-brand-gold/40 focus:bg-white transition-all shadow-inner uppercase tracking-widest"
                   />
                   <div className="absolute right-4 top-1/2 -translate-y-1/2 text-brand-gold opacity-40">

@@ -156,7 +156,7 @@ export default function App() {
     return (
       <div className="min-h-screen bg-brand-wine flex flex-col items-center justify-center gap-6">
         <Loader2 className="w-12 h-12 animate-spin text-brand-gold" />
-        <p className="serif italic text-brand-gold/60 text-lg tracking-widest">AUTHENTICATING...</p>
+        <p className="serif italic text-brand-gold/60 text-lg tracking-widest uppercase">認証中...</p>
       </div>
     );
   }

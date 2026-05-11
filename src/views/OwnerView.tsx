@@ -337,13 +337,43 @@ export const OwnerView: React.FC = () => {
             <div className="h-[250px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={inventory.map(w => ({ name: w.name_jp.slice(0, 10), profit: w.price_bottle - w.cost })).sort((a,b) => b.profit - a.profit).slice(0, 8)}>
-                  <XAxis dataKey="name" stroke="#D4AF37" fontSize={9} tickLine={false} axisLine={false} />
-                  <YAxis stroke="#D4AF37" fontSize={9} tickLine={false} axisLine={false} tickFormatter={(val) => `¥${val/1000}k`} />
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#1A0505', border: '1px solid #D4AF37', borderRadius: '8px', fontSize: '10px' }}
-                    itemStyle={{ color: '#D4AF37' }}
+                  <XAxis 
+                    dataKey="name" 
+                    stroke="#D4AF37" 
+                    fontSize={8} 
+                    tickLine={false} 
+                    axisLine={false}
+                    tick={{ fill: '#D4AF37', opacity: 0.6 }}
                   />
-                  <Bar dataKey="profit" name="利益" fill="#D4AF37" radius={[4, 4, 0, 0]} />
+                  <YAxis 
+                    stroke="#D4AF37" 
+                    fontSize={8} 
+                    tickLine={false} 
+                    axisLine={false} 
+                    tickFormatter={(val) => `¥${val/1000}k`}
+                    tick={{ fill: '#D4AF37', opacity: 0.6 }}
+                  />
+                  <Tooltip 
+                    cursor={{ fill: 'rgba(212,175,55,0.05)' }}
+                    contentStyle={{ 
+                      backgroundColor: '#1A0505', 
+                      border: '1px solid rgba(212,175,55,0.3)', 
+                      borderRadius: '12px', 
+                      fontSize: '10px',
+                      boxShadow: '0 10px 30px rgba(0,0,0,0.5)'
+                    }}
+                    itemStyle={{ color: '#D4AF37', fontWeight: 'bold' }}
+                    labelStyle={{ color: '#fff', marginBottom: '4px', opacity: 0.6 }}
+                    formatter={(value: any) => [`¥${value.toLocaleString()}`, '推定利益']}
+                  />
+                  <Bar dataKey="profit" name="利益" fill="url(#barGradient)" radius={[6, 6, 0, 0]}>
+                    <defs>
+                      <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#D4AF37" />
+                        <stop offset="100%" stopColor="#8E6E1D" />
+                      </linearGradient>
+                    </defs>
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>
