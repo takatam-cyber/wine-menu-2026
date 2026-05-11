@@ -81,8 +81,11 @@ const SessionExpiredGuard: React.FC<{ children: React.ReactNode }> = ({ children
 // Global Layout for admin/owner
 const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useWines();
+  const location = useLocation();
   
   if (!user) return <Navigate to="/login" replace />;
+
+  const isOwnerView = location.pathname === '/owner';
 
   return (
     <div className="flex flex-col min-h-screen bg-[#FDFCFB] text-slate-900 font-sans selection:bg-brand-gold/30">
@@ -99,11 +102,11 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
         <div className="flex items-center gap-3 md:gap-6">
           {(user.role === 'admin' || user.role === 'rep') && (
             <button
-              onClick={() => window.location.pathname === '/owner' ? window.location.href = '/admin' : window.location.href = '/owner'}
+              onClick={() => isOwnerView ? window.location.href = '/admin' : window.location.href = '/owner'}
               className="hidden lg:flex items-center gap-2 px-4 py-1.5 bg-brand-gold/10 text-brand-gold border border-brand-gold/30 rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-brand-gold hover:text-brand-wine transition-all"
             >
               <Eye className="w-3.5 h-3.5" />
-              {window.location.pathname === '/owner' ? '営業モードに戻る' : '店舗として表示 (Owner Mode)'}
+              {isOwnerView ? '管理者ダッシュボードに戻る' : '店舗管理画面を試用 (Owner Mode)'}
             </button>
           )}
           <div className="hidden sm:flex flex-col text-[10px] uppercase tracking-tighter text-right text-slate-500">
@@ -111,7 +114,9 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
             <span className="text-brand-gold font-bold uppercase tracking-widest text-[8px]">権限: {user.role === 'admin' ? '管理者' : user.role === 'owner' ? '店舗オーナー' : '営業担当'}</span>
           </div>
           <button
-            onClick={() => logout()}
+            onClick={() => {
+              logout().then(() => window.location.href = '/login');
+            }}
             className="text-slate-400 hover:text-brand-wine p-2 transition-colors"
           >
             <LogOut className="w-5 h-5" />
@@ -147,8 +152,11 @@ const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 const OwnerRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useWines();
   if (!user) return <Navigate to="/login" replace />;
-  // Allow admins/reps to see owner view too for support
-  if (user.role !== 'owner' && user.role !== 'admin' && user.role !== 'rep') return <Navigate to="/login" replace />;
+  
+  // 修正：管理者(admin)と営業担当(rep)もオーナー画面にアクセスできるように拡張
+  const allowedRoles = ['owner', 'admin', 'rep'];
+  if (!allowedRoles.includes(user.role)) return <Navigate to="/login" replace />;
+  
   return <DashboardLayout>{children}</DashboardLayout>;
 };
 

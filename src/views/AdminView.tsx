@@ -624,7 +624,7 @@ export const AdminView: React.FC = () => {
                              <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center border border-slate-100 group-hover:bg-brand-wine group-hover:text-white transition-colors shadow-inner">
                                <Wine className="w-7 h-7" />
                              </div>
-                      <div className="flex flex-col items-end gap-2 relative z-30">
+                      <div className="flex flex-col items-end gap-2 relative z-50">
                                <span className={`text-[9px] font-bold uppercase tracking-widest px-3 py-1 rounded-full ${store.isActive ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-red-50 text-red-600 border border-red-100'}`}>
                                  {store.isActive ? '稼働中' : '停止中'}
                                </span>
@@ -633,10 +633,10 @@ export const AdminView: React.FC = () => {
                                    e.stopPropagation();
                                    handleDeleteStore(store.id);
                                  }}
-                                 className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500 text-white rounded-full text-[9px] font-bold uppercase tracking-widest hover:bg-red-600 transition-all border border-red-400 shadow-md scale-100 active:scale-90 pointer-events-auto"
+                                 className="flex items-center justify-center p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-all shadow-md active:scale-90 pointer-events-auto"
+                                 title="店舗を削除"
                                >
                                  <Trash2 className="w-3.5 h-3.5" />
-                                 店舗を削除
                                </button>
                              </div>
                           </div>
@@ -749,9 +749,9 @@ export const AdminView: React.FC = () => {
                   <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">モバイル用QRコード</div>
                   <div className="p-3 bg-white border border-slate-100 rounded-xl shadow-lg mb-4">
                     <img 
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(PRODUCTION_DOMAIN + '/menu/' + selectedStoreId)}`}
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(PRODUCTION_DOMAIN + '/menu/' + selectedStoreId)}`}
                       alt="Store QR Code"
-                      className="w-32 h-32"
+                      className="w-36 h-36"
                     />
                   </div>
                   <div className="flex flex-col gap-2 w-full">
@@ -778,6 +778,14 @@ export const AdminView: React.FC = () => {
                       className="w-full py-2 bg-slate-100 text-slate-600 rounded-lg text-[9px] font-bold uppercase tracking-widest hover:bg-slate-200 transition-all border border-slate-200"
                     >
                       URLをコピー
+                    </button>
+                    <div className="h-px bg-slate-200 my-2" />
+                    <button 
+                      onClick={() => handleDeleteStore(selectedStoreId)}
+                      className="w-full py-3 bg-white text-red-500 border border-red-200 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-red-50 transition-all flex items-center justify-center gap-2"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      この店舗を削除する
                     </button>
                   </div>
                 </div>

@@ -14,6 +14,7 @@ export const OwnerView: React.FC = () => {
   const { wines, user, stores } = useWines();
   const [inventory, setInventory] = useState<WineMaster[]>([]);
   const [store, setStore] = useState<Store | null>(null);
+  const [selectedStoreId, setSelectedStoreId] = useState(new URLSearchParams(window.location.search).get('storeId') || user?.storeId || '');
   const [selectedWine, setSelectedWine] = useState<WineMaster | null>(null);
   const [aiResult, setAiResult] = useState<{ talk: string; social: string } | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -35,7 +36,20 @@ export const OwnerView: React.FC = () => {
   const [isAnalysing, setIsAnalysing] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
-  const sid = new URLSearchParams(window.location.search).get('storeId') || user?.storeId;
+  // Handle case where admin/rep arrives without storeId or with a new one
+  useEffect(() => {
+    const urlSid = new URLSearchParams(window.location.search).get('storeId');
+    if (urlSid) {
+      setSelectedStoreId(urlSid);
+    } else if (user?.storeId) {
+      setSelectedStoreId(user.storeId);
+    } else if (stores.length > 0 && (user?.role === 'admin' || user?.role === 'rep')) {
+      // Default to first store for admins if none selected
+      if (!selectedStoreId) setSelectedStoreId(stores[0].id);
+    }
+  }, [stores, user]);
+
+  const sid = selectedStoreId;
 
   // Auto-save logic
   useEffect(() => {

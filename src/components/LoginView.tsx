@@ -20,10 +20,47 @@ export const LoginView: React.FC = () => {
     const emailToUse = ownerId.includes('@') ? ownerId : `${ownerId}@pieroth-stores.app`;
 
     try {
-      await signInWithEmailAndPassword(auth, emailToUse, ownerPassword);
+      const userCredential = await signInWithEmailAndPassword(auth, emailToUse, ownerPassword);
+      
+      // Force sync claims immediately after login for smooth redirection
+      const idToken = await userCredential.user.getIdToken();
+      await fetch('/api/auth/sync-claims', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}` 
+        }
+      });
+      // Force token refresh to pick up new claims
+      await userCredential.user.getIdToken(true);
+      
+      // Note: App.tsx will pick up the user change and redirect automatically
     } catch (err: any) {
       console.error('Login error:', err);
       setError('ログインに失敗しました。IDまたはパスワードを確認してください。');
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setIsLoading(true);
+    setError('');
+    try {
+      const userCredential = await signInWithGoogle();
+      
+      // Force sync claims immediately
+      const idToken = await userCredential.user.getIdToken();
+      await fetch('/api/auth/sync-claims', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}` 
+        }
+      });
+      await userCredential.user.getIdToken(true);
+    } catch (err: any) {
+      console.error('Google login error:', err);
+      setError('Googleログインに失敗しました。');
       setIsLoading(false);
     }
   };
@@ -72,10 +109,11 @@ export const LoginView: React.FC = () => {
               exit={{ opacity: 0, x: 20 }}
             >
               <button 
-                onClick={signInWithGoogle}
-                className="w-full flex items-center justify-center gap-4 bg-brand-gold text-brand-wine py-4 rounded-2xl font-bold text-xs uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all shadow-luxury"
+                onClick={handleGoogleLogin}
+                disabled={isLoading}
+                className="w-full flex items-center justify-center gap-4 bg-brand-gold text-brand-wine py-4 rounded-2xl font-bold text-xs uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all shadow-luxury disabled:opacity-50"
               >
-                Googleアカウントでログイン
+                {isLoading ? <Sparkles className="w-4 h-4 animate-spin" /> : 'Googleアカウントでログイン'}
                 <Sparkles className="w-4 h-4" />
               </button>
               <p className="mt-4 text-[9px] text-gray-500 leading-tight text-center">
