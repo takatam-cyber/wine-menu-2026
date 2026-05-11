@@ -6,7 +6,7 @@ import { CustomerView } from './views/CustomerView';
 import { LoginView } from './components/LoginView';
 import { useWines } from './lib/WineContext';
 import { Role } from './types';
-import { User, Shield, Wine, Menu as MenuIcon, X, LogOut, Loader2 } from 'lucide-react';
+import { User, Shield, Wine, Menu as MenuIcon, X, LogOut, Loader2, Eye } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { logout, signInAnonymously, auth } from './lib/firebase';
 
@@ -97,6 +97,15 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
         </div>
         
         <div className="flex items-center gap-3 md:gap-6">
+          {(user.role === 'admin' || user.role === 'rep') && (
+            <button
+              onClick={() => window.location.pathname === '/owner' ? window.location.href = '/admin' : window.location.href = '/owner'}
+              className="hidden lg:flex items-center gap-2 px-4 py-1.5 bg-brand-gold/10 text-brand-gold border border-brand-gold/30 rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-brand-gold hover:text-brand-wine transition-all"
+            >
+              <Eye className="w-3.5 h-3.5" />
+              {window.location.pathname === '/owner' ? '営業モードに戻る' : '店舗として表示 (Owner Mode)'}
+            </button>
+          )}
           <div className="hidden sm:flex flex-col text-[10px] uppercase tracking-tighter text-right text-slate-500">
             <span className="opacity-60 truncate max-w-[100px]">{user.email}</span>
             <span className="text-brand-gold font-bold uppercase tracking-widest text-[8px]">権限: {user.role === 'admin' ? '管理者' : user.role === 'owner' ? '店舗オーナー' : '営業担当'}</span>

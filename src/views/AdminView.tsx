@@ -633,10 +633,10 @@ export const AdminView: React.FC = () => {
                                    e.stopPropagation();
                                    handleDeleteStore(store.id);
                                  }}
-                                 className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-500 rounded-full text-[9px] font-bold uppercase tracking-widest hover:bg-red-100 transition-all border border-red-100 shadow-sm opacity-0 group-hover:opacity-100"
+                                 className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-500 rounded-full text-[9px] font-bold uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all border border-red-100 shadow-sm"
                                >
-                                 <Trash2 className="w-3 h-3" />
-                                 店舗削除
+                                 <Trash2 className="w-3.5 h-3.5" />
+                                 店舗を完全削除
                                </button>
                              </div>
                           </div>

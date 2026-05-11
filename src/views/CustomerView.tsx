@@ -99,14 +99,7 @@ export const CustomerView: React.FC = () => {
     }, 1500);
   };
   const fetchStoreData = async () => {
-    const params = new URLSearchParams(window.location.search);
-    let storeId = routeStoreId || params.get('storeId')?.trim();
-    
-    if (storeId) {
-      storeId = storeId.replace(/\/$/, '');
-    }
-    
-    const finalStoreId = storeId || user?.storeId;
+    const finalStoreId = routeStoreId || user?.storeId;
 
     if (!finalStoreId) {
       if (authLoading) return; 

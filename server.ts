@@ -68,6 +68,16 @@ async function startServer() {
   app.use(express.json());
   app.use("/api/", limiter);
 
+  // In production, serve assets explicitly to avoid MIME type issues
+  if (process.env.NODE_ENV === "production") {
+    const distPath = path.resolve(__dirname);
+    app.use("/assets", express.static(path.join(distPath, "assets"), {
+      setHeaders: (res) => {
+        res.set("X-Content-Type-Options", "nosniff");
+      }
+    }));
+  }
+
   // Safe client initialization
   let genAI: any = null;
   function getAIClient(customApiKey?: string) {
@@ -88,12 +98,20 @@ async function startServer() {
   app.post("/api/sommelier", authenticateUser, async (req, res) => {
     try {
       const { userQuery, history, storeId } = req.body;
+      const caller = (req as any).user;
+
       if (!storeId) return res.status(400).json({ error: "storeId is required" });
 
       // 1. Fetch Store Doc to check for custom API key and AI enablement
       const storeDoc = await dbAdmin.collection("stores").doc(storeId).get();
       if (!storeDoc.exists) return res.status(404).json({ error: "Store not found" });
       const storeData = storeDoc.data();
+
+      // Authorization Check: Must be the store owner OR a system admin
+      const isAuthorized = caller.role === 'admin' || caller.role === 'rep' || caller.uid === storeData?.ownerId;
+      if (!isAuthorized && caller.role !== 'customer') {
+          return res.status(403).json({ error: "Forbidden: You do not have access to this store's AI features" });
+      }
 
       let client;
       try {
