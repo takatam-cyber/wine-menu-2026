@@ -8,12 +8,12 @@ import { rateLimit } from "express-rate-limit";
 import admin from "firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
 import { readFileSync } from "fs";
-const firebaseConfig = JSON.parse(
-  readFileSync(new URL("./firebase-applet-config.json", import.meta.url), "utf-8")
-);
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const firebaseConfig = JSON.parse(
+  readFileSync(path.join(__dirname, "firebase-applet-config.json"), "utf-8")
+);
 
 dotenv.config();
 
@@ -60,7 +60,7 @@ const limiter = rateLimit({
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT || 3000;
 
   // Trust Cloud Run's proxy
   app.set("trust proxy", 1);

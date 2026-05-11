@@ -2,5 +2,5 @@ kind: 'AppStack'
 schemaVersion: 'v1'
 runConfig:
   cpu: 1
-  memoryMiB: 512
-  runCommand: 'node dist/server.js'
+  memoryMiB: 1024
+  runCommand: 'npm run start'
