@@ -45,6 +45,15 @@ export const AdminView: React.FC = () => {
   const [selectedMasterIds, setSelectedMasterIds] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Handle URL parameters for direct linking from CustomerView
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const storeId = params.get('storeId');
+    if (storeId) {
+      setSelectedStoreId(storeId);
+    }
+  }, []);
+
   const handleSearchMaster = (term: string) => {
     setMasterSearchTerm(term);
     const timeout = setTimeout(() => {
@@ -411,7 +420,7 @@ export const AdminView: React.FC = () => {
                 body: getNumber(['body', 'ボディ']),
                 acidity: getNumber(['acidity', '酸味']),
                 tannins: getNumber(['tannins', 'タンニン']),
-                aroma_intensity: getNumber(['aroma_intensity', '香りの強さ']),
+                aroma_intensity: getNumber(['aroma_intensity', '香りの強さ', 'アロマ']),
                 complexity: getNumber(['complexity', '複雑さ']),
                 finish: getNumber(['finish', '余韻']),
                 oak: getNumber(['oak', '樽感']),

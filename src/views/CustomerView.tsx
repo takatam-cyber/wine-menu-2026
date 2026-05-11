@@ -548,14 +548,25 @@ export const CustomerView: React.FC = () => {
                                 />
                               </div>
                               <div className="flex-1 flex flex-col justify-center gap-1">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <div className="px-2 py-0.5 bg-brand-wine text-brand-gold text-[7px] font-black rounded-full uppercase tracking-widest">Featured</div>
-                                  <div className="text-[9px] uppercase font-bold text-brand-gold tracking-[0.4em]">
-                                    {wine.region} · {wine.vintage}
+                                <div className="flex flex-wrap items-center gap-2 mb-1">
+                                  <div className="px-2 py-0.5 bg-brand-wine text-brand-gold text-[7px] font-black rounded-full uppercase tracking-widest shrink-0">Featured</div>
+                                  {wine.color && (
+                                    <div className={`px-2 py-0.5 text-[7px] font-black rounded-full uppercase tracking-widest shrink-0 ${
+                                      wine.color === '赤' ? 'bg-[#641E16] text-white' : 
+                                      wine.color === '白' ? 'bg-[#D4AF37] text-white' : 
+                                      wine.color === '泡' || wine.color === 'スパークリング' ? 'bg-[#717D7E] text-white' : 'bg-slate-500 text-white'
+                                    }`}>
+                                      {wine.color}
+                                    </div>
+                                  )}
+                                  <div className="text-[8px] uppercase font-bold text-brand-gold tracking-[0.2em] opacity-80">
+                                    {wine.country} / {wine.region}
                                   </div>
                                 </div>
                                 <h3 className="serif text-xl text-brand-wine leading-tight tracking-tight group-hover:text-brand-gold transition-colors">{wine.name_jp}</h3>
-                                <div className="flex items-center justify-between mt-4">
+                                {wine.menu_short && <p className="text-[10px] italic text-brand-wine/60 font-serif leading-tight mt-0.5">{wine.menu_short}</p>}
+                                <div className="mt-2 text-[9px] text-brand-wine/40 font-bold uppercase tracking-widest">品種: {wine.grape}</div>
+                                <div className="flex items-center justify-between mt-3">
                                   <div className="flex flex-col">
                                      <span className="serif text-2xl text-brand-wine font-medium tracking-tighter">¥{wine.price_bottle?.toLocaleString()}</span>
                                   </div>
@@ -610,10 +621,23 @@ export const CustomerView: React.FC = () => {
                           />
                         </div>
                         <div className="flex-1 flex flex-col justify-center gap-0.5">
-                          <div className="text-[8px] uppercase font-bold text-brand-gold/60 tracking-[0.3em]">
-                            {wine.region} · {wine.vintage}
+                          <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                            {wine.color && (
+                                <div className={`px-2 py-0.5 text-[6px] font-black rounded-full uppercase tracking-widest shrink-0 ${
+                                  wine.color === '赤' ? 'bg-[#641E16] text-white' : 
+                                  wine.color === '白' ? 'bg-[#D4AF37] text-white' : 
+                                  wine.color === '泡' || wine.color === 'スパークリング' ? 'bg-[#717D7E] text-white' : 'bg-slate-500 text-white'
+                                }`}>
+                                  {wine.color}
+                                </div>
+                              )}
+                            <div className="text-[8px] uppercase font-bold text-brand-gold/60 tracking-[0.2em]">
+                              {wine.country} / {wine.region}
+                            </div>
                           </div>
                           <h3 className="serif text-lg text-brand-wine leading-tight group-hover:text-brand-gold transition-colors">{wine.name_jp}</h3>
+                          {wine.menu_short && <p className="text-[9px] italic text-brand-wine/60 font-serif leading-tight">{wine.menu_short}</p>}
+                          <div className="mt-1 text-[8px] text-brand-wine/40 font-bold uppercase tracking-widest">品種: {wine.grape}</div>
                           <div className="flex items-center justify-between mt-2">
                              <span className="serif text-xl text-brand-wine font-medium">¥{wine.price_bottle?.toLocaleString()}</span>
                              <ChevronRight className="w-5 h-5 text-brand-gold opacity-0 group-hover:opacity-100 transition-all translate-x-[-10px] group-hover:translate-x-0" />
