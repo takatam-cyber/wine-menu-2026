@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { WineMaster, Store } from '../types';
 import { useWines } from '../lib/WineContext';
 import { WineProfile } from '../components/WineProfile';
@@ -10,6 +11,7 @@ import { ChevronRight, Info, Wine, Utensils, Award, Loader2, Sparkles, CheckCirc
 import { motion, AnimatePresence } from 'motion/react';
 
 export const CustomerView: React.FC = () => {
+  const { storeId: routeStoreId } = useParams();
   const { wines, user, loading: authLoading } = useWines();
   const [selectedWine, setSelectedWine] = useState<WineMaster | null>(null);
   const [store, setStore] = useState<Store | null>(null);
@@ -75,8 +77,10 @@ export const CustomerView: React.FC = () => {
     }, 1500);
   };
   const fetchStoreData = async () => {
+    // If we have a route param, use it, otherwise check legacy query param for compatibility if needed, 
+    // or fallback to user.storeId for staff preview
     const params = new URLSearchParams(window.location.search);
-    let storeId = params.get('storeId')?.trim();
+    let storeId = routeStoreId || params.get('storeId')?.trim();
     
     // Clean trailing slashes if any (common in some QR scanners)
     if (storeId) {
@@ -139,7 +143,7 @@ export const CustomerView: React.FC = () => {
 
   useEffect(() => {
     fetchStoreData();
-  }, [user]);
+  }, [user, routeStoreId]);
 
   const handleOrder = async () => {
     if (!selectedWine || !store) return;

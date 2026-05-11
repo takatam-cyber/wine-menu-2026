@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import { AdminView } from './views/AdminView';
 import { OwnerView } from './views/OwnerView';
 import { CustomerView } from './views/CustomerView';
@@ -9,22 +10,15 @@ import { User, Shield, Wine, Menu as MenuIcon, X, LogOut, Loader2 } from 'lucide
 import { motion, AnimatePresence } from 'motion/react';
 import { logout, signInAnonymously, auth } from './lib/firebase';
 
-export default function App() {
-  const { user, loading } = useWines();
-  const [showRoleSwitcher, setShowRoleSwitcher] = useState(false);
-  const [isAnonLoading, setIsAnonLoading] = useState(false);
-
-  // Preview / Simulation logic
-  const params = new URLSearchParams(window.location.search);
-  const viewAs = params.get('view_as');
-  const storeIdParam = params.get('storeId')?.trim();
-
-  // Session check for QR access
+// Helper for Session Management (Used in CustomerView)
+const SessionExpiredGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { storeId } = useParams();
+  const { user } = useWines();
   const [sessionExpired, setSessionExpired] = useState(false);
 
   useEffect(() => {
-    if (storeIdParam && !viewAs) {
-      const sessionKey = `pieroth_session_${storeIdParam}`;
+    if (storeId) {
+      const sessionKey = `pieroth_session_${storeId}`;
       const savedTime = localStorage.getItem(sessionKey);
       const currentTime = Date.now();
       const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
@@ -37,43 +31,16 @@ export default function App() {
         localStorage.setItem(sessionKey, currentTime.toString());
       }
 
-      // Periodically check if still open
       const interval = setInterval(() => {
         const now = Date.now();
         if (now - (parseInt(localStorage.getItem(sessionKey) || "0")) > TWO_HOURS_MS) {
           setSessionExpired(true);
         }
-      }, 60000); // Check every minute
+      }, 60000);
 
       return () => clearInterval(interval);
     }
-  }, [storeIdParam, viewAs]);
-
-  // Trigger anonymous login for customers if no user is present but storeId is provided
-  useEffect(() => {
-    if (!loading && !user && storeIdParam && !viewAs && !sessionExpired) {
-      const performAnonLogin = async () => {
-        setIsAnonLoading(true);
-        try {
-          await signInAnonymously(auth);
-        } catch (e) {
-          console.error("Anonymous login failed:", e);
-        } finally {
-          setIsAnonLoading(false);
-        }
-      };
-      performAnonLogin();
-    }
-  }, [loading, user, storeIdParam, viewAs]);
-
-  if (loading || isAnonLoading) {
-    return (
-      <div className="min-h-screen bg-brand-wine flex flex-col items-center justify-center gap-6">
-        <Loader2 className="w-12 h-12 animate-spin text-brand-gold" />
-        <p className="serif italic text-brand-gold/60 text-lg tracking-widest">AUTHENTICATING...</p>
-      </div>
-    );
-  }
+  }, [storeId]);
 
   if (sessionExpired && user?.role !== 'admin' && user?.role !== 'rep' && user?.role !== 'owner') {
     return (
@@ -82,74 +49,43 @@ export default function App() {
           <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-brand-gold/5 rounded-full blur-3xl scale-150" />
           <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-brand-gold/5 rounded-full blur-3xl scale-150" />
         </div>
-        
         <motion.div 
           initial={{ opacity: 0, scale: 0.9, y: 30 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
           className="max-w-md w-full glass-panel p-12 md:p-16 rounded-[4rem] border-brand-gold/20 shadow-2xl relative z-10 bg-black/40 backdrop-blur-2xl"
         >
           <div className="mb-10 inline-block p-6 rounded-full bg-brand-gold/10 border border-brand-gold/20 animate-pulse">
             <Shield className="w-12 h-12 text-brand-gold" strokeWidth={1} />
           </div>
-          
           <h2 className="serif text-4xl md:text-5xl mb-8 tracking-[0.25em] font-light leading-tight uppercase">
             SESSION<br/>
             <span className="text-xl opacity-40 font-sans tracking-[0.6em] ml-2">EXPIRED</span>
           </h2>
-          
           <div className="w-16 h-px bg-brand-gold/40 mx-auto my-10" />
-          
           <div className="space-y-6 mb-14">
             <p className="text-xs text-brand-ivory/90 leading-relaxed serif italic tracking-[0.25em] uppercase">
               セッションの有効期限が切れました。
             </p>
             <p className="text-[12px] text-brand-gold font-bold tracking-[0.15em] uppercase leading-loose">
-              セキュリティ保護のため、<br/>
-              再度店内のQRコードを読み取って<br/>
-              最新のリストをご覧ください。
+              セキュリティ保護のため、再度店内のQRコードを読み取ってください。
             </p>
-          </div>
-
-          <div className="text-[9px] text-brand-gold/30 tracking-[0.5em] uppercase mb-10">
-            Security & Privacy Protected
           </div>
         </motion.div>
       </div>
     );
   }
 
-  // If a storeId is provided (QR scan / Preview) or the user is a customer, 
-  // render CustomerView standalone without the global business shell.
-  if ((storeIdParam && (!viewAs || viewAs === 'customer')) || user?.role === 'customer') {
-    return <CustomerView />;
-  }
+  return <>{children}</>;
+};
 
-  if (!user) {
-    return <LoginView />;
-  }
-
-  const renderContent = () => {
-    // If Admin/Rep is previewing
-    if ((user.role === 'admin' || user.role === 'rep') && viewAs === 'owner') {
-      return <OwnerView />;
-    }
-    
-    switch (user.role) {
-      case 'admin':
-      case 'rep':
-        return <AdminView />;
-      case 'owner':
-        return <OwnerView />;
-      case 'customer':
-      default:
-        return <CustomerView />;
-    }
-  };
+// Global Layout for admin/owner
+const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useWines();
+  
+  if (!user) return <Navigate to="/login" replace />;
 
   return (
     <div className="flex flex-col min-h-screen bg-[#FDFCFB] text-slate-900 font-sans selection:bg-brand-gold/30">
-      {/* Branded Header */}
       <header className="h-16 md:h-20 bg-white border-slate-200 backdrop-blur-xl flex items-center justify-between px-4 md:px-8 border-b shadow-sm shrink-0 z-50">
         <div className="flex items-center space-x-3 md:space-x-4">
           <div className="w-8 h-8 md:w-10 md:h-10 border border-brand-wine bg-brand-wine text-white rounded-full flex items-center justify-center shadow-sm">
@@ -163,30 +99,19 @@ export default function App() {
         <div className="flex items-center gap-3 md:gap-6">
           <div className="hidden sm:flex flex-col text-[10px] uppercase tracking-tighter text-right text-slate-500">
             <span className="opacity-60 truncate max-w-[100px]">{user.email}</span>
-            <span className="text-brand-gold font-bold">Role: {user.role}</span>
+            <span className="text-brand-gold font-bold uppercase tracking-widest text-[8px]">Role: {user.role}</span>
           </div>
-
           <button
             onClick={() => logout()}
-            className="text-slate-400 hover:text-brand-wine p-2 mt-0.5 transition-colors"
-            title="Sign Out"
+            className="text-slate-400 hover:text-brand-wine p-2 transition-colors"
           >
             <LogOut className="w-5 h-5" />
           </button>
         </div>
       </header>
 
-      {/* Main Content Area */}
       <main className="flex-1 overflow-hidden">
-        <motion.div
-          key={user.role}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.4 }}
-          className="h-full overflow-y-auto"
-        >
-          {renderContent()}
-        </motion.div>
+        {children}
       </main>
 
       <footer className="hidden sm:flex h-10 border-t items-center px-8 justify-between shrink-0 bg-white border-slate-100">
@@ -199,5 +124,81 @@ export default function App() {
         </div>
       </footer>
     </div>
+  );
+};
+
+export default function App() {
+  const { user, loading } = useWines();
+  const [isAnonLoading, setIsAnonLoading] = useState(false);
+
+  // Trigger anonymous login for customers in background
+  useEffect(() => {
+    const isMenuPath = window.location.pathname.startsWith('/menu/');
+    if (!loading && !user && isMenuPath) {
+      const performAnonLogin = async () => {
+        setIsAnonLoading(true);
+        try {
+          await signInAnonymously(auth);
+        } catch (e) {
+          console.error("Anonymous login failed:", e);
+        } finally {
+          setIsAnonLoading(false);
+        }
+      };
+      performAnonLogin();
+    }
+  }, [loading, user]);
+
+  if (loading || isAnonLoading) {
+    return (
+      <div className="min-h-screen bg-brand-wine flex flex-col items-center justify-center gap-6">
+        <Loader2 className="w-12 h-12 animate-spin text-brand-gold" />
+        <p className="serif italic text-brand-gold/60 text-lg tracking-widest">AUTHENTICATING...</p>
+      </div>
+    );
+  }
+
+  return (
+    <BrowserRouter>
+      <Routes>
+        {/* Redirect Root to proper place based on role */}
+        <Route path="/" element={
+          !user ? <Navigate to="/login" replace /> :
+          (user.role === 'admin' || user.role === 'rep') ? <Navigate to="/admin" replace /> :
+          user.role === 'owner' ? <Navigate to="/owner" replace /> :
+          <Navigate to="/login" replace />
+        } />
+
+        {/* Public / Login */}
+        <Route path="/login" element={
+          user ? <Navigate to="/" replace /> : <LoginView />
+        } />
+
+        {/* Customer Menu */}
+        <Route path="/menu/:storeId" element={
+          <SessionExpiredGuard>
+            <CustomerView />
+          </SessionExpiredGuard>
+        } />
+
+        {/* Admin Section */}
+        <Route path="/admin" element={
+          <DashboardLayout>
+            {user?.role === 'admin' || user?.role === 'rep' ? <AdminView /> : <Navigate to="/" replace />}
+          </DashboardLayout>
+        } />
+
+        {/* Owner Section */}
+        <Route path="/owner" element={
+          <DashboardLayout>
+            {user?.role === 'owner' ? <OwnerView /> : 
+             ((user?.role === 'admin' || user?.role === 'rep') ? <OwnerView /> : <Navigate to="/" replace />)}
+          </DashboardLayout>
+        } />
+
+        {/* Catch all */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
