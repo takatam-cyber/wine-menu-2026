@@ -406,8 +406,11 @@ ${wineContext}`;
     
     // Catch-all route must be LAST and serve index.html from dist
     app.get("*", (req, res, next) => {
-      // Skip if it's an API route (though they are defined earlier, good to be safe)
+      // Skip if it's an API route
       if (req.path.startsWith("/api/")) return next();
+      
+      // Skip if it looks like an asset request (to prevent MIME type errors)
+      if (req.path.startsWith("/assets/")) return next();
       
       res.sendFile(path.join(distPath, "index.html"));
     });

@@ -11,7 +11,7 @@ import { calculateProfit } from '../lib/profit-calc';
 import { motion, AnimatePresence } from 'motion/react';
 
 export const OwnerView: React.FC = () => {
-  const { wines, user } = useWines();
+  const { wines, user, stores } = useWines();
   const [inventory, setInventory] = useState<WineMaster[]>([]);
   const [store, setStore] = useState<Store | null>(null);
   const [selectedWine, setSelectedWine] = useState<WineMaster | null>(null);
@@ -332,11 +332,25 @@ export const OwnerView: React.FC = () => {
             </div>
           ) : (
             <div>
-              <div className="flex items-center gap-3">
-                <h1 className="serif text-3xl text-brand-gold">{store?.name || '店舗情報不明'}</h1>
-                <button onClick={() => setIsEditingStore(true)} className="p-2 text-brand-gold/40 hover:text-brand-gold transition-colors">
-                  <Edit2 className="w-4 h-4" />
-                </button>
+              <div className="flex flex-col md:flex-row md:items-center gap-3">
+                <div className="flex items-center gap-3">
+                  <h1 className="serif text-3xl text-brand-gold">{store?.name || '店舗情報不明'}</h1>
+                  <button onClick={() => setIsEditingStore(true)} className="p-2 text-brand-gold/40 hover:text-brand-gold transition-colors">
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                </div>
+                {(user?.role === 'admin' || user?.role === 'rep') && (
+                  <select 
+                    className="bg-brand-gold/10 border border-brand-gold/30 text-brand-gold rounded-full px-4 py-1 text-[10px] font-bold uppercase outline-none"
+                    value={sid || ''}
+                    onChange={(e) => window.location.href = `/owner?storeId=${e.target.value}`}
+                  >
+                    <option value="" disabled>店舗を切り替え</option>
+                    {stores.map(s => (
+                      <option key={s.id} value={s.id} className="bg-brand-wine text-brand-gold font-sans">{s.name}</option>
+                    ))}
+                  </select>
+                )}
               </div>
               <p className="text-gray-400 text-[10px] uppercase tracking-widest font-bold mt-1">
                 {store?.cuisine_type} • {store?.address}

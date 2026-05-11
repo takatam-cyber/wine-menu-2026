@@ -624,7 +624,7 @@ export const AdminView: React.FC = () => {
                              <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center border border-slate-100 group-hover:bg-brand-wine group-hover:text-white transition-colors shadow-inner">
                                <Wine className="w-7 h-7" />
                              </div>
-                             <div className="flex flex-col items-end gap-2">
+                      <div className="flex flex-col items-end gap-2 relative z-30">
                                <span className={`text-[9px] font-bold uppercase tracking-widest px-3 py-1 rounded-full ${store.isActive ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-red-50 text-red-600 border border-red-100'}`}>
                                  {store.isActive ? '稼働中' : '停止中'}
                                </span>
@@ -633,7 +633,7 @@ export const AdminView: React.FC = () => {
                                    e.stopPropagation();
                                    handleDeleteStore(store.id);
                                  }}
-                                 className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500 text-white rounded-full text-[9px] font-bold uppercase tracking-widest hover:bg-red-600 transition-all border border-red-400 shadow-md scale-100 active:scale-90"
+                                 className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500 text-white rounded-full text-[9px] font-bold uppercase tracking-widest hover:bg-red-600 transition-all border border-red-400 shadow-md scale-100 active:scale-90 pointer-events-auto"
                                >
                                  <Trash2 className="w-3.5 h-3.5" />
                                  店舗を削除
@@ -755,6 +755,13 @@ export const AdminView: React.FC = () => {
                     />
                   </div>
                   <div className="flex flex-col gap-2 w-full">
+                    <button 
+                      onClick={() => window.location.href = `/owner?storeId=${selectedStoreId}`}
+                      className="w-full py-3 bg-brand-wine text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:brightness-125 flex items-center justify-center gap-2 shadow-luxury border border-brand-gold/30"
+                    >
+                      <Settings className="w-3.5 h-3.5" />
+                      店舗オーナーとして管理
+                    </button>
                     <button 
                       onClick={() => window.open(`/menu/${selectedStoreId}`, '_blank')}
                       className="w-full py-3 bg-brand-gold text-brand-wine rounded-xl text-[10px] font-bold uppercase tracking-widest hover:brightness-110 flex items-center justify-center gap-2 shadow-sm"
