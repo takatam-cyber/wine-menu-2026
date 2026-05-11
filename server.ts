@@ -316,6 +316,68 @@ ${wineContext}`;
     }
   });
 
+  // Optimized Menu Endpoint (Bypasses client-side multiple roundtrips)
+  app.get("/api/menu/:storeId", async (req, res) => {
+    try {
+      const { storeId } = req.params;
+      
+      // 1. Get Store Info
+      const storeDoc = await dbAdmin.collection("stores").doc(storeId).get();
+      if (!storeDoc.exists) return res.status(404).json({ error: "Store not found" });
+      
+      const storeData = storeDoc.data();
+      // Omit private fields like owner_api_key
+      const publicStoreData = {
+        id: storeDoc.id,
+        name: storeData?.name,
+        address: storeData?.address,
+        cuisine_type: storeData?.cuisine_type,
+        hasAiSommelier: storeData?.hasAiSommelier,
+        logo_url: storeData?.logo_url,
+      };
+
+      // 2. Get Inventory
+      const invSnap = await dbAdmin.collection("stores").doc(storeId).collection("inventory")
+        .where("isActive", "==", true)
+        .where("visible", "==", true)
+        .get();
+      
+      const inventoryItems = invSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const masterIds = inventoryItems.map((item: any) => item.id);
+
+      // 3. Get Master Data in chunks
+      const enrichedMenu: any[] = [];
+      for (let i = 0; i < masterIds.length; i += 30) {
+        const chunk = masterIds.slice(i, i + 30);
+        const masterSnap = await dbAdmin.collection("winesMaster")
+          .where(admin.firestore.FieldPath.documentId(), "in", chunk)
+          .get();
+        
+        masterSnap.forEach(mDoc => {
+          const masterData = mDoc.data();
+          const invItem: any = inventoryItems.find((inv: any) => inv.id === mDoc.id);
+          enrichedMenu.push({
+            ...masterData,
+            id: mDoc.id,
+            price_bottle: invItem?.price_bottle || masterData?.price_bottle,
+            price_glass: invItem?.price_glass || masterData?.price_glass,
+            isFeatured: invItem?.isFeatured || false,
+            promoLabel: invItem?.promoLabel || "",
+          });
+        });
+      }
+
+      res.setHeader("Cache-Control", "public, max-age=60"); // Cache for 1 minute for snappiness
+      res.json({
+        store: publicStoreData,
+        menu: enrichedMenu,
+      });
+    } catch (error: any) {
+      console.error("Menu Fetch Error:", error);
+      res.status(500).json({ error: "メニューの取得に失敗しました。" });
+    }
+  });
+
   // Vite Integration
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({

@@ -77,65 +77,31 @@ export const CustomerView: React.FC = () => {
     }, 1500);
   };
   const fetchStoreData = async () => {
-    // If we have a route param, use it, otherwise check legacy query param for compatibility if needed, 
-    // or fallback to user.storeId for staff preview
     const params = new URLSearchParams(window.location.search);
     let storeId = routeStoreId || params.get('storeId')?.trim();
     
-    // Clean trailing slashes if any (common in some QR scanners)
     if (storeId) {
       storeId = storeId.replace(/\/$/, '');
     }
     
-    // Fallback to user's registered storeId if URL param is missing
     const finalStoreId = storeId || user?.storeId;
 
     if (!finalStoreId) {
-      // If we're still loading auth but don't have URL param, wait
       if (authLoading) return; 
       setIsDataFetching(false);
       return;
     }
 
     try {
-      const storeDoc = await getDoc(doc(db, 'stores', finalStoreId));
-      if (storeDoc.exists()) {
-        const storeData = { id: storeDoc.id, ...storeDoc.data() } as Store;
-        setStore(storeData);
-        
-        const invSnap = await getDocs(collection(db, 'stores', finalStoreId, 'inventory'));
-        const invItems = invSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-        
-        const activeItems = invItems.filter((item: any) => item.isActive !== false && item.visible !== false);
-        
-        // Fetch matching master data from Firestore for these inventory items using bulk queries
-        const enriched: WineMaster[] = [];
-        const activeIds = activeItems.map((item: any) => item.id);
-        
-        // Firestore 'in' query limit is 30
-        for (let i = 0; i < activeIds.length; i += 30) {
-          const chunk = activeIds.slice(i, i + 30);
-          const q = query(collection(db, 'winesMaster'), where('__name__', 'in', chunk));
-          const masterSnaps = await getDocs(q);
-          
-          masterSnaps.forEach(docSnap => {
-            const masterData = docSnap.data() as WineMaster;
-            const invItem = activeItems.find((item: any) => item.id === docSnap.id) as any;
-            if (invItem) {
-              enriched.push({
-                ...masterData,
-                id: docSnap.id,
-                price_bottle: invItem.price_bottle || masterData.price_bottle,
-                price_glass: invItem.price_glass || masterData.price_glass
-              });
-            }
-          });
-        }
-        
-        setInventory(enriched);
-      }
+      const response = await fetch(`/api/menu/${finalStoreId}`);
+      if (!response.ok) throw new Error("Failed to fetch menu");
+      
+      const data = await response.json();
+      setStore(data.store);
+      setInventory(data.menu);
     } catch (error) {
-      handleFirestoreError(error, OperationType.GET, `stores/${finalStoreId}`);
+      console.error("Fetch Error:", error);
+      // Fallback or error handling
     } finally {
       setIsDataFetching(false);
     }
@@ -453,64 +419,113 @@ export const CustomerView: React.FC = () => {
               </div>
               
               <div className="grid gap-8">
-                {displayedInventory.map((wine) => (
-                  <motion.div
-                    key={wine.id}
-                    id={`wine-${wine.id}`}
-                    whileTap={{ scale: 0.98 }}
-                    animate={highlightedId === wine.id ? { 
-                      borderColor: ["rgba(212,175,55,0.1)", "rgba(212,175,55,1)", "rgba(212,175,55,0.1)"],
-                      backgroundColor: ["rgba(255,255,255,0)", "rgba(212,175,55,0.4)", "rgba(255,255,255,0)"],
-                      boxShadow: [
-                         "0 0 0 0px rgba(212,175,55,0)", 
-                         "0 0 80px 20px rgba(212,175,55,1)", 
-                         "0 0 0 0px rgba(212,175,55,0)"
-                      ],
-                      scale: [1, 1.05, 1]
-                    } : {}}
-                    transition={highlightedId === wine.id ? { duration: 0.8 } : {}}
-                    onClick={() => setSelectedWine(wine)}
-                    className={`group cursor-pointer flex gap-5 border p-5 rounded-[2.5rem] transition-all duration-700 relative overflow-hidden ${
-                      wine.isFeatured
-                        ? 'border-brand-gold bg-brand-gold/[0.03] shadow-[0_15px_40px_rgba(212,175,55,0.15)] ring-1 ring-brand-gold/20'
-                        : 'border-transparent border-b border-brand-wine/5 hover:bg-brand-gold/[0.02]'
-                    }`}
-                  >
-                    {wine.isFeatured && (
-                      <div className="absolute top-0 right-0 bg-brand-gold text-brand-wine text-[8px] font-black px-4 py-1.5 rounded-bl-[1.5rem] tracking-[0.2em] uppercase z-10 shadow-sm flex items-center gap-1.5">
-                        <Sparkles className="w-3 h-3" />
-                        Sommelier's Selection
+                {/* Featured Section */}
+                <AnimatePresence>
+                  {displayedInventory.some(w => w.isFeatured) && (
+                    <div className="space-y-6">
+                      <div className="flex items-center gap-3 px-2">
+                        <Sparkles className="w-5 h-5 text-brand-gold" />
+                        <h3 className="serif text-xs text-brand-gold uppercase tracking-[0.4em] font-bold">Sommelier's Selection</h3>
+                        <div className="flex-1 h-px bg-brand-gold/20" />
                       </div>
-                    )}
-                    {wine.promoLabel && (
-                      <div className="absolute top-8 right-0 bg-brand-wine text-brand-gold text-[7px] font-bold px-3 py-1 rounded-l-md tracking-[0.25em] z-10 opacity-90 scale-90 origin-right uppercase">
-                        {wine.promoLabel}
+                      <div className="grid gap-8">
+                        {displayedInventory.filter(w => w.isFeatured).map((wine) => (
+                          <motion.div
+                            key={wine.id}
+                            id={`wine-${wine.id}`}
+                            initial={{ opacity: 0, y: 30 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            whileTap={{ scale: 0.96 }}
+                            onClick={() => setSelectedWine(wine)}
+                            className="group cursor-pointer relative p-1 rounded-[3rem] overflow-hidden"
+                          >
+                            {/* Luxury Animated Border */}
+                            <div className="absolute inset-0 bg-gradient-to-br from-brand-gold via-white to-brand-gold opacity-30 animate-pulse" />
+                            <div className="absolute inset-[1px] bg-brand-ivory rounded-[3rem] z-0" />
+                            
+                            <div className="relative z-10 flex gap-5 p-6 rounded-[3rem] bg-brand-gold/[0.04] shadow-[0_20px_50px_rgba(212,175,55,0.25)] border border-brand-gold/30">
+                              <div className="w-32 h-40 bg-white flex items-center justify-center p-4 rounded-[2rem] relative border border-brand-gold/20 shadow-xl group-hover:border-brand-gold/50 transition-all overflow-hidden shrink-0">
+                                <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]" />
+                                <img
+                                  src={wine.image_url}
+                                  alt=""
+                                  className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-1000 ease-out drop-shadow-2xl"
+                                />
+                              </div>
+                              <div className="flex-1 flex flex-col justify-center gap-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <div className="px-2 py-0.5 bg-brand-wine text-brand-gold text-[7px] font-black rounded-full uppercase tracking-widest">Featured</div>
+                                  <div className="text-[9px] uppercase font-bold text-brand-gold tracking-[0.4em]">
+                                    {wine.region} · {wine.vintage}
+                                  </div>
+                                </div>
+                                <h3 className="serif text-xl text-brand-wine leading-tight tracking-tight group-hover:text-brand-gold transition-colors">{wine.name_jp}</h3>
+                                <div className="flex items-center justify-between mt-4">
+                                  <div className="flex flex-col">
+                                     <span className="serif text-2xl text-brand-wine font-medium tracking-tighter">¥{wine.price_bottle?.toLocaleString()}</span>
+                                  </div>
+                                  <div className="w-12 h-12 rounded-full bg-brand-wine text-brand-gold flex items-center justify-center transition-all border border-brand-gold/40 shadow-lg">
+                                    <ChevronRight className="w-7 h-7" />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </motion.div>
+                        ))}
                       </div>
-                    )}
-                    <div className="w-32 h-36 bg-white flex items-center justify-center p-4 rounded-[2rem] relative border border-brand-gold/10 shadow-sm group-hover:border-brand-gold/30 transition-all overflow-hidden shrink-0">
-                      <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]" />
-                      <img
-                        src={wine.image_url}
-                        alt=""
-                        className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-1000 ease-out drop-shadow-2xl"
-                      />
+                      <div className="h-px bg-brand-gold/10 mx-10" />
                     </div>
-                    <div className="flex-1 flex flex-col justify-center gap-1">
-                      <div className="text-[9px] uppercase font-bold text-brand-gold tracking-[0.4em] mb-1">
-                        {wine.region} · {wine.vintage}
-                      </div>
-                      <h3 className="serif text-xl text-brand-wine leading-tight tracking-tight group-hover:text-brand-gold transition-colors">{wine.name_jp}</h3>
-                      <div className="flex items-center justify-between mt-4">
-                        <div className="flex flex-col">
-                           <span className="serif text-2xl text-brand-wine font-medium tracking-tighter">¥{wine.price_bottle?.toLocaleString()}</span>
-                        </div>
-                        <div className="w-12 h-12 rounded-full bg-brand-gold/10 flex items-center justify-center group-hover:bg-brand-wine group-hover:text-brand-gold transition-all border border-brand-gold/20">
-                          <ChevronRight className="w-7 h-7 text-brand-gold" />
-                        </div>
-                      </div>
+                  )}
+                </AnimatePresence>
+
+                {/* Regular Menu Section */}
+                <div className="space-y-6">
+                  {displayedInventory.some(w => !w.isFeatured) && (
+                    <div className="px-2 pb-2">
+                       <h3 className="text-[10px] text-brand-wine/40 uppercase tracking-[0.4em] font-bold">Standard Collection</h3>
                     </div>
-                  </motion.div>
-                ))}
+                  )}
+                  <div className="grid gap-6">
+                    {displayedInventory.filter(w => !w.isFeatured).map((wine) => (
+                      <motion.div
+                        key={wine.id}
+                        id={`wine-${wine.id}`}
+                        whileTap={{ scale: 0.98 }}
+                        animate={highlightedId === wine.id ? { 
+                          borderColor: ["rgba(212,175,55,0.1)", "rgba(212,175,55,1)", "rgba(212,175,55,0.1)"],
+                          backgroundColor: ["rgba(255,255,255,0)", "rgba(212,175,55,0.4)", "rgba(255,255,255,0)"],
+                          boxShadow: [
+                             "0 0 0 0px rgba(212,175,55,0)", 
+                             "0 0 80px 20px rgba(212,175,55,1)", 
+                             "0 0 0 0px rgba(212,175,55,0)"
+                          ],
+                          scale: [1, 1.05, 1]
+                        } : {}}
+                        transition={highlightedId === wine.id ? { duration: 0.8 } : {}}
+                        onClick={() => setSelectedWine(wine)}
+                        className="group cursor-pointer flex gap-5 border border-transparent border-b-brand-wine/5 p-4 hover:bg-brand-gold/[0.02] transition-all duration-300 relative overflow-hidden"
+                      >
+                        <div className="w-24 h-28 bg-white/50 backdrop-blur-sm flex items-center justify-center p-3 rounded-2xl relative border border-brand-gold/10 shadow-sm group-hover:border-brand-gold/30 transition-all shrink-0">
+                          <img
+                            src={wine.image_url}
+                            alt=""
+                            className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-700"
+                          />
+                        </div>
+                        <div className="flex-1 flex flex-col justify-center gap-0.5">
+                          <div className="text-[8px] uppercase font-bold text-brand-gold/60 tracking-[0.3em]">
+                            {wine.region} · {wine.vintage}
+                          </div>
+                          <h3 className="serif text-lg text-brand-wine leading-tight group-hover:text-brand-gold transition-colors">{wine.name_jp}</h3>
+                          <div className="flex items-center justify-between mt-2">
+                             <span className="serif text-xl text-brand-wine font-medium">¥{wine.price_bottle?.toLocaleString()}</span>
+                             <ChevronRight className="w-5 h-5 text-brand-gold opacity-0 group-hover:opacity-100 transition-all translate-x-[-10px] group-hover:translate-x-0" />
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
