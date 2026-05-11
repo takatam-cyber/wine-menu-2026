@@ -865,7 +865,7 @@ export const AdminView: React.FC = () => {
               <span className="truncate">{selectedStore?.ownerId ? 'オーナー編集' : 'オーナー作成'}</span>
             </button>
             <button
-              onClick={() => window.open(`/?storeId=${selectedStoreId}`, '_blank')}
+              onClick={() => window.open(`/menu/${selectedStoreId}`, '_blank')}
               className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 md:px-5 py-2 md:py-2.5 bg-brand-wine text-white rounded-full text-[10px] md:text-xs font-bold uppercase tracking-widest hover:scale-105 transition-all shadow-md"
             >
               <Wine className="w-4 h-4 shrink-0" />

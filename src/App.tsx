@@ -127,17 +127,33 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
   );
 };
 
+// Role-based protection components
+const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useWines();
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role !== 'admin' && user.role !== 'rep') return <Navigate to="/login" replace />;
+  return <DashboardLayout>{children}</DashboardLayout>;
+};
+
+const OwnerRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useWines();
+  if (!user) return <Navigate to="/login" replace />;
+  // Allow admins/reps to see owner view too for support
+  if (user.role !== 'owner' && user.role !== 'admin' && user.role !== 'rep') return <Navigate to="/login" replace />;
+  return <DashboardLayout>{children}</DashboardLayout>;
+};
+
 export default function App() {
   const { user, loading } = useWines();
   const [isAnonLoading, setIsAnonLoading] = useState(false);
 
   // Trigger anonymous login for customers in background 
   useEffect(() => {
+    const isMenuPath = window.location.pathname.startsWith('/menu/');
     const params = new URLSearchParams(window.location.search);
     const hasLegacyStoreId = params.get('storeId');
-    const isMenuPath = window.location.pathname.startsWith('/menu/') || !!hasLegacyStoreId;
     
-    if (!loading && !user && isMenuPath) {
+    if (!loading && !user && (isMenuPath || hasLegacyStoreId)) {
       const performAnonLogin = async () => {
         setIsAnonLoading(true);
         try {
@@ -163,53 +179,43 @@ export default function App() {
 
   return (
     <Routes>
-      {/* Redirect Root to proper place based on role */}
-        <Route path="/" element={
-          (() => {
-            const params = new URLSearchParams(window.location.search);
-            const legacyStoreId = params.get('storeId');
-            
-            if (legacyStoreId) {
-              return <Navigate to={`/menu/${legacyStoreId}`} replace />;
-            }
-            
-            if (!user) return <Navigate to="/login" replace />;
-            
-            if (user.role === 'admin' || user.role === 'rep') return <Navigate to="/admin" replace />;
-            if (user.role === 'owner') return <Navigate to="/owner" replace />;
-            return <Navigate to="/login" replace />;
-          })()
-        } />
+      {/* Root redirection logic */}
+      <Route path="/" element={
+        <Navigate to={
+          !user ? "/login" : 
+          (user.role === 'admin' || user.role === 'rep') ? "/admin" : 
+          user.role === 'owner' ? "/owner" : "/login"
+        } replace />
+      } />
 
-        {/* Public / Login */}
-        <Route path="/login" element={
-          user ? <Navigate to="/" replace /> : <LoginView />
-        } />
+      {/* Public / Login */}
+      <Route path="/login" element={
+        user ? <Navigate to="/" replace /> : <LoginView />
+      } />
 
-        {/* Customer Menu */}
-        <Route path="/menu/:storeId" element={
-          <SessionExpiredGuard>
-            <CustomerView />
-          </SessionExpiredGuard>
-        } />
+      {/* Customer Menu */}
+      <Route path="/menu/:storeId" element={
+        <SessionExpiredGuard>
+          <CustomerView />
+        </SessionExpiredGuard>
+      } />
 
-        {/* Admin Section */}
-        <Route path="/admin" element={
-          <DashboardLayout>
-            {user?.role === 'admin' || user?.role === 'rep' ? <AdminView /> : <Navigate to="/" replace />}
-          </DashboardLayout>
-        } />
+      {/* Admin Section */}
+      <Route path="/admin" element={
+        <AdminRoute>
+          <AdminView />
+        </AdminRoute>
+      } />
 
-        {/* Owner Section */}
-        <Route path="/owner" element={
-          <DashboardLayout>
-            {user?.role === 'owner' ? <OwnerView /> : 
-             ((user?.role === 'admin' || user?.role === 'rep') ? <OwnerView /> : <Navigate to="/" replace />)}
-          </DashboardLayout>
-        } />
+      {/* Owner Section */}
+      <Route path="/owner" element={
+        <OwnerRoute>
+          <OwnerView />
+        </OwnerRoute>
+      } />
 
-        {/* Catch all */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    );
+      {/* Catch all */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
 }
