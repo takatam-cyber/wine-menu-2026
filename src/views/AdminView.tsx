@@ -645,7 +645,7 @@ export const AdminView: React.FC = () => {
                         </div>
                     <div className="flex items-center justify-between mt-6 pt-6 border-t border-slate-50">
                       <div className="flex flex-col">
-                        <span className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">Status</span>
+                        <span className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">稼働状況</span>
                         <span className="text-xs font-bold text-slate-700">{store.isActive ? '営業中' : '停止中'}</span>
                       </div>
                     </div>

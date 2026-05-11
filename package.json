@@ -6,8 +6,8 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "vite build && tsc && cp firebase-applet-config.json dist/",
-    "start": "node dist/server.js",
+    "build": "vite build && tsc --project tsconfig.server.json && cp firebase-applet-config.json dist/",
+    "start": "NODE_ENV=production node dist/server.js",
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"

@@ -99,7 +99,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
         <div className="flex items-center gap-3 md:gap-6">
           <div className="hidden sm:flex flex-col text-[10px] uppercase tracking-tighter text-right text-slate-500">
             <span className="opacity-60 truncate max-w-[100px]">{user.email}</span>
-            <span className="text-brand-gold font-bold uppercase tracking-widest text-[8px]">Role: {user.role}</span>
+            <span className="text-brand-gold font-bold uppercase tracking-widest text-[8px]">権限: {user.role === 'admin' ? '管理者' : user.role === 'owner' ? '店舗オーナー' : '営業担当'}</span>
           </div>
           <button
             onClick={() => logout()}
