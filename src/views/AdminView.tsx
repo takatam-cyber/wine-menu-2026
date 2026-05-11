@@ -643,18 +643,19 @@ export const AdminView: React.FC = () => {
                              <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center border border-slate-100 group-hover:bg-brand-wine group-hover:text-white transition-colors shadow-inner">
                                <Wine className="w-7 h-7" />
                              </div>
-                      <div className="flex flex-col items-end gap-2 relative z-50">
+                      <div className="flex flex-col items-end gap-2 relative z-[60]">
                                <span className={`text-[9px] font-bold uppercase tracking-widest px-3 py-1 rounded-full ${store.isActive ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-red-50 text-red-600 border border-red-100'}`}>
                                  {store.isActive ? '稼働中' : '停止中'}
                                </span>
                                <button 
                                  onClick={(e) => {
                                    e.stopPropagation();
-                                   handleDeleteStore(store.id);
+                                   if (confirm('この店舗を削除してよろしいですか？')) {
+                                     handleDeleteStore(store.id);
+                                   }
                                  }}
-                                 className="flex items-center justify-center p-2.5 bg-red-500 text-white rounded-full hover:bg-red-600 transition-all shadow-lg active:scale-95 pointer-events-auto"
+                                 className="flex items-center justify-center p-2.5 bg-red-500 text-white rounded-full hover:bg-red-600 transition-all shadow-xl active:scale-95 pointer-events-auto"
                                  title="店舗を削除"
-                                 style={{ pointerEvents: 'auto' }}
                                >
                                  <Trash2 className="w-4 h-4" />
                                </button>

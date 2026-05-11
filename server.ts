@@ -461,9 +461,13 @@ ${wineContext}`;
     
     // Catch-all route must be LAST and serve index.html from dist
     app.get("*", (req, res, next) => {
+      // Skip API and assets strictly
       if (req.path.startsWith("/api/")) return next();
       
-      if (req.path.includes(".") || req.path.startsWith("/assets/")) {
+      // If the path has an extension, it's likely a missing asset, let it fall through to a 404
+      // This prevents serving index.html as a .js or .css file (MIME type error)
+      const hasExtension = /\.[a-z0-9]+$/i.test(req.path);
+      if (hasExtension || req.path.startsWith("/assets/")) {
         return next();
       }
       
