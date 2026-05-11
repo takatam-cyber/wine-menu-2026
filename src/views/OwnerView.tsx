@@ -5,7 +5,7 @@ import { generateStaffTalkScript, generateSocialPost } from '../lib/ai-service';
 import { db } from '../lib/firebase';
 import { collection, getDocs, doc, getDoc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
-import { Wine, Camera, MessageSquare, Save, Eye, EyeOff, Loader2, Sparkles, X, Trash2, Plus, Search, Edit2 } from 'lucide-react';
+import { Wine, Camera, MessageSquare, Save, Eye, EyeOff, Loader2, Sparkles, X, Trash2, Plus, Search, Edit2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import { calculateProfit } from '../lib/profit-calc';
 import { motion, AnimatePresence } from 'motion/react';
@@ -33,8 +33,37 @@ export const OwnerView: React.FC = () => {
     promoLabel: ''
   });
   const [isAnalysing, setIsAnalysing] = useState(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
   const sid = new URLSearchParams(window.location.search).get('storeId') || user?.storeId;
+
+  // Auto-save logic
+  useEffect(() => {
+    if (!editingWineId || !sid) return;
+
+    const timer = setTimeout(async () => {
+      setAutoSaveStatus('saving');
+      try {
+        await updateDoc(doc(db, 'stores', sid, 'inventory', editingWineId), {
+          price_bottle: editWineData.price_bottle,
+          price_glass: editWineData.price_glass,
+          stock: editWineData.stock,
+          visible: editWineData.visible,
+          isFeatured: editWineData.isFeatured,
+          promoLabel: editWineData.promoLabel,
+          updatedAt: new Date().toISOString()
+        });
+        setInventory(prev => prev.map(w => w.id === editingWineId ? { ...w, ...editWineData } : w));
+        setAutoSaveStatus('saved');
+        setTimeout(() => setAutoSaveStatus('idle'), 2000);
+      } catch (error) {
+        console.error("Auto-save error:", error);
+        setAutoSaveStatus('error');
+      }
+    }, 2000); // 2 second debounce
+
+    return () => clearTimeout(timer);
+  }, [editWineData, editingWineId, sid]);
 
   const fetchData = async () => {
     if (!sid) {
@@ -457,27 +486,27 @@ export const OwnerView: React.FC = () => {
                             <label className="text-[8px] text-brand-gold/60 uppercase block">ボトル価格</label>
                             <input 
                               type="number"
-                              className="w-full bg-white/10 border border-brand-gold/30 rounded px-2 py-1 text-xs text-brand-ivory outline-none"
+                              className="w-full bg-white/10 border border-brand-gold/30 rounded px-2 py-1 text-xs text-brand-ivory outline-none focus:border-brand-gold"
                               value={editWineData.price_bottle}
-                              onChange={e => setEditWineData({...editWineData, price_bottle: parseInt(e.target.value)}) }
+                              onChange={e => setEditWineData({...editWineData, price_bottle: parseInt(e.target.value) || 0}) }
                             />
                           </div>
                           <div>
                             <label className="text-[8px] text-brand-gold/60 uppercase block">グラス価格</label>
                             <input 
                               type="number"
-                              className="w-full bg-white/10 border border-brand-gold/30 rounded px-2 py-1 text-xs text-brand-ivory outline-none"
+                              className="w-full bg-white/10 border border-brand-gold/30 rounded px-2 py-1 text-xs text-brand-ivory outline-none focus:border-brand-gold"
                               value={editWineData.price_glass}
-                              onChange={e => setEditWineData({...editWineData, price_glass: parseInt(e.target.value)}) }
+                              onChange={e => setEditWineData({...editWineData, price_glass: parseInt(e.target.value) || 0}) }
                             />
                           </div>
                           <div>
                             <label className="text-[8px] text-brand-gold/60 uppercase block">在庫数</label>
                             <input 
                               type="number"
-                              className="w-full bg-white/10 border border-brand-gold/30 rounded px-2 py-1 text-xs text-brand-ivory outline-none"
+                              className="w-full bg-white/10 border border-brand-gold/30 rounded px-2 py-1 text-xs text-brand-ivory outline-none focus:border-brand-gold"
                               value={editWineData.stock}
-                              onChange={e => setEditWineData({...editWineData, stock: parseInt(e.target.value)}) }
+                              onChange={e => setEditWineData({...editWineData, stock: parseInt(e.target.value) || 0}) }
                             />
                           </div>
                           <div>
@@ -492,7 +521,7 @@ export const OwnerView: React.FC = () => {
                             </button>
                           </div>
                         </div>
-                        <div className="mt-2 flex gap-2">
+                        <div className="mt-2 flex items-center justify-between gap-4">
                            <button 
                              onClick={() => setEditWineData({...editWineData, isFeatured: !editWineData.isFeatured})}
                              className={`px-3 py-1 rounded text-[9px] font-bold uppercase border transition-all ${
@@ -503,10 +532,30 @@ export const OwnerView: React.FC = () => {
                            </button>
                            <input 
                               placeholder="プロモーションラベル（例：今月のおすすめ）"
-                              className="flex-1 bg-white/5 border border-brand-gold/20 rounded px-3 py-1 text-[10px] text-brand-ivory outline-none"
+                              className="flex-1 bg-white/5 border border-brand-gold/20 rounded px-3 py-1 text-[10px] text-brand-ivory outline-none focus:border-brand-gold"
                               value={editWineData.promoLabel}
                               onChange={e => setEditWineData({...editWineData, promoLabel: e.target.value})}
                            />
+                           {autoSaveStatus !== 'idle' && (
+                             <div className="flex items-center gap-1.5 whitespace-nowrap">
+                               {autoSaveStatus === 'saving' ? (
+                                 <>
+                                   <Loader2 className="w-3 h-3 animate-spin text-brand-gold" />
+                                   <span className="text-[8px] text-brand-gold uppercase font-bold">Saving...</span>
+                                 </>
+                               ) : autoSaveStatus === 'saved' ? (
+                                 <>
+                                   <CheckCircle2 className="w-3 h-3 text-green-500" />
+                                   <span className="text-[8px] text-green-500 uppercase font-bold">Saved</span>
+                                 </>
+                               ) : (
+                                 <>
+                                   <AlertCircle className="w-3 h-3 text-red-500" />
+                                   <span className="text-[8px] text-red-500 uppercase font-bold">Error</span>
+                                 </>
+                               )}
+                             </div>
+                           )}
                         </div>
                       </>
                     ) : (
@@ -522,13 +571,11 @@ export const OwnerView: React.FC = () => {
                 <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
                   {editingWineId === wine.id ? (
                     <div className="flex items-center gap-2">
-                      <button onClick={() => setEditingWineId(null)} className="p-2 text-gray-400 hover:text-white transition-colors">キャンセル</button>
                       <button 
-                        onClick={() => handleSaveWineEdit(wine.id)}
-                        className="bg-brand-gold text-brand-wine px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2"
+                        onClick={() => setEditingWineId(null)}
+                        className="bg-brand-gold text-brand-wine px-6 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 hover:brightness-110 shadow-luxury transition-all"
                       >
-                        {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
-                        保存
+                        編集を終了
                       </button>
                     </div>
                   ) : (

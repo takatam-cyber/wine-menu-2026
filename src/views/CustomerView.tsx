@@ -503,7 +503,20 @@ export const CustomerView: React.FC = () => {
                           >
                             {/* Luxury Animated Border */}
                             <div className="absolute inset-0 bg-gradient-to-br from-brand-gold via-white to-brand-gold opacity-30 animate-pulse" />
-                            <div className="absolute inset-[1px] bg-brand-ivory rounded-[3rem] z-0" />
+                            <div className="absolute inset-[1px] bg-brand-ivory rounded-[3rem] z-0 overflow-hidden">
+                               {/* Luxury Gold Shimmer Animation */}
+                               <motion.div 
+                                 initial={{ x: "-100%" }}
+                                 animate={{ x: "200%" }}
+                                 transition={{ 
+                                   duration: 3, 
+                                   repeat: Infinity, 
+                                   ease: "linear",
+                                   repeatDelay: 5
+                                 }}
+                                 className="absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-brand-gold/10 to-transparent skew-x-12 z-0"
+                               />
+                            </div>
                             
                             <div className="relative z-10 flex gap-5 p-6 rounded-[3rem] bg-brand-gold/[0.04] shadow-[0_20px_50px_rgba(212,175,55,0.25)] border border-brand-gold/30">
                               <div className="w-32 h-40 bg-white flex items-center justify-center p-4 rounded-[2rem] relative border border-brand-gold/20 shadow-xl group-hover:border-brand-gold/50 transition-all overflow-hidden shrink-0">
