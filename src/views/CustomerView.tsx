@@ -368,8 +368,8 @@ export const CustomerView: React.FC = () => {
 
       <div className={`flex-1 mt-0 md:mt-8 flex flex-col overflow-hidden ${isDataFetching ? 'hidden' : ''}`}>
           {/* Header */}
-          <header className="p-6 flex items-center justify-between border-b border-brand-gold/30 shrink-0 bg-black/40 backdrop-blur-md sticky top-0 z-50">
-            <div>
+          <header className="p-6 grid grid-cols-3 items-center border-b border-brand-gold/30 shrink-0 bg-black/80 backdrop-blur-md sticky top-0 z-50">
+            <div className="justify-self-start">
               {(user?.role === 'admin' || user?.role === 'rep' || user?.role === 'owner') ? (
                 <button 
                   onClick={() => {
@@ -388,8 +388,13 @@ export const CustomerView: React.FC = () => {
                 <div className="w-10" />
               )}
             </div>
-            <div className="text-center px-2 flex-1">
-              <h1 className="serif text-brand-gold font-bold text-2xl md:text-3xl tracking-[0.2em] uppercase leading-tight">{store.name}</h1>
+            <div className="justify-self-center text-center whitespace-nowrap">
+              <h1 className="font-serif text-brand-gold font-light text-2xl md:text-3xl tracking-[0.4em] uppercase leading-tight">
+                {store.name}
+              </h1>
+            </div>
+            <div className="justify-self-end">
+              <div className="w-10" />
             </div>
           </header>
 
