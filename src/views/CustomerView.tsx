@@ -24,6 +24,27 @@ export const CustomerView: React.FC = () => {
   const [selectedDish, setSelectedDish] = useState<string | null>(null);
   const [step1Color, setStep1Color] = useState<string | null>(null);
   const [step2Style, setStep2Style] = useState<string | null>(null);
+  const [step3Budget, setStep3Budget] = useState<number | null>(null);
+
+  const budgets = [
+    { id: 5000, label: '〜5,000円', max: 5000 },
+    { id: 10000, label: '〜10,000円', max: 10000 },
+    { id: 20000, label: '〜20,000円', max: 20000 },
+    { id: 999999, label: '20,000円以上', min: 20000 }
+  ];
+
+  const getDynamicStyles = (color: string) => {
+    if (color === '赤') {
+      return ['フルボディ', 'ミディアムボディ', 'ライトボディ'];
+    }
+    // For White/Sparkling, extract unique types from inventory
+    const styles = Array.from(new Set(inventory
+      .filter(w => w.color === color && w.type)
+      .map(w => w.type as string)
+    )).sort();
+    
+    return styles.length > 0 ? styles : ['辛口', '甘口'];
+  };
 
   const moods = [
     { id: 'scene', title: 'シーンで選ぶ', tags: [
@@ -249,49 +270,54 @@ export const CustomerView: React.FC = () => {
     );
   }
 
-  const displayedInventory = [...inventory]
-    .filter(w => {
-      let matches = true;
+  const displayedInventoryRaw = inventory.filter(w => {
+    let matches = true;
 
-      // Color filter from Step 1
-      if (step1Color) {
-        matches = matches && w.color === step1Color;
-        
-        // Style filter from Step 2
-        if (step2Style) {
-          if (step1Color === '赤' || step1Color === '白') {
-            if (step2Style === 'フルボディ') matches = matches && (w.body || 0) >= 4;
-            else if (step2Style === 'ミディアムボディ') matches = matches && (w.body || 0) === 3;
-            else if (step2Style === 'ライトボディ') matches = matches && (w.body || 0) <= 2;
-          } else if (step1Color === '泡' || step1Color === 'スパークリング') {
-            if (step2Style === '辛口') matches = matches && (w.sweetness || 0) <= 2;
-            else if (step2Style === '甘口') matches = matches && (w.sweetness || 0) >= 4;
-          }
+    // Concierge Filters
+    if (step1Color) {
+      matches = matches && w.color === step1Color;
+      
+      if (step2Style) {
+        if (step1Color === '赤') {
+          if (step2Style === 'フルボディ') matches = matches && (w.body || 0) >= 4;
+          else if (step2Style === 'ミディアムボディ') matches = matches && (w.body || 0) === 3;
+          else if (step2Style === 'ライトボディ') matches = matches && (w.body || 0) <= 2;
+        } else {
+          matches = matches && w.type === step2Style;
         }
       }
+    }
 
-      // Dish Selector
-      if (selectedDish) {
-        const dish = dishes.find(d => d.id === selectedDish);
-        if (dish) matches = matches && dish.match.test(w.pairing || '');
+    if (step3Budget) {
+      const budget = budgets.find(b => b.id === step3Budget);
+      if (budget) {
+        if (budget.max) matches = matches && (w.price_bottle || 0) <= budget.max;
+        if (budget.min) matches = matches && (w.price_bottle || 0) >= budget.min;
       }
+    }
 
-      // Legacy Category Filter (for remaining tabs if any)
-      if (filterCategory === 'luxury') matches = matches && (w.price_bottle || 0) >= 15000;
-      else if (filterCategory === 'sparkling') matches = matches && (w.color === '泡' || w.color === 'スパークリング');
+    // Dish Selector
+    if (selectedDish) {
+      const dish = dishes.find(d => d.id === selectedDish);
+      if (dish) matches = matches && dish.match.test(w.pairing || '');
+    }
 
-      // Mood Tags
-      if (selectedMoodTag) {
-        if (selectedMoodTag === 'luxury_mood') matches = matches && (w.price_bottle || 0) >= 15000;
-        else if (selectedMoodTag === 'value_mood') matches = matches && (w.price_bottle || 0) < 5000;
-        else if (selectedMoodTag === 'toast_mood') matches = matches && (w.color === '泡' || w.color === 'スパークリング');
-        else if (selectedMoodTag === 'full_body_mood') matches = matches && (w.body || 0) >= 4;
-        else if (selectedMoodTag === 'dry_mood') matches = matches && ((w.sweetness || 0) <= 2 || w.tags?.includes('辛口'));
-        else if (selectedMoodTag === 'aromatic_mood') matches = matches && (w.tags?.match(/アロマ|香り|フルーティ/i) !== null);
-      }
+    // Mood Tags
+    if (selectedMoodTag) {
+      if (selectedMoodTag === 'luxury_mood') matches = matches && (w.price_bottle || 0) >= 15000;
+      else if (selectedMoodTag === 'value_mood') matches = matches && (w.price_bottle || 0) < 5000;
+      else if (selectedMoodTag === 'toast_mood') matches = matches && (w.color === '泡' || w.color === 'スパークリング');
+      else if (selectedMoodTag === 'full_body_mood') matches = matches && (w.body || 0) >= 4;
+      else if (selectedMoodTag === 'dry_mood') matches = matches && ((w.sweetness || 0) <= 2 || w.tags?.includes('辛口'));
+      else if (selectedMoodTag === 'aromatic_mood') matches = matches && (w.tags?.match(/アロマ|香り|フルーティ/i) !== null);
+    }
 
-      return matches;
-    })
+    return matches;
+  });
+
+  const hasNoResults = (step1Color || step2Style || step3Budget) && displayedInventoryRaw.length === 0;
+  
+  const displayedInventory = (hasNoResults ? inventory.filter(w => w.isFeatured) : displayedInventoryRaw)
     .sort((a, b) => {
       if (sortBy === 'featured') {
         // Prioritize featured wines
@@ -395,31 +421,55 @@ export const CustomerView: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Section: 味わいナビ */}
+                {/* Section: ワイン・コンシェルジュ */}
                 <div className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <div className="h-4 w-1 bg-brand-gold rounded-full" />
-                    <h4 className="text-[14px] font-bold text-brand-wine uppercase tracking-[0.2em]">味わいナビ (Step-by-Step)</h4>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="h-5 w-1.5 bg-brand-gold rounded-full" />
+                      <h4 className="text-[15px] font-bold text-brand-wine uppercase tracking-[0.2em]">ワイン・コンシェルジュ</h4>
+                    </div>
+                    <div className="flex gap-1.5">
+                      {[1, 2, 3].map(step => {
+                        let isComplete = false;
+                        if (step === 1) isComplete = !!step1Color;
+                        if (step === 2) isComplete = !!step2Style;
+                        if (step === 3) isComplete = !!step3Budget;
+                        
+                        return (
+                          <div 
+                            key={step} 
+                            className={`h-1.5 w-6 rounded-full transition-all duration-500 ${
+                              isComplete ? 'bg-brand-gold' : 'bg-brand-gold/20'
+                            }`}
+                          />
+                        );
+                      })}
+                    </div>
                   </div>
                   
-                  <div className="space-y-6 bg-brand-wine/5 p-5 rounded-[2rem] border border-brand-gold/10">
-                    {/* Step 1 */}
-                    <div className="space-y-2">
-                      <p className="text-[11px] text-brand-gold/60 font-bold uppercase tracking-widest pl-2 flex items-center gap-2">
-                        <span className="w-4 h-4 rounded-full bg-brand-gold text-white flex items-center justify-center text-[8px] font-black">1</span>
-                        色・タイプを選択
+                  <div className="space-y-6 bg-brand-wine/[0.03] p-6 rounded-[2.5rem] border border-brand-gold/10 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                       <Wine className="w-24 h-24" strokeWidth={0.5} />
+                    </div>
+
+                    {/* Step 1: Color */}
+                    <div className="space-y-3">
+                      <p className="text-[11px] text-brand-gold/80 font-black uppercase tracking-[0.3em] flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold flex items-center justify-center text-[10px] font-black">1</span>
+                        ワインの色を選ぶ
                       </p>
                       <div className="flex flex-wrap gap-2">
-                        {['赤', '白', '泡', 'ロゼ'].map(color => (
+                        {['赤', '白', '泡'].map(color => (
                           <button
                             key={color}
                             onClick={() => {
                               setStep1Color(step1Color === color ? null : color);
                               setStep2Style(null);
+                              setStep3Budget(null);
                             }}
-                            className={`px-6 py-2.5 rounded-full text-[13px] font-bold transition-all border ${
+                            className={`px-8 py-3 rounded-full text-[14px] font-bold transition-all border ${
                               step1Color === color 
-                                ? 'bg-brand-wine text-brand-gold border-brand-gold shadow-md' 
+                                ? 'bg-brand-wine text-brand-gold border-brand-gold shadow-lg scale-105' 
                                 : 'bg-white border-brand-gold/10 text-brand-wine/60'
                             }`}
                           >
@@ -429,50 +479,74 @@ export const CustomerView: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Step 2 */}
-                    {step1Color && (
-                      <motion.div 
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="space-y-2 pt-2 border-t border-brand-gold/10"
-                      >
-                        <p className="text-[11px] text-brand-gold/60 font-bold uppercase tracking-widest pl-2 flex items-center gap-2">
-                          <span className="w-4 h-4 rounded-full bg-brand-gold text-white flex items-center justify-center text-[8px] font-black">2</span>
-                          スタイルを選択
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          {(step1Color === '赤' || step1Color === '白') ? (
-                            ['フルボディ', 'ミディアムボディ', 'ライトボディ'].map(style => (
+                    {/* Step 2: Style */}
+                    <AnimatePresence mode="wait">
+                      {step1Color && (
+                        <motion.div 
+                          key="step2"
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="space-y-3 pt-4 border-t border-brand-gold/10 overflow-hidden"
+                        >
+                          <p className="text-[11px] text-brand-gold/80 font-black uppercase tracking-[0.3em] flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold flex items-center justify-center text-[10px] font-black">2</span>
+                            スタイルを選ぶ
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {getDynamicStyles(step1Color).map(style => (
                               <button
                                 key={style}
-                                onClick={() => setStep2Style(step2Style === style ? null : style)}
-                                className={`px-5 py-2.5 rounded-xl text-[13px] font-bold transition-all border ${
+                                onClick={() => {
+                                  setStep2Style(step2Style === style ? null : style);
+                                  setStep3Budget(null);
+                                }}
+                                className={`px-6 py-3 rounded-2xl text-[14px] font-bold transition-all border ${
                                   step2Style === style 
-                                    ? 'bg-brand-gold text-brand-wine border-brand-gold shadow-md' 
+                                    ? 'bg-brand-gold text-brand-wine border-brand-gold shadow-md scale-105' 
                                     : 'bg-white/50 border-brand-gold/10 text-brand-wine/60'
                                 }`}
                               >
                                 {style}
                               </button>
-                            ))
-                          ) : (
-                            ['辛口', '甘口'].map(style => (
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    {/* Step 3: Budget */}
+                    <AnimatePresence mode="wait">
+                      {step2Style && (
+                        <motion.div 
+                          key="step3"
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="space-y-3 pt-4 border-t border-brand-gold/10 overflow-hidden"
+                        >
+                          <p className="text-[11px] text-brand-gold/80 font-black uppercase tracking-[0.3em] flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold flex items-center justify-center text-[10px] font-black">3</span>
+                            予算から絞り込む
+                          </p>
+                          <div className="grid grid-cols-2 gap-2">
+                            {budgets.map(budget => (
                               <button
-                                key={style}
-                                onClick={() => setStep2Style(step2Style === style ? null : style)}
-                                className={`px-5 py-2.5 rounded-xl text-[13px] font-bold transition-all border ${
-                                  step2Style === style 
-                                    ? 'bg-brand-gold text-brand-wine border-brand-gold shadow-md' 
-                                    : 'bg-white/50 border-brand-gold/10 text-brand-wine/60'
+                                key={budget.id}
+                                onClick={() => setStep3Budget(step3Budget === budget.id ? null : budget.id)}
+                                className={`px-4 py-3 rounded-2xl text-[13px] font-bold transition-all border ${
+                                  step3Budget === budget.id 
+                                    ? 'bg-brand-wine text-brand-gold border-brand-gold shadow-md' 
+                                    : 'bg-white/30 border-brand-gold/10 text-brand-wine/50'
                                 }`}
                               >
-                                {style}
+                                {budget.label}
                               </button>
-                            ))
-                          )}
-                        </div>
-                      </motion.div>
-                    )}
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 </div>
 
@@ -481,19 +555,21 @@ export const CustomerView: React.FC = () => {
                       onClick={() => {
                         setStep1Color(null);
                         setStep2Style(null);
+                        setStep3Budget(null);
                         setSelectedDish(null);
                         setFilterCategory('all');
                         setSelectedMoodTag(null);
                       }}
-                      className="text-[12px] text-brand-wine/40 font-bold uppercase tracking-[0.2em] hover:text-brand-wine transition-colors"
+                      className="text-[13px] text-brand-wine/40 font-black uppercase tracking-[0.2em] hover:text-brand-wine transition-colors flex items-center gap-2"
                     >
-                      × フィルターをリセット
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      条件をクリア
                     </button>
                     <div className="flex items-center gap-2">
                       <select 
                         value={sortBy}
                         onChange={(e) => setSortBy(e.target.value as any)}
-                        className="bg-transparent text-[11px] font-bold text-brand-gold/80 uppercase tracking-[0.2em] outline-none border-none cursor-pointer hover:text-brand-gold transition-colors"
+                        className="bg-transparent text-[13px] font-bold text-brand-wine/60 uppercase tracking-[0.2em] outline-none border-none cursor-pointer hover:text-brand-gold transition-colors"
                       >
                         <option value="featured">Recommended</option>
                         <option value="price_desc">Price: High to Low</option>
@@ -502,6 +578,21 @@ export const CustomerView: React.FC = () => {
                     </div>
                 </div>
               </div>
+
+              {hasNoResults && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mx-4 p-6 bg-brand-wine/5 border border-brand-gold/20 rounded-[2rem] text-center"
+                >
+                  <p className="text-[14px] text-brand-wine font-bold leading-relaxed mb-1">
+                    ご希望の条件に近い、<br/>ソムリエおすすめのワインを表示しています
+                  </p>
+                  <p className="text-[13px] text-brand-gold font-bold uppercase tracking-widest opacity-60">
+                    Showing Recommended Selections
+                  </p>
+                </motion.div>
+              )}
               
               <div className="grid gap-8">
                 {/* Featured Section */}
@@ -510,7 +601,7 @@ export const CustomerView: React.FC = () => {
                     <div className="space-y-6">
                       <div className="flex items-center gap-3 px-2">
                         <Sparkles className="w-5 h-5 text-brand-gold" />
-                        <h3 className="serif text-xs text-brand-gold uppercase tracking-[0.4em] font-bold">Sommelier's Selection</h3>
+                        <h3 className="serif text-[13px] text-brand-gold uppercase tracking-[0.4em] font-bold">Sommelier's Selection</h3>
                         <div className="flex-1 h-px bg-brand-gold/20" />
                       </div>
                       <div className="grid gap-8">
@@ -559,12 +650,12 @@ export const CustomerView: React.FC = () => {
                               </div>
                               <div className="flex-1 flex flex-col justify-center gap-1">
                                 <div className="flex flex-wrap items-center gap-2 mb-1">
-                                  <div className="px-2 py-1 bg-brand-wine text-brand-gold text-[11px] font-black rounded-full uppercase tracking-widest shrink-0 shadow-sm flex items-center gap-1">
+                                  <div className="px-2 py-1 bg-brand-wine text-brand-gold text-[13px] font-black rounded-full uppercase tracking-widest shrink-0 shadow-sm flex items-center gap-1">
                                     <ChefHat className="w-2.5 h-2.5" />
                                     Specialité
                                   </div>
                                   {wine.color && (
-                                    <div className={`px-2 py-1 text-[11px] font-black rounded-full uppercase tracking-widest shrink-0 ${
+                                    <div className={`px-2 py-1 text-[13px] font-black rounded-full uppercase tracking-widest shrink-0 ${
                                       wine.color === '赤' ? 'bg-[#641E16] text-white' : 
                                       wine.color === '白' ? 'bg-[#D4AF37] text-white' : 
                                       wine.color === '泡' || wine.color === 'スパークリング' ? 'bg-[#717D7E] text-white' : 'bg-slate-500 text-white'
@@ -596,7 +687,7 @@ export const CustomerView: React.FC = () => {
                                       品種: {wine.grape}
                                     </div>
                                     {wine.tags?.split('、').slice(0, 3).map(tag => (
-                                      <div key={tag} className="px-2 py-1 bg-brand-wine/5 rounded-lg text-[11px] text-brand-wine/60 font-bold tracking-wider flex items-center gap-1">
+                                      <div key={tag} className="px-2 py-1 bg-brand-wine/5 rounded-lg text-[13px] text-brand-wine/60 font-bold tracking-wider flex items-center gap-1">
                                         <Tag className="w-2.5 h-2.5" />
                                         {tag}
                                       </div>
@@ -668,7 +759,7 @@ export const CustomerView: React.FC = () => {
                                   {wine.color}
                                 </div>
                               )}
-                            <div className="text-[12px] uppercase font-bold text-brand-gold/60 tracking-[0.2em]">
+                            <div className="text-[13px] uppercase font-bold text-brand-gold/60 tracking-[0.2em]">
                               {wine.country}
                             </div>
                             <div className="flex items-center gap-1 ml-auto opacity-40">
