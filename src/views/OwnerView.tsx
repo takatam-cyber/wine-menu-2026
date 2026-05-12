@@ -463,118 +463,124 @@ export const OwnerView: React.FC = () => {
               <div className="w-32 text-right">アクション</div>
             </div>
 
-            <div className="grid gap-3">
+            <div className="grid gap-2">
               {inventory.map((wine) => {
                 const margin = Math.round((wine.price_bottle - wine.cost) / wine.price_bottle * 100);
                 const isLowMargin = margin < 30;
+                const isEditing = editingWineId === wine.id;
 
                 return (
-                  <div key={wine.id} className={`glass-panel p-3 md:p-4 rounded-xl shadow-luxury flex flex-col md:flex-row items-center group transition-all gap-4 border ${editingWineId === wine.id ? 'border-brand-gold bg-brand-gold/5' : 'border-brand-gold/5 hover:border-brand-gold/30'}`}>
-                    <div className="flex items-center gap-4 flex-1 w-full min-w-0">
-                      <div className="w-10 h-14 bg-black/40 flex items-center justify-center p-1 rounded-lg relative border border-white/5 shrink-0 overflow-hidden">
-                        <img 
-                          src={`/api/proxy-image?url=${encodeURIComponent(wine.image_url)}`} 
-                          alt="" 
-                          className="w-full h-full object-contain relative z-10 scale-125" 
-                        />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="font-bold text-brand-ivory text-sm md:text-base leading-tight truncate">{wine.name_jp}</div>
-                        <div className="text-[9px] text-brand-gold/60 font-mono tracking-widest uppercase mt-0.5 truncate">
-                          {wine.grape} • {wine.vintage}
-                        </div>
+                  <div key={wine.id} className={`group relative flex items-center gap-4 p-3 rounded-xl border transition-all ${
+                    isEditing ? 'bg-brand-gold/5 border-brand-gold shadow-luxury' : 'bg-white/5 border-brand-gold/5 hover:border-brand-gold/20'
+                  }`}>
+                    {/* Compact Image */}
+                    <div className="w-10 h-14 bg-black/40 rounded-lg flex items-center justify-center p-1 border border-white/5 shrink-0">
+                      <img 
+                        src={`/api/proxy-image?url=${encodeURIComponent(wine.image_url)}`} 
+                        alt="" 
+                        className="h-full object-contain" 
+                      />
+                    </div>
+
+                    {/* Wine Basic Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="font-bold text-brand-ivory text-[13px] leading-tight truncate">{wine.name_jp}</div>
+                      <div className="text-[10px] text-brand-gold/50 font-mono flex items-center gap-2 mt-0.5">
+                        <span className="truncate">{wine.grape}</span>
+                        <span className="shrink-0 opacity-50">|</span>
+                        <span className="shrink-0">{wine.vintage}</span>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between w-full md:w-auto gap-4 md:gap-0">
-                      {editingWineId === wine.id ? (
-                        <div className="flex flex-wrap md:flex-nowrap items-center gap-2 w-full">
-                          <div className="w-20 md:w-24">
+                    {/* Compact Metric Grid */}
+                    <div className="flex items-center gap-6">
+                      {/* Price Section */}
+                      <div className="flex items-center gap-4">
+                        <div className="w-24">
+                          <label className="text-[8px] text-brand-gold/40 uppercase font-black tracking-tighter block mb-0.5">Bottle</label>
+                          {isEditing ? (
                             <input 
                               type="number"
-                              className="w-full bg-white/5 border border-brand-gold/30 rounded px-2 py-1 text-[10px] text-brand-ivory outline-none focus:border-brand-gold"
+                              className="w-full bg-black/40 border border-brand-gold/30 rounded px-1.5 py-1 text-[11px] text-brand-gold outline-none"
                               value={editWineData.price_bottle}
-                              onChange={e => setEditWineData({...editWineData, price_bottle: parseInt(e.target.value) || 0}) }
+                              onChange={e => setEditWineData({...editWineData, price_bottle: parseInt(e.target.value) || 0})}
                             />
-                          </div>
-                          <div className="w-20 md:w-24">
+                          ) : (
+                            <div className="text-[13px] text-brand-ivory font-bold">¥{wine.price_bottle?.toLocaleString()}</div>
+                          )}
+                        </div>
+                        <div className="w-24">
+                          <label className="text-[8px] text-brand-gold/40 uppercase font-black tracking-tighter block mb-0.5">Glass</label>
+                          {isEditing ? (
                             <input 
                               type="number"
-                              className="w-full bg-white/5 border border-brand-gold/30 rounded px-2 py-1 text-[10px] text-brand-ivory outline-none focus:border-brand-gold"
+                              className="w-full bg-black/40 border border-brand-gold/30 rounded px-1.5 py-1 text-[11px] text-brand-gold outline-none"
                               value={editWineData.price_glass}
-                              onChange={e => setEditWineData({...editWineData, price_glass: parseInt(e.target.value) || 0}) }
+                              onChange={e => setEditWineData({...editWineData, price_glass: parseInt(e.target.value) || 0})}
                             />
-                          </div>
-                          <div className="w-16">
-                            <input 
-                              type="number"
-                              className="w-full bg-white/5 border border-brand-gold/30 rounded px-2 py-1 text-[10px] text-brand-ivory outline-none focus:border-brand-gold"
-                              value={editWineData.stock}
-                              onChange={e => setEditWineData({...editWineData, stock: parseInt(e.target.value) || 0}) }
-                            />
-                          </div>
-                          <div className="hidden md:flex flex-col items-center justify-center w-24">
-                             <div className={`text-xs font-bold ${isLowMargin ? 'text-rose-500' : 'text-emerald-500'}`}>
-                               {margin}%
-                             </div>
-                             {isLowMargin && <div className="text-[6px] text-rose-500/60 font-bold uppercase">Low Margin</div>}
-                          </div>
+                          ) : (
+                            <div className="text-[13px] text-brand-ivory font-bold">¥{wine.price_glass?.toLocaleString()}</div>
+                          )}
                         </div>
-                      ) : (
-                        <div className="flex items-center w-full md:w-auto gap-2 md:gap-0">
-                          <div className="w-24 text-center">
-                            <div className="text-[8px] text-brand-gold/40 md:hidden uppercase tracking-widest mb-0.5">ボトル</div>
-                            <div className="text-xs text-brand-ivory font-bold">¥{wine.price_bottle?.toLocaleString()}</div>
-                          </div>
-                          <div className="w-24 text-center">
-                            <div className="text-[8px] text-brand-gold/40 md:hidden uppercase tracking-widest mb-0.5">グラス</div>
-                            <div className="text-xs text-brand-ivory font-bold">¥{wine.price_glass?.toLocaleString()}</div>
-                          </div>
-                          <div className="w-16 text-center">
-                            <div className="text-[8px] text-brand-gold/40 md:hidden uppercase tracking-widest mb-0.5">在庫</div>
-                            <div className={`text-xs font-bold ${wine.stock === 0 ? 'text-rose-500' : 'text-brand-gold'}`}>{wine.stock}</div>
-                          </div>
-                          <div className="w-24 text-center flex flex-col items-center">
-                            <div className="text-[8px] text-brand-gold/40 md:hidden uppercase tracking-widest mb-0.5">粗利</div>
-                            <div className={`text-xs font-black ${isLowMargin ? 'text-rose-500' : 'text-emerald-500'}`}>
-                              {margin}%
-                            </div>
-                            {isLowMargin && <div className="text-[6px] text-rose-500 uppercase font-black tracking-widest bg-rose-500/10 px-1 rounded">Alert</div>}
-                          </div>
-                        </div>
-                      )}
+                      </div>
 
-                      <div className="flex items-center gap-2 shrink-0 md:ml-4">
-                        {editingWineId === wine.id ? (
+                      {/* Stock Section */}
+                      <div className="w-16">
+                        <label className="text-[8px] text-brand-gold/40 uppercase font-black tracking-tighter block mb-0.5">Stock</label>
+                        {isEditing ? (
+                          <input 
+                            type="number"
+                            className="w-full bg-black/40 border border-brand-gold/30 rounded px-1.5 py-1 text-[11px] text-brand-gold outline-none"
+                            value={editWineData.stock}
+                            onChange={e => setEditWineData({...editWineData, stock: parseInt(e.target.value) || 0})}
+                          />
+                        ) : (
+                          <div className={`text-[13px] font-bold ${wine.stock === 0 ? 'text-rose-500' : 'text-brand-gold'}`}>{wine.stock}</div>
+                        )}
+                      </div>
+
+                      {/* Margin Section */}
+                      <div className="w-16 flex flex-col items-center">
+                        <label className="text-[8px] text-brand-gold/40 uppercase font-black tracking-tighter block mb-0.5">Margin</label>
+                        <div className={`text-[13px] font-black ${isLowMargin ? 'text-rose-500' : 'text-emerald-500'}`}>
+                          {margin}%
+                        </div>
+                      </div>
+
+                      {/* Visibility Toggle */}
+                      <div className="hidden md:flex items-center">
+                        <button
+                          onClick={() => handleToggleActive(wine.id, wine.isActive || false)}
+                          className={`p-2 transition-all ${wine.isActive ? 'text-brand-gold' : 'text-gray-600'}`}
+                        >
+                          {wine.isActive ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                        </button>
+                      </div>
+
+                      {/* Quick Actions */}
+                      <div className="flex items-center gap-1 border-l border-white/5 pl-4">
+                        {isEditing ? (
                           <button 
-                            onClick={() => setEditingWineId(null)}
-                            className="bg-brand-gold text-brand-wine px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:brightness-110 shadow-lg"
+                            onClick={() => handleSaveWineEdit(wine.id)}
+                            className="bg-brand-gold text-brand-wine p-2 rounded-lg hover:brightness-110 shadow-lg"
                           >
-                            終了
+                            <Save className="w-4 h-4" />
                           </button>
                         ) : (
-                          <div className="flex items-center gap-1">
+                          <>
                             <button
                               onClick={() => startEditingWine(wine)}
                               className="p-2 text-brand-gold/40 hover:text-brand-gold transition-colors"
                             >
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleToggleActive(wine.id, wine.isActive || false)}
-                              className={`p-2 rounded-lg transition-all ${
-                                wine.isActive ? 'text-brand-gold' : 'text-gray-600'
-                              }`}
-                            >
-                              {wine.isActive ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                              <Edit2 className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => handleDeleteWine(wine.id)}
-                              className="p-2 text-brand-wine/40 hover:text-rose-500 transition-colors"
+                              className="p-2 text-brand-wine/20 hover:text-rose-500 transition-colors"
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              <Trash2 className="w-4 h-4" />
                             </button>
-                          </div>
+                          </>
                         )}
                       </div>
                     </div>
@@ -604,7 +610,7 @@ export const OwnerView: React.FC = () => {
               <div className="p-6 md:p-8 border-b border-brand-gold/20 flex items-center justify-between bg-black/40">
                 <div>
                   <h2 className="serif text-2xl text-brand-gold">マスターから選択</h2>
-                  <p className="text-[10px] text-gray-400 uppercase tracking-widest mt-1">Pieroth Master Wine List</p>
+                  <p className="text-[10px] text-gray-400 uppercase tracking-widest mt-1">Master Wine List</p>
                 </div>
                 <button onClick={() => setShowAddModal(false)} className="p-2 text-brand-gold/40 hover:text-brand-gold transition-colors">
                   <X className="w-6 h-6" />

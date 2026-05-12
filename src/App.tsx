@@ -62,11 +62,11 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
 
       <footer className="hidden sm:flex h-10 border-t items-center px-8 justify-between shrink-0 bg-white border-slate-100">
         <div className="flex items-center space-x-4">
-          <span className="text-[9px] text-slate-400 uppercase font-bold tracking-widest opacity-60">ADMINISTRATION CONSOLE</span>
+          <span className="text-[9px] text-slate-400 uppercase font-bold tracking-widest opacity-60">WINE SELECTION SYSTEM</span>
         </div>
         <div className="flex items-center space-x-1.5">
           <div className="w-1.5 h-1.5 rounded-full bg-brand-gold animate-pulse text-xs"></div>
-          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Secure Channel</span>
+          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Secure Access</span>
         </div>
       </footer>
     </div>
