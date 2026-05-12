@@ -83,15 +83,15 @@ async function startServer() {
   // Safe client initialization
   let genAI: any = null;
   function getAIClient(customApiKey?: string) {
-    if (customApiKey) {
-      return new GoogleGenAI({ apiKey: customApiKey });
+    if (customApiKey && typeof customApiKey === 'string' && customApiKey.trim().length > 0) {
+      return new GoogleGenAI(customApiKey as any);
     }
     if (!genAI) {
       const apiKey = process.env.MY_SOMMELIER_KEY;
       if (!apiKey || apiKey === "AI Studio Free Tier") {
         throw new Error("MY_SOMMELIER_KEY is missing or invalid in server environment.");
       }
-      genAI = new GoogleGenAI({ apiKey });
+      genAI = new GoogleGenAI(apiKey as any);
     }
     return genAI;
   }
