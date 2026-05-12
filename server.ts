@@ -190,21 +190,13 @@ async function startServer() {
   });
 
   // Static Assets and Fallback
-  if (process.env.NODE_ENV === "production") {
-    const distPath = path.resolve(__dirname, "dist");
-    app.use(express.static(distPath));
-    app.use("/assets", express.static(path.join(distPath, "assets")));
-    app.get("*", (req, res) => {
-      if (req.path.startsWith("/api/")) return;
-      res.sendFile(path.join(distPath, "index.html"));
-    });
-  } else {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
-  }
+  const distPath = path.resolve(__dirname, "dist");
+  app.use(express.static(distPath));
+
+  app.get("*", (req, res) => {
+    if (req.path.startsWith("/api/")) return;
+    res.sendFile(path.join(distPath, "index.html"));
+  });
 
   app.listen(Number(PORT), "0.0.0.0", () => {
     console.log(`Server running on port ${PORT}`);
