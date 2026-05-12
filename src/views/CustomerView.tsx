@@ -604,9 +604,9 @@ export const CustomerView: React.FC = () => {
                 stiffness: 280,
                 mass: 1.2
               }}
-              className="absolute inset-x-0 bottom-0 top-0 md:top-12 z-[100] bg-black/98 backdrop-blur-3xl overflow-hidden flex flex-col md:rounded-t-[2.5rem] border-t border-brand-gold/30 shadow-[0_-20px_500px_rgba(0,0,0,1)]"
+              className="absolute inset-x-0 bottom-0 top-0 md:top-12 z-[100] bg-black/98 backdrop-blur-3xl overflow-hidden flex flex-col md:rounded-t-[2.5rem] border-t border-brand-gold/30 shadow-[0_-20px_500px_rgba(0,0,0,1)] h-full"
             >
-              <div className="p-8 pb-4 flex justify-between items-center bg-black/40">
+              <div className="sticky top-0 z-[110] bg-black/95 backdrop-blur-md p-8 pb-4 flex justify-between items-center border-b border-white/5">
                 <span className="text-[10px] text-brand-gold font-bold uppercase tracking-[0.2em] opacity-60">Vintage {selectedWine.vintage}</span>
                 <button 
                   onClick={() => setSelectedWine(null)} 
@@ -614,7 +614,7 @@ export const CustomerView: React.FC = () => {
                 >✕</button>
               </div>
               
-              <div className="flex-1 overflow-y-auto px-6 md:px-8 pb-48 space-y-10 custom-scrollbar scroll-smooth">
+              <div className="flex-1 overflow-y-auto px-6 md:px-8 pb-10 space-y-10 custom-scrollbar scroll-smooth">
                 <div className="text-center pt-4">
                   <div className="w-full aspect-square md:aspect-[4/5] bg-black/40 border border-brand-gold/20 rounded-3xl mb-8 flex items-center justify-center p-8 relative shadow-inner group overflow-hidden">
                     <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,rgba(212,175,55,0.15),transparent_70%)]" />
@@ -646,7 +646,7 @@ export const CustomerView: React.FC = () => {
                   </div>
                   <div className="relative">
                     <div className="absolute top-4 left-4 text-brand-gold/20"><Sparkles className="w-8 h-8" /></div>
-                    <p className="text-sm md:text-base leading-relaxed text-gray-200 italic font-serif bg-brand-gold/5 p-6 pt-10 rounded-2xl border border-brand-gold/10 shadow-inner relative z-10">
+                    <p className="text-sm md:text-base leading-relaxed text-gray-200 italic font-serif bg-brand-gold/5 p-6 pt-10 rounded-2xl border border-brand-gold/10 shadow-inner relative">
                       "{selectedWine.ai_explanation}"
                     </p>
                     <div className="mt-2 text-right">
@@ -670,7 +670,7 @@ export const CustomerView: React.FC = () => {
                 </div>
               </div>
 
-              <div className="absolute bottom-0 inset-x-0 p-6 md:p-8 pt-4 bg-black/95 backdrop-blur-2xl border-t border-brand-gold/20 flex flex-col gap-6 safe-bottom">
+              <div className="sticky bottom-0 z-[110] p-6 md:p-8 pt-4 bg-black/95 backdrop-blur-2xl border-t border-brand-gold/20 flex flex-col gap-6 safe-bottom">
                  <div className="flex justify-between items-center px-2">
                    <div className="flex flex-col">
                      <span className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-1">Bottle</span>
