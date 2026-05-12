@@ -17,7 +17,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
   
   if (!user) return <Navigate to="/login" replace />;
 
-  const isOwnerView = location.pathname === '/owner';
+  const isOwnerView = location.pathname.startsWith('/owner');
 
   return (
     <div className="flex flex-col min-h-screen bg-[#FDFCFB] text-slate-900 font-sans selection:bg-brand-gold/30">
@@ -34,7 +34,14 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
         <div className="flex items-center gap-3 md:gap-6">
           {(user.role === 'admin' || user.role === 'rep') && (
             <button
-              onClick={() => isOwnerView ? window.location.href = '/admin' : window.location.href = '/owner'}
+              onClick={() => {
+                if (isOwnerView) {
+                  window.location.href = '/admin';
+                } else {
+                  // AdminView doesn't always have a default storeId here, so we just go to /owner or first store
+                  window.location.href = '/owner';
+                }
+              }}
               className="hidden lg:flex items-center gap-2 px-4 py-1.5 bg-brand-gold/10 text-brand-gold border border-brand-gold/30 rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-brand-gold hover:text-brand-wine transition-all"
             >
               <Eye className="w-3.5 h-3.5" />
@@ -133,7 +140,7 @@ export default function App() {
         <Navigate to={
           !user ? "/login" : 
           (user.role === 'admin' || user.role === 'rep') ? "/admin" : 
-          user.role === 'owner' ? "/owner" : "/login"
+          user.role === 'owner' ? `/owner/${user.storeId}` : "/login"
         } replace />
       } />
 
@@ -156,6 +163,12 @@ export default function App() {
 
       {/* Owner Section */}
       <Route path="/owner" element={
+        <OwnerRoute>
+          <OwnerView />
+        </OwnerRoute>
+      } />
+
+      <Route path="/owner/:storeId" element={
         <OwnerRoute>
           <OwnerView />
         </OwnerRoute>
