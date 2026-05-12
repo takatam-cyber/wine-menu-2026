@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { WineMaster, Store } from '../types';
 import { useWines } from '../lib/WineContext';
 import { db } from '../lib/firebase';
