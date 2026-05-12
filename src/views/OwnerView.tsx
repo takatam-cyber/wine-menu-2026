@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { WineMaster, Store } from '../types';
 import { useWines } from '../lib/WineContext';
-import { generateStaffTalkScript, generateSocialPost } from '../lib/ai-service';
 import { db } from '../lib/firebase';
 import { collection, getDocs, doc, getDoc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
-import { Wine, Camera, MessageSquare, Save, Eye, EyeOff, Loader2, Sparkles, X, Trash2, Plus, Search, Edit2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Wine, Camera, MessageSquare, Save, Eye, EyeOff, Loader2, X, Trash2, Plus, Search, Edit2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import { calculateProfit } from '../lib/profit-calc';
 import { motion, AnimatePresence } from 'motion/react';
@@ -16,8 +15,6 @@ export const OwnerView: React.FC = () => {
   const [store, setStore] = useState<Store | null>(null);
   const [selectedStoreId, setSelectedStoreId] = useState(new URLSearchParams(window.location.search).get('storeId') || user?.storeId || '');
   const [selectedWine, setSelectedWine] = useState<WineMaster | null>(null);
-  const [aiResult, setAiResult] = useState<{ talk: string; social: string } | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -92,8 +89,7 @@ export const OwnerView: React.FC = () => {
         const storeData = { id: storeDoc.id, ...storeDoc.data() } as Store;
         setStore(storeData);
         setEditStoreData({
-          ...storeData,
-          hasAiSommelier: storeData.hasAiSommelier ?? true
+          ...storeData
         });
       }
 
@@ -153,9 +149,7 @@ export const OwnerView: React.FC = () => {
       await updateDoc(doc(db, 'stores', sid), {
         name: editStoreData.name,
         cuisine_type: editStoreData.cuisine_type,
-        address: editStoreData.address,
-        hasAiSommelier: editStoreData.hasAiSommelier ?? true,
-        owner_api_key: editStoreData.owner_api_key || ''
+        address: editStoreData.address
       });
 
       // Update User Profile Name if changed
@@ -213,17 +207,6 @@ export const OwnerView: React.FC = () => {
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `stores/${sid}/inventory/${masterWine.id}`);
     }
-  };
-
-  const handleGenerateAI = async (wine: WineMaster) => {
-    setSelectedWine(wine);
-    setIsGenerating(true);
-    const [talk, social] = await Promise.all([
-      generateStaffTalkScript(wine),
-      generateSocialPost(wine)
-    ]);
-    setAiResult({ talk, social });
-    setIsGenerating(false);
   };
 
   const handleSaveWineEdit = async (wineId: string) => {
@@ -307,30 +290,6 @@ export const OwnerView: React.FC = () => {
                   value={editStoreData.address || ''}
                   onChange={e => setEditStoreData({...editStoreData, address: e.target.value})}
                 />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex items-center justify-between bg-white/5 p-4 rounded-xl border border-brand-gold/10">
-                  <div>
-                    <div className="text-xs font-bold text-brand-gold uppercase tracking-wider">AIソムリエ機能</div>
-                    <div className="text-[9px] text-gray-500 uppercase tracking-widest mt-0.5">有効にするとお客様の相談を受けられます</div>
-                  </div>
-                  <button 
-                    onClick={() => setEditStoreData({...editStoreData, hasAiSommelier: !editStoreData.hasAiSommelier})}
-                    className={`w-12 h-6 rounded-full transition-all relative ${editStoreData.hasAiSommelier ? 'bg-brand-gold' : 'bg-gray-700'}`}
-                  >
-                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${editStoreData.hasAiSommelier ? 'right-1' : 'left-1'}`} />
-                  </button>
-                </div>
-                <div>
-                  <label className="text-[9px] font-bold text-brand-gold/60 uppercase tracking-widest block mb-1">Gemini API Key</label>
-                  <input 
-                    type="password"
-                    placeholder="自分のAPIキーを使用する場合のみ入力"
-                    className="w-full bg-white/5 border border-brand-gold/20 rounded-lg px-3 py-2 text-brand-ivory text-sm outline-none focus:border-brand-gold"
-                    value={editStoreData.owner_api_key || ''}
-                    onChange={e => setEditStoreData({...editStoreData, owner_api_key: e.target.value})}
-                  />
-                </div>
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <button onClick={() => setIsEditingStore(false)} className="px-4 py-2 text-[10px] uppercase font-bold text-gray-400 hover:text-white transition-colors">キャンセル</button>
@@ -622,13 +581,6 @@ export const OwnerView: React.FC = () => {
                         <Edit2 className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => handleGenerateAI(wine)}
-                        className="p-2.5 text-brand-gold hover:bg-brand-gold hover:text-brand-wine rounded-xl transition-all border border-brand-gold/30 shadow-[0_0_10px_rgba(212,175,55,0.1)]"
-                        title="AIインテリジェンス"
-                      >
-                        <Sparkles className="w-4 h-4" />
-                      </button>
-                      <button
                         onClick={() => handleToggleActive(wine.id, wine.isActive || false)}
                         className={`p-2.5 rounded-xl transition-all border flex items-center justify-center shrink-0 ${
                           wine.isActive 
@@ -654,80 +606,6 @@ export const OwnerView: React.FC = () => {
       </div>
 
       <AnimatePresence>
-        {/* AI Insight Modal */}
-        {selectedWine && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] md:p-4 flex items-end md:items-center justify-center bg-brand-wine/40 backdrop-blur-md"
-          >
-            <motion.div
-              initial={{ scale: 0.95, y: 100 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 100 }}
-              className="bg-black/95 backdrop-blur-3xl rounded-t-[2rem] md:rounded-3xl shadow-[0_0_100px_rgba(0,0,0,1)] border border-brand-gold/30 w-full max-w-2xl overflow-hidden max-h-[90vh] md:max-h-[85vh] flex flex-col"
-            >
-              <div className="bg-gradient-to-r from-brand-wine to-black p-6 md:p-8 flex items-center justify-between border-b border-brand-gold/20 shrink-0">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 md:w-10 md:h-10 bg-brand-gold rounded-full flex items-center justify-center text-brand-wine text-xs md:text-sm font-bold shadow-[0_0_20px_rgba(212,175,55,0.5)]">AI</div>
-                  <div>
-                    <h4 className="serif text-brand-ivory text-xl md:text-2xl tracking-wide leading-none mb-1">接客AIアシスタント</h4>
-                    <p className="text-[9px] text-brand-gold/60 uppercase tracking-[0.2em] font-bold">Sales Intelligence Suite</p>
-                  </div>
-                </div>
-                <button onClick={() => setSelectedWine(null)} className="text-brand-gold/40 hover:text-brand-ivory hover:scale-110 transition-all p-2 bg-white/5 rounded-full">
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-              
-              <div className="flex-1 p-6 md:p-10 space-y-10 overflow-y-auto custom-scrollbar scroll-smooth">
-                {isGenerating ? (
-                  <div className="flex flex-col items-center justify-center py-24 gap-8">
-                    <div className="relative">
-                      <Loader2 className="w-16 h-16 animate-spin text-brand-gold opacity-40" />
-                      <Sparkles className="absolute inset-0 m-auto w-6 h-6 text-brand-gold animate-pulse" />
-                    </div>
-                    <div className="text-center space-y-2">
-                       <p className="serif italic text-brand-gold text-2xl animate-pulse">解析中...</p>
-                       <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">CSVマスター・ソムリエエンジン駆動中</p>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <section className="space-y-4">
-                      <div className="flex items-center gap-3 text-brand-gold text-xs font-bold uppercase tracking-[0.2em] border-b border-brand-gold/20 pb-3">
-                        <div className="p-1.5 bg-brand-gold/10 rounded-lg">
-                          <MessageSquare className="w-4 h-4" />
-                        </div>
-                        接客用「おすすめトークスクリプト」
-                      </div>
-                      <div className="bg-white/5 p-6 md:p-8 rounded-2xl text-base md:text-lg leading-relaxed border border-brand-gold/10 italic text-brand-ivory/90 font-serif shadow-inner relative group">
-                        <div className="absolute top-4 left-4 text-brand-gold/10 text-6xl font-serif">“</div>
-                        <div className="relative z-10 pl-6 pr-2">
-                          {aiResult?.talk}
-                        </div>
-                      </div>
-                    </section>
-                    
-                    <section className="space-y-4">
-                      <div className="flex items-center gap-3 text-brand-gold text-xs font-bold uppercase tracking-[0.2em] border-b border-brand-gold/20 pb-3">
-                        <div className="p-1.5 bg-brand-gold/10 rounded-lg">
-                          <Camera className="w-4 h-4" />
-                        </div>
-                        SNS集客用投稿案 (Instagram)
-                      </div>
-                      <div className="bg-black/60 p-6 md:p-8 rounded-2xl text-xs md:text-sm leading-relaxed border border-brand-gold/10 font-mono text-gray-400 whitespace-pre-wrap shadow-inner">
-                        {aiResult?.social}
-                      </div>
-                    </section>
-                  </>
-                )}
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-
         {/* Add Wine Modal */}
         {showAddModal && (
           <motion.div

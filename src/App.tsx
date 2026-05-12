@@ -10,97 +10,6 @@ import { User, Shield, Wine, Menu as MenuIcon, X, LogOut, Loader2, Eye } from 'l
 import { motion, AnimatePresence } from 'motion/react';
 import { logout, signInAnonymously, auth } from './lib/firebase';
 
-// Helper for Session Management (Used in CustomerView)
-const SessionExpiredGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { storeId } = useParams();
-  const { user } = useWines();
-  const [sessionExpired, setSessionExpired] = useState(false);
-
-  const resetSession = () => {
-    if (storeId) {
-      const sessionKey = `pieroth_session_${storeId}`;
-      localStorage.setItem(sessionKey, Date.now().toString());
-      setSessionExpired(false);
-    }
-  };
-
-  useEffect(() => {
-    if (storeId) {
-      const sessionKey = `pieroth_session_${storeId}`;
-      const savedTime = localStorage.getItem(sessionKey);
-      const currentTime = Date.now();
-      const SESSION_LIMIT_MS = 12 * 60 * 60 * 1000; // 12 hours for a relaxed session
-      const RESET_THRESHOLD_MS = 24 * 60 * 60 * 1000; // Reset automatically after 24 hours (new visit)
-
-      if (savedTime) {
-        const timeDiff = currentTime - parseInt(savedTime);
-        if (timeDiff > SESSION_LIMIT_MS) {
-          if (timeDiff > RESET_THRESHOLD_MS) {
-            // New day, new visit: Reset session automatically
-            localStorage.setItem(sessionKey, currentTime.toString());
-            setSessionExpired(false);
-          } else {
-            setSessionExpired(true);
-          }
-        }
-      } else {
-        localStorage.setItem(sessionKey, currentTime.toString());
-      }
-
-      const interval = setInterval(() => {
-        const now = Date.now();
-        const currentSaved = localStorage.getItem(sessionKey);
-        if (currentSaved && now - parseInt(currentSaved) > SESSION_LIMIT_MS) {
-          setSessionExpired(true);
-        }
-      }, 60000);
-
-      return () => clearInterval(interval);
-    }
-  }, [storeId]);
-
-  if (sessionExpired && user?.role !== 'admin' && user?.role !== 'rep' && user?.role !== 'owner') {
-    return (
-      <div className="min-h-screen bg-brand-wine flex flex-col items-center justify-center p-8 text-center text-brand-gold overflow-hidden">
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-brand-gold/5 rounded-full blur-3xl scale-150" />
-          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-brand-gold/5 rounded-full blur-3xl scale-150" />
-        </div>
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.9, y: 30 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          className="max-w-md w-full glass-panel p-10 md:p-16 rounded-[3rem] border-brand-gold/20 shadow-2xl relative z-10 bg-black/40 backdrop-blur-2xl"
-        >
-          <div className="mb-8 inline-block p-5 rounded-full bg-brand-gold/10 border border-brand-gold/20">
-            <Shield className="w-10 h-10 text-brand-gold" strokeWidth={1} />
-          </div>
-          <h2 className="serif text-3xl md:text-5xl mb-6 tracking-[0.2em] font-light leading-tight uppercase text-brand-gold">
-            SESSION<br/>
-            <span className="text-lg opacity-40 font-sans tracking-[0.4em] ml-2">EXPIRED</span>
-          </h2>
-          <div className="w-12 h-px bg-brand-gold/40 mx-auto my-8" />
-          <div className="space-y-4 mb-10">
-            <p className="text-[10px] text-brand-ivory/90 italic tracking-[0.2em] uppercase">
-              セッションの有効期限が切れました。
-            </p>
-            <p className="text-[11px] text-brand-gold font-bold tracking-[0.1em] uppercase leading-relaxed">
-              セキュリティ保護のため、再度読み取りが必要です。
-            </p>
-          </div>
-          <button 
-            onClick={resetSession}
-            className="w-full py-4 bg-brand-gold text-brand-wine rounded-xl font-bold text-[10px] uppercase tracking-[0.2em] shadow-luxury transition-all active:scale-95 hover:brightness-110"
-          >
-            新しくセッションを開始する
-          </button>
-        </motion.div>
-      </div>
-    );
-  }
-
-  return <>{children}</>;
-};
-
 // Global Layout for admin/owner
 const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useWines();
@@ -235,9 +144,7 @@ export default function App() {
 
       {/* Customer Menu */}
       <Route path="/menu/:storeId" element={
-        <SessionExpiredGuard>
-          <CustomerView />
-        </SessionExpiredGuard>
+        <CustomerView />
       } />
 
       {/* Admin Section */}

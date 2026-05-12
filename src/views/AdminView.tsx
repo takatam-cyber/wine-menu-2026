@@ -763,18 +763,6 @@ export const AdminView: React.FC = () => {
                     </button>
                   </div>
                 </div>
-                <div className="flex items-center justify-between bg-white p-3 rounded-lg border border-slate-200">
-                  <div>
-                    <div className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">AIソムリエ機能</div>
-                    <div className="text-[8px] text-slate-400 font-bold uppercase">有効にするとAI相談が可能</div>
-                  </div>
-                  <button 
-                    onClick={() => setEditStoreData({...editStoreData, hasAiSommelier: !editStoreData.hasAiSommelier})}
-                    className={`w-10 h-5 rounded-full transition-all relative ${editStoreData.hasAiSommelier ? 'bg-brand-gold' : 'bg-slate-300'}`}
-                  >
-                    <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${editStoreData.hasAiSommelier ? 'right-0.5' : 'left-0.5'}`} />
-                  </button>
-                </div>
                 <div className="flex flex-col items-center justify-center bg-white p-6 rounded-2xl border border-slate-200 shadow-inner">
                   <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">モバイル用QRコード</div>
                   <div className="p-3 bg-white border border-slate-100 rounded-xl shadow-lg mb-4">
@@ -855,34 +843,12 @@ export const AdminView: React.FC = () => {
                         cuisine_type: selectedStore?.cuisine_type || 'フレンチ',
                         address: selectedStore?.address,
                         isActive: selectedStore?.isActive,
-                        hasAiSommelier: selectedStore?.hasAiSommelier ?? true
                       });
                       setIsEditingStore(true);
                     }}
                     className="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-500 hover:text-slate-900 transition-all border border-slate-200"
                   >
                     <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button 
-                    onClick={async () => {
-                      if (selectedStoreId) {
-                        const newHasAi = !selectedStore?.hasAiSommelier;
-                        try {
-                          await updateDoc(doc(db, 'stores', selectedStoreId), { hasAiSommelier: newHasAi });
-                          await refreshStores();
-                        } catch (e) {
-                          console.error("Failed to toggle AI Sommelier", e);
-                        }
-                      }
-                    }}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] font-bold uppercase transition-all ${
-                      selectedStore?.hasAiSommelier !== false 
-                        ? 'border-brand-gold bg-brand-gold/10 text-brand-gold' 
-                        : 'border-slate-300 bg-slate-50 text-slate-400'
-                    }`}
-                  >
-                    <Sparkles className="w-3 h-3" />
-                    AI: {selectedStore?.hasAiSommelier !== false ? 'ON' : 'OFF'}
                   </button>
                 </div>
                 <p className="text-slate-500 text-[10px] md:text-xs uppercase tracking-[0.3em] font-bold flex items-center gap-2 mt-1 md:mt-0">
