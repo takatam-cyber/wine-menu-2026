@@ -21,6 +21,9 @@ export const CustomerView: React.FC = () => {
   const [sortBy, setSortBy] = useState<'featured' | 'price_desc' | 'price_asc'>('featured');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [selectedMoodTag, setSelectedMoodTag] = useState<string | null>(null);
+  const [selectedDish, setSelectedDish] = useState<string | null>(null);
+  const [step1Color, setStep1Color] = useState<string | null>(null);
+  const [step2Style, setStep2Style] = useState<string | null>(null);
 
   const moods = [
     { id: 'scene', title: 'シーンで選ぶ', tags: [
@@ -28,16 +31,17 @@ export const CustomerView: React.FC = () => {
       { id: 'value_mood', label: 'コスパ最高', icon: '⚖️' },
       { id: 'toast_mood', label: '特別な乾杯', icon: '🥂' }
     ]},
-    { id: 'pairing', title: 'お料理と合わせる', tags: [
-      { id: 'meat_mood', label: '🥩 お肉と', icon: '' },
-      { id: 'fish_mood', label: '🐟 お魚と', icon: '' },
-      { id: 'cheese_mood', label: '🧀 チーズと', icon: '' }
-    ]},
     { id: 'taste', title: '味わいから選ぶ', tags: [
       { id: 'full_body_mood', label: 'フルボディ', icon: '🍷' },
       { id: 'dry_mood', label: '辛口', icon: '🧊' },
       { id: 'aromatic_mood', label: 'アロマティック', icon: '🌸' }
     ]}
+  ];
+
+  const dishes = [
+    { id: 'meat', label: 'お肉と (Meat)', match: /肉|ステーキ|ラム|牛|豚/i },
+    { id: 'fish', label: 'お魚と (Fish)', match: /魚|シーフード|刺身|カルパッチョ/i },
+    { id: 'appetizer', label: '前菜と (Appetizer)', match: /前菜|サラダ|カルパッチョ|小皿/i }
   ];
 
   // Auto-refresh and Auth Handling
@@ -247,31 +251,46 @@ export const CustomerView: React.FC = () => {
 
   const displayedInventory = [...inventory]
     .filter(w => {
-      let matchesCategory = true;
-      if (filterCategory === 'luxury') {
-        matchesCategory = (w.price_bottle || 0) >= 15000;
-      } else if (filterCategory === 'meat') {
-        matchesCategory = (w.body || 0) >= 4 && (w.color === '赤');
-      } else if (filterCategory === 'sparkling') {
-        matchesCategory = w.color === '泡' || w.color === 'スパークリング';
-      } else if (filterCategory === 'light') {
-        matchesCategory = w.color === '白' || w.color === 'ロゼ' || (w.acidity || 0) >= 4;
+      let matches = true;
+
+      // Color filter from Step 1
+      if (step1Color) {
+        matches = matches && w.color === step1Color;
+        
+        // Style filter from Step 2
+        if (step2Style) {
+          if (step1Color === '赤' || step1Color === '白') {
+            if (step2Style === 'フルボディ') matches = matches && (w.body || 0) >= 4;
+            else if (step2Style === 'ミディアムボディ') matches = matches && (w.body || 0) === 3;
+            else if (step2Style === 'ライトボディ') matches = matches && (w.body || 0) <= 2;
+          } else if (step1Color === '泡' || step1Color === 'スパークリング') {
+            if (step2Style === '辛口') matches = matches && (w.sweetness || 0) <= 2;
+            else if (step2Style === '甘口') matches = matches && (w.sweetness || 0) >= 4;
+          }
+        }
       }
 
-      let matchesMood = true;
+      // Dish Selector
+      if (selectedDish) {
+        const dish = dishes.find(d => d.id === selectedDish);
+        if (dish) matches = matches && dish.match.test(w.pairing || '');
+      }
+
+      // Legacy Category Filter (for remaining tabs if any)
+      if (filterCategory === 'luxury') matches = matches && (w.price_bottle || 0) >= 15000;
+      else if (filterCategory === 'sparkling') matches = matches && (w.color === '泡' || w.color === 'スパークリング');
+
+      // Mood Tags
       if (selectedMoodTag) {
-        if (selectedMoodTag === 'luxury_mood') matchesMood = (w.price_bottle || 0) >= 15000;
-        else if (selectedMoodTag === 'value_mood') matchesMood = (w.price_bottle || 0) < 5000;
-        else if (selectedMoodTag === 'toast_mood') matchesMood = w.color === '泡' || w.color === 'スパークリング';
-        else if (selectedMoodTag === 'meat_mood') matchesMood = w.pairing?.match(/肉|ステーキ|ラム|牛|豚/i) !== null;
-        else if (selectedMoodTag === 'fish_mood') matchesMood = w.pairing?.match(/魚|シーフード|刺身|カルパッチョ/i) !== null;
-        else if (selectedMoodTag === 'cheese_mood') matchesMood = w.pairing?.match(/チーズ|フロマージュ|オードブル/i) !== null;
-        else if (selectedMoodTag === 'full_body_mood') matchesMood = (w.body || 0) >= 4;
-        else if (selectedMoodTag === 'dry_mood') matchesMood = (w.sweetness || 0) <= 2 || w.tags?.includes('辛口');
-        else if (selectedMoodTag === 'aromatic_mood') matchesMood = w.tags?.match(/アロマ|香り|フルーティ/i) !== null;
+        if (selectedMoodTag === 'luxury_mood') matches = matches && (w.price_bottle || 0) >= 15000;
+        else if (selectedMoodTag === 'value_mood') matches = matches && (w.price_bottle || 0) < 5000;
+        else if (selectedMoodTag === 'toast_mood') matches = matches && (w.color === '泡' || w.color === 'スパークリング');
+        else if (selectedMoodTag === 'full_body_mood') matches = matches && (w.body || 0) >= 4;
+        else if (selectedMoodTag === 'dry_mood') matches = matches && ((w.sweetness || 0) <= 2 || w.tags?.includes('辛口'));
+        else if (selectedMoodTag === 'aromatic_mood') matches = matches && (w.tags?.match(/アロマ|香り|フルーティ/i) !== null);
       }
 
-      return matchesCategory && matchesMood;
+      return matches;
     })
     .sort((a, b) => {
       if (sortBy === 'featured') {
@@ -344,77 +363,143 @@ export const CustomerView: React.FC = () => {
               )}
             </div>
             <div className="text-center px-2 flex-1">
-              <h4 className="serif text-brand-gold italic text-[11px] md:text-[12px] mb-0.5 tracking-[0.2em] opacity-80 font-light truncate max-w-[150px] mx-auto">{store.name}</h4>
-              <h3 className="text-sm md:text-lg font-serif tracking-[0.2em] md:tracking-[0.3em] text-brand-gold uppercase truncate">THE SELECTION</h3>
+              <h1 className="serif text-brand-gold font-bold text-2xl md:text-3xl tracking-[0.2em] uppercase leading-tight">{store.name}</h1>
             </div>
           </header>
 
           {/* Scrollable Content */}
           <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-8 pb-20 scroll-smooth">
             <div className="space-y-6">
-              <div className="flex flex-col gap-4 border-b border-brand-gold/30 pb-4 mb-2">
-                <div className="flex items-center justify-between">
-                  <h2 className="serif text-lg text-brand-wine tracking-[0.1em] uppercase font-bold">The Collection</h2>
-                  <div className="flex items-center gap-2">
-                    <select 
-                      value={sortBy}
-                      onChange={(e) => setSortBy(e.target.value as any)}
-                      className="bg-transparent text-[11px] font-bold text-brand-gold/80 uppercase tracking-[0.2em] outline-none border-none cursor-pointer hover:text-brand-gold transition-colors"
-                    >
-                      <option value="featured">ソムリエの推奨順</option>
-                      <option value="price_desc">価格の高い順</option>
-                      <option value="price_asc">価格の安い順</option>
-                    </select>
+              <div className="space-y-8 bg-white/40 backdrop-blur-xl border-y border-brand-gold/10 px-4 md:px-8 py-8 shadow-inner">
+                {/* Section: お料理から選ぶ */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="h-4 w-1 bg-brand-gold rounded-full" />
+                    <h4 className="text-[14px] font-bold text-brand-wine uppercase tracking-[0.2em]">お料理から選ぶ</h4>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    {dishes.map(dish => (
+                      <button
+                        key={dish.id}
+                        onClick={() => setSelectedDish(selectedDish === dish.id ? null : dish.id)}
+                        className={`flex flex-col items-center justify-center gap-1.5 py-4 rounded-2xl border transition-all ${
+                          selectedDish === dish.id 
+                            ? 'bg-brand-gold text-brand-wine border-brand-gold shadow-lg scale-[1.02]' 
+                            : 'bg-white/80 text-brand-wine/70 border-brand-gold/10 hover:border-brand-gold/30'
+                        }`}
+                      >
+                        <span className="text-[13px] font-bold tracking-tight whitespace-nowrap">{dish.label.split(' ')[0]}</span>
+                        <span className="text-[10px] font-bold opacity-60 uppercase">{dish.id}</span>
+                      </button>
+                    ))}
                   </div>
                 </div>
-                
-                <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar pt-2">
-                  {[
-                    { id: 'all', label: 'ALL WINES' },
-                    { id: 'luxury', label: 'PREMIUM' },
-                    { id: 'meat', label: 'FOR MEAT' },
-                    { id: 'sparkling', label: 'SPARKLING' },
-                    { id: 'light', label: 'REFRESHING' }
-                  ].map(tab => (
-                    <button
-                      key={tab.id}
-                      onClick={() => {
-                        setFilterCategory(tab.id);
-                        setSelectedMoodTag(null);
-                      }}
-                      className={`px-5 py-3 rounded-2xl text-sm font-bold tracking-[0.15em] transition-all shrink-0 border ${
-                        filterCategory === tab.id 
-                          ? 'bg-brand-gold text-brand-wine border-brand-gold shadow-lg scale-105' 
-                          : 'bg-white/70 text-brand-wine/70 border-brand-gold/10'
-                      }`}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
 
-                <div className="space-y-4 pt-2">
-                  {moods.map(group => (
-                    <div key={group.id} className="space-y-2">
-                      <p className="text-[10px] text-brand-gold/50 font-bold uppercase tracking-[0.2em] px-1">{group.title}</p>
-                      <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-                        {group.tags.map(tag => (
+                {/* Section: 味わいナビ */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-4 w-1 bg-brand-gold rounded-full" />
+                    <h4 className="text-[14px] font-bold text-brand-wine uppercase tracking-[0.2em]">味わいナビ (Step-by-Step)</h4>
+                  </div>
+                  
+                  <div className="space-y-6 bg-brand-wine/5 p-5 rounded-[2rem] border border-brand-gold/10">
+                    {/* Step 1 */}
+                    <div className="space-y-2">
+                      <p className="text-[11px] text-brand-gold/60 font-bold uppercase tracking-widest pl-2 flex items-center gap-2">
+                        <span className="w-4 h-4 rounded-full bg-brand-gold text-white flex items-center justify-center text-[8px] font-black">1</span>
+                        色・タイプを選択
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {['赤', '白', '泡', 'ロゼ'].map(color => (
                           <button
-                            key={tag.id}
-                            onClick={() => setSelectedMoodTag(selectedMoodTag === tag.id ? null : tag.id)}
-                            className={`px-5 py-3 rounded-2xl text-[13px] font-bold tracking-wider transition-all shrink-0 border flex items-center gap-2 ${
-                              selectedMoodTag === tag.id 
-                                ? 'bg-brand-gold text-brand-wine border-brand-gold shadow-md' 
-                                : 'bg-white border-brand-gold/10 text-brand-wine/80'
+                            key={color}
+                            onClick={() => {
+                              setStep1Color(step1Color === color ? null : color);
+                              setStep2Style(null);
+                            }}
+                            className={`px-6 py-2.5 rounded-full text-[13px] font-bold transition-all border ${
+                              step1Color === color 
+                                ? 'bg-brand-wine text-brand-gold border-brand-gold shadow-md' 
+                                : 'bg-white border-brand-gold/10 text-brand-wine/60'
                             }`}
                           >
-                            <span>{tag.icon}</span>
-                            {tag.label}
+                            {color === '泡' ? 'スパークリング' : color}
                           </button>
                         ))}
                       </div>
                     </div>
-                  ))}
+
+                    {/* Step 2 */}
+                    {step1Color && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="space-y-2 pt-2 border-t border-brand-gold/10"
+                      >
+                        <p className="text-[11px] text-brand-gold/60 font-bold uppercase tracking-widest pl-2 flex items-center gap-2">
+                          <span className="w-4 h-4 rounded-full bg-brand-gold text-white flex items-center justify-center text-[8px] font-black">2</span>
+                          スタイルを選択
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {(step1Color === '赤' || step1Color === '白') ? (
+                            ['フルボディ', 'ミディアムボディ', 'ライトボディ'].map(style => (
+                              <button
+                                key={style}
+                                onClick={() => setStep2Style(step2Style === style ? null : style)}
+                                className={`px-5 py-2.5 rounded-xl text-[13px] font-bold transition-all border ${
+                                  step2Style === style 
+                                    ? 'bg-brand-gold text-brand-wine border-brand-gold shadow-md' 
+                                    : 'bg-white/50 border-brand-gold/10 text-brand-wine/60'
+                                }`}
+                              >
+                                {style}
+                              </button>
+                            ))
+                          ) : (
+                            ['辛口', '甘口'].map(style => (
+                              <button
+                                key={style}
+                                onClick={() => setStep2Style(step2Style === style ? null : style)}
+                                className={`px-5 py-2.5 rounded-xl text-[13px] font-bold transition-all border ${
+                                  step2Style === style 
+                                    ? 'bg-brand-gold text-brand-wine border-brand-gold shadow-md' 
+                                    : 'bg-white/50 border-brand-gold/10 text-brand-wine/60'
+                                }`}
+                              >
+                                {style}
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between px-1">
+                    <button 
+                      onClick={() => {
+                        setStep1Color(null);
+                        setStep2Style(null);
+                        setSelectedDish(null);
+                        setFilterCategory('all');
+                        setSelectedMoodTag(null);
+                      }}
+                      className="text-[12px] text-brand-wine/40 font-bold uppercase tracking-[0.2em] hover:text-brand-wine transition-colors"
+                    >
+                      × フィルターをリセット
+                    </button>
+                    <div className="flex items-center gap-2">
+                      <select 
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value as any)}
+                        className="bg-transparent text-[11px] font-bold text-brand-gold/80 uppercase tracking-[0.2em] outline-none border-none cursor-pointer hover:text-brand-gold transition-colors"
+                      >
+                        <option value="featured">Recommended</option>
+                        <option value="price_desc">Price: High to Low</option>
+                        <option value="price_asc">Price: Low to High</option>
+                      </select>
+                    </div>
                 </div>
               </div>
               
