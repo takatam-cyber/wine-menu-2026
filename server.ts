@@ -190,9 +190,7 @@ async function startServer() {
   });
 
   // Static Assets and Fallback
-  const distPath = process.env.NODE_ENV === "production" 
-    ? path.resolve(__dirname) 
-    : path.resolve(__dirname, "dist");
+  const distPath = path.resolve(__dirname, process.env.NODE_ENV === "production" ? "." : "dist");
 
   app.use(express.static(distPath));
 
