@@ -162,13 +162,13 @@ export default function App() {
       } />
 
       {/* Owner Section */}
-      <Route path="/owner/:storeId" element={
+      <Route path="/owner" element={
         <OwnerRoute>
           <OwnerView />
         </OwnerRoute>
       } />
 
-      <Route path="/owner" element={
+      <Route path="/owner/:storeId" element={
         <OwnerRoute>
           <OwnerView />
         </OwnerRoute>
