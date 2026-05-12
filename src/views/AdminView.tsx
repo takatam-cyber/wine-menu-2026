@@ -13,14 +13,14 @@ import { motion } from 'motion/react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import Papa from 'papaparse';
 
-const PRODUCTION_DOMAIN = "https://ais-pre-3hdh5bfu2wsxmjvi2wumqd-509939825672.asia-east1.run.app";
+const PRODUCTION_DOMAIN = import.meta.env.VITE_APP_DOMAIN || "https://ais-pre-3hdh5bfu2wsxmjvi2wumqd-509939825672.asia-east1.run.app";
 
 const getBaseUrl = () => {
   if (typeof window === 'undefined') return '';
   const origin = window.location.origin;
-  // If in the internal editor OR cloud shell, use the shared URL as fallback
-  if (origin.includes('googleusercontent.com') || origin.includes('localhost') || origin.includes('cloudshell.dev') || origin.includes('asia-east1.run.app') && origin.includes('-vfs-')) {
-    return "https://ais-pre-3hdh5bfu2wsxmjvi2wumqd-509939825672.asia-east1.run.app";
+  // Use the shared URL as fallback if origin matches development environments
+  if (origin.includes('googleusercontent.com') || origin.includes('localhost') || origin.includes('cloudshell.dev') || (origin.includes('asia-east1.run.app') && origin.includes('-vfs-'))) {
+    return PRODUCTION_DOMAIN;
   }
   return origin;
 };

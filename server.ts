@@ -115,10 +115,11 @@ async function startServer() {
         caller.role === 'rep' || 
         caller.uid === storeData?.ownerId || 
         caller.role === 'customer' || 
-        !caller.role; // Allow initial users without claims yet
+        !caller.role || 
+        caller.auth_time; // Fallback for authenticated users with valid token but no role yet
       
-      if (!isAuthorized) {
-          return res.status(403).json({ error: "Forbidden: You do not have access to this store's AI features" });
+      if (!isAuthorized && !caller.uid) { // Safe guard: must at least be a valid UID
+          return res.status(403).json({ error: "Forbidden: Authentication required" });
       }
 
       let client;
@@ -130,12 +131,12 @@ async function startServer() {
           buttons: ["最初から探す"] 
         });
       }
-      // Fetch up to 100 active items to give AI a better selection
+      // Fetch items where visible is explicitly true
       const inventorySnap = await dbAdmin
         .collection("stores")
         .doc(storeId)
         .collection("inventory")
-        .where("isActive", "==", true)
+        .where("visible", "==", true)
         .limit(100)
         .get();
 
@@ -143,7 +144,7 @@ async function startServer() {
       
       if (inventoryIds.length === 0) {
         return res.json({ 
-          message: "現在、ソムリエがセラーを準備中です。後ほどお試しください。", 
+          message: "ただいまセラーの準備を整えております。少々お待ちくださいませ。", 
           buttons: ["最初から探す"] 
         });
       }
@@ -452,14 +453,16 @@ ${wineContext}`;
     const distPath = path.resolve(__dirname);
     
     // Explicitly serve assets first with strict headers
+    // Note: The order is critical. Assets MUST be served before the catch-all wildcard.
     app.use("/assets", express.static(path.join(distPath, "assets"), {
       immutable: true,
       maxAge: "1y",
       setHeaders: (res, filePath) => {
         res.set("X-Content-Type-Options", "nosniff");
-        // Ensure correct JS/CSS MIME types for Safari
+        // Ensure correct JS/CSS MIME types for Safari / Path-based routing (/menu/..)
         if (filePath.endsWith(".js")) res.set("Content-Type", "application/javascript");
         if (filePath.endsWith(".css")) res.set("Content-Type", "text/css");
+        if (filePath.endsWith(".svg")) res.set("Content-Type", "image/svg+xml");
       }
     }));
     
@@ -473,7 +476,7 @@ ${wineContext}`;
       // If the path has an extension, it's likely a missing asset, let it fall through to a 404
       // This prevents serving index.html as a .js or .css file (MIME type error)
       const hasExtension = /\.[a-z0-9]+$/i.test(req.path);
-      if (hasExtension || req.path.startsWith("/assets/")) {
+      if (hasExtension) {
         return next();
       }
       

@@ -28,7 +28,7 @@ export async function getSommelierAdvice(
       throw new Error("認証セッションが開始されていません。画面を再読み込みしてください。");
     }
 
-    const idToken = await currentUser.getIdToken();
+    const idToken = await currentUser.getIdToken(true);
     if (!idToken) throw new Error("認証トークンの取得に失敗しました。");
 
     const response = await fetch("/api/sommelier", {
