@@ -190,11 +190,16 @@ async function startServer() {
   });
 
   // Static Assets and Fallback
-  const distPath = path.resolve(__dirname, "dist");
+  const distPath = process.env.NODE_ENV === "production" 
+    ? path.resolve(__dirname) 
+    : path.resolve(__dirname, "dist");
+
   app.use(express.static(distPath));
 
   app.get("*", (req, res) => {
-    if (req.path.startsWith("/api/")) return;
+    if (req.path.startsWith("/api/")) {
+      return res.status(404).json({ error: "API Endpoint not found" });
+    }
     res.sendFile(path.join(distPath, "index.html"));
   });
 
