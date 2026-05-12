@@ -319,15 +319,8 @@ export const CustomerView: React.FC = () => {
               )}
             </div>
             <div className="text-center px-2 flex-1">
-              <motion.p 
-                initial={{ opacity: 0, y: -5 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="text-[8px] text-brand-gold font-bold uppercase tracking-[0.4em] mb-1 opacity-60"
-              >
-                本日も Pieroth のセラーへようこそ
-              </motion.p>
               <h4 className="serif text-brand-gold italic text-[9px] md:text-[10px] mb-0.5 tracking-[0.2em] opacity-80 font-light truncate max-w-[150px] mx-auto">{store.name}</h4>
-              <h3 className="text-sm md:text-lg font-serif tracking-[0.2em] md:tracking-[0.3em] text-brand-gold uppercase truncate">蔵出しワインリスト</h3>
+              <h3 className="text-sm md:text-lg font-serif tracking-[0.2em] md:tracking-[0.3em] text-brand-gold uppercase truncate">PIEROTH WINE LIST</h3>
             </div>
           </header>
 
@@ -475,6 +468,9 @@ export const CustomerView: React.FC = () => {
                                       <MapPin className="w-2.5 h-2.5" />
                                       {wine.country} / {wine.region}
                                     </div>
+                                    <div className="flex items-center gap-1 px-2 py-0.5 bg-brand-wine/10 rounded-lg text-[8px] text-brand-wine font-black uppercase tracking-wider">
+                                      品種: {wine.grape}
+                                    </div>
                                     {wine.tags?.split('、').slice(0, 3).map(tag => (
                                       <div key={tag} className="px-2 py-0.5 bg-brand-wine/5 rounded-lg text-[8px] text-brand-wine/60 font-bold tracking-wider flex items-center gap-1">
                                         <Tag className="w-2 h-2" />
@@ -568,7 +564,7 @@ export const CustomerView: React.FC = () => {
                           <div className="flex flex-wrap gap-1 mt-1.5">
                             <div className="flex items-center gap-1 text-[7px] text-slate-400 font-bold uppercase tracking-widest">
                               <MapPin className="w-2 h-2" />
-                              {wine.country}
+                              {wine.country} / <span className="text-brand-wine font-black">品種: {wine.grape}</span>
                             </div>
                             {wine.tags?.split('、').slice(0, 2).map(tag => (
                               <div key={tag} className="px-1.5 py-0.5 bg-brand-wine/5 rounded text-[7px] text-brand-wine/40 font-bold tracking-wider">
@@ -631,7 +627,8 @@ export const CustomerView: React.FC = () => {
                     />
                   </div>
                   <h2 className="serif text-2xl md:text-3xl text-brand-gold mb-3 tracking-tight leading-tight">{selectedWine.name_jp}</h2>
-                  <p className="text-[9px] md:text-[10px] text-gray-400 tracking-[0.3em] uppercase font-bold">{selectedWine.name_en}</p>
+                  <p className="text-[9px] md:text-[10px] text-gray-400 tracking-[0.3em] uppercase font-bold mb-2">{selectedWine.name_en}</p>
+                  <p className="text-[10px] text-brand-gold font-bold uppercase tracking-widest border-t border-brand-gold/20 pt-2 inline-block">主要品種: {selectedWine.grape}</p>
                 </div>
 
                 <div className="space-y-6 pt-8 border-t border-white/10">

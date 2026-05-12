@@ -452,155 +452,136 @@ export const OwnerView: React.FC = () => {
             <button onClick={() => setShowAddModal(true)} className="text-brand-gold text-[10px] font-bold uppercase tracking-widest mt-4 hover:underline">最初のワインを追加する</button>
           </div>
         ) : (
-          <div className="grid gap-3">
-            {inventory.map((wine) => (
-              <div key={wine.id} className="glass-panel p-4 md:p-5 rounded-2xl shadow-luxury flex flex-col sm:flex-row items-center justify-between group hover:border-brand-gold transition-all gap-4">
-                <div className="flex items-center gap-4 w-full">
-                  <div className="w-16 h-20 bg-black/40 flex items-center justify-center p-2 rounded-lg relative border border-white/5 overflow-hidden shadow-inner shrink-0">
-                    <div className="absolute inset-0 opacity-5 bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]"></div>
-                    <img 
-                      src={`/api/proxy-image?url=${encodeURIComponent(wine.image_url)}`} 
-                      alt="" 
-                      crossOrigin="anonymous"
-                      referrerPolicy="no-referrer"
-                      className="w-full h-full object-contain relative z-10 scale-125" 
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-bold text-brand-ivory text-base md:text-lg leading-tight truncate">{wine.name_jp}</div>
-                    <div className="text-[10px] md:text-[11px] text-brand-gold/60 font-mono tracking-tighter font-bold uppercase mt-1">
-                      {wine.grape} • {wine.vintage}
+          <div className="space-y-4">
+            {/* Header row for desktop */}
+            <div className="hidden md:flex items-center px-6 py-2 text-[8px] font-extrabold text-brand-gold/40 uppercase tracking-[0.3em] border-b border-brand-gold/10">
+              <div className="flex-1">ワイン情報 / 品種</div>
+              <div className="w-24 text-center">ボトル価格</div>
+              <div className="w-24 text-center">グラス価格</div>
+              <div className="w-16 text-center">在庫</div>
+              <div className="w-24 text-center">粗利率</div>
+              <div className="w-32 text-right">アクション</div>
+            </div>
+
+            <div className="grid gap-3">
+              {inventory.map((wine) => {
+                const margin = Math.round((wine.price_bottle - wine.cost) / wine.price_bottle * 100);
+                const isLowMargin = margin < 30;
+
+                return (
+                  <div key={wine.id} className={`glass-panel p-3 md:p-4 rounded-xl shadow-luxury flex flex-col md:flex-row items-center group transition-all gap-4 border ${editingWineId === wine.id ? 'border-brand-gold bg-brand-gold/5' : 'border-brand-gold/5 hover:border-brand-gold/30'}`}>
+                    <div className="flex items-center gap-4 flex-1 w-full min-w-0">
+                      <div className="w-10 h-14 bg-black/40 flex items-center justify-center p-1 rounded-lg relative border border-white/5 shrink-0 overflow-hidden">
+                        <img 
+                          src={`/api/proxy-image?url=${encodeURIComponent(wine.image_url)}`} 
+                          alt="" 
+                          className="w-full h-full object-contain relative z-10 scale-125" 
+                        />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-bold text-brand-ivory text-sm md:text-base leading-tight truncate">{wine.name_jp}</div>
+                        <div className="text-[9px] text-brand-gold/60 font-mono tracking-widest uppercase mt-0.5 truncate">
+                          {wine.grape} • {wine.vintage}
+                        </div>
+                      </div>
                     </div>
-                    
-                    {editingWineId === wine.id ? (
-                      <>
-                        <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2 animate-in fade-in slide-in-from-left duration-300">
-                          <div>
-                            <label className="text-[8px] text-brand-gold/60 uppercase block">ボトル価格</label>
+
+                    <div className="flex items-center justify-between w-full md:w-auto gap-4 md:gap-0">
+                      {editingWineId === wine.id ? (
+                        <div className="flex flex-wrap md:flex-nowrap items-center gap-2 w-full">
+                          <div className="w-20 md:w-24">
                             <input 
                               type="number"
-                              className="w-full bg-white/10 border border-brand-gold/30 rounded px-2 py-1 text-xs text-brand-ivory outline-none focus:border-brand-gold"
+                              className="w-full bg-white/5 border border-brand-gold/30 rounded px-2 py-1 text-[10px] text-brand-ivory outline-none focus:border-brand-gold"
                               value={editWineData.price_bottle}
                               onChange={e => setEditWineData({...editWineData, price_bottle: parseInt(e.target.value) || 0}) }
                             />
                           </div>
-                          <div>
-                            <label className="text-[8px] text-brand-gold/60 uppercase block">グラス価格</label>
+                          <div className="w-20 md:w-24">
                             <input 
                               type="number"
-                              className="w-full bg-white/10 border border-brand-gold/30 rounded px-2 py-1 text-xs text-brand-ivory outline-none focus:border-brand-gold"
+                              className="w-full bg-white/5 border border-brand-gold/30 rounded px-2 py-1 text-[10px] text-brand-ivory outline-none focus:border-brand-gold"
                               value={editWineData.price_glass}
                               onChange={e => setEditWineData({...editWineData, price_glass: parseInt(e.target.value) || 0}) }
                             />
                           </div>
-                          <div>
-                            <label className="text-[8px] text-brand-gold/60 uppercase block">在庫数</label>
+                          <div className="w-16">
                             <input 
                               type="number"
-                              className="w-full bg-white/10 border border-brand-gold/30 rounded px-2 py-1 text-xs text-brand-ivory outline-none focus:border-brand-gold"
+                              className="w-full bg-white/5 border border-brand-gold/30 rounded px-2 py-1 text-[10px] text-brand-ivory outline-none focus:border-brand-gold"
                               value={editWineData.stock}
                               onChange={e => setEditWineData({...editWineData, stock: parseInt(e.target.value) || 0}) }
                             />
                           </div>
-                          <div>
-                            <label className="text-[8px] text-brand-gold/60 uppercase block">表示設定</label>
-                            <button 
-                              onClick={() => setEditWineData({...editWineData, visible: !editWineData.visible})}
-                              className={`w-full py-1 rounded text-[10px] font-bold uppercase border transition-all ${
-                                editWineData.visible ? 'bg-green-500/20 border-green-500 text-green-500' : 'bg-gray-700 border-gray-600 text-gray-400'
-                              }`}
-                            >
-                              {editWineData.visible ? '表示' : '非表示'}
-                            </button>
+                          <div className="hidden md:flex flex-col items-center justify-center w-24">
+                             <div className={`text-xs font-bold ${isLowMargin ? 'text-rose-500' : 'text-emerald-500'}`}>
+                               {margin}%
+                             </div>
+                             {isLowMargin && <div className="text-[6px] text-rose-500/60 font-bold uppercase">Low Margin</div>}
                           </div>
                         </div>
-                        <div className="mt-2 flex items-center justify-between gap-4">
-                           <button 
-                             onClick={() => setEditWineData({...editWineData, isFeatured: !editWineData.isFeatured})}
-                             className={`px-3 py-1 rounded text-[9px] font-bold uppercase border transition-all ${
-                               editWineData.isFeatured ? 'bg-brand-gold text-brand-wine border-brand-gold' : 'border-gray-700 text-gray-500'
-                             }`}
-                           >
-                              ★ おすすめ設定
-                           </button>
-                           <input 
-                              placeholder="プロモーションラベル（例：今月のおすすめ）"
-                              className="flex-1 bg-white/5 border border-brand-gold/20 rounded px-3 py-1 text-[10px] text-brand-ivory outline-none focus:border-brand-gold"
-                              value={editWineData.promoLabel}
-                              onChange={e => setEditWineData({...editWineData, promoLabel: e.target.value})}
-                           />
-                           {autoSaveStatus !== 'idle' && (
-                             <div className="flex items-center gap-1.5 whitespace-nowrap">
-                               {autoSaveStatus === 'saving' ? (
-                                 <>
-                                   <Loader2 className="w-3 h-3 animate-spin text-brand-gold" />
-                                   <span className="text-[8px] text-brand-gold uppercase font-bold">Saving...</span>
-                                 </>
-                               ) : autoSaveStatus === 'saved' ? (
-                                 <>
-                                   <CheckCircle2 className="w-3 h-3 text-green-500" />
-                                   <span className="text-[8px] text-green-500 uppercase font-bold">Saved</span>
-                                 </>
-                               ) : (
-                                 <>
-                                   <AlertCircle className="w-3 h-3 text-red-500" />
-                                   <span className="text-[8px] text-red-500 uppercase font-bold">Error</span>
-                                 </>
-                               )}
-                             </div>
-                           )}
+                      ) : (
+                        <div className="flex items-center w-full md:w-auto gap-2 md:gap-0">
+                          <div className="w-24 text-center">
+                            <div className="text-[8px] text-brand-gold/40 md:hidden uppercase tracking-widest mb-0.5">ボトル</div>
+                            <div className="text-xs text-brand-ivory font-bold">¥{wine.price_bottle?.toLocaleString()}</div>
+                          </div>
+                          <div className="w-24 text-center">
+                            <div className="text-[8px] text-brand-gold/40 md:hidden uppercase tracking-widest mb-0.5">グラス</div>
+                            <div className="text-xs text-brand-ivory font-bold">¥{wine.price_glass?.toLocaleString()}</div>
+                          </div>
+                          <div className="w-16 text-center">
+                            <div className="text-[8px] text-brand-gold/40 md:hidden uppercase tracking-widest mb-0.5">在庫</div>
+                            <div className={`text-xs font-bold ${wine.stock === 0 ? 'text-rose-500' : 'text-brand-gold'}`}>{wine.stock}</div>
+                          </div>
+                          <div className="w-24 text-center flex flex-col items-center">
+                            <div className="text-[8px] text-brand-gold/40 md:hidden uppercase tracking-widest mb-0.5">粗利</div>
+                            <div className={`text-xs font-black ${isLowMargin ? 'text-rose-500' : 'text-emerald-500'}`}>
+                              {margin}%
+                            </div>
+                            {isLowMargin && <div className="text-[6px] text-rose-500 uppercase font-black tracking-widest bg-rose-500/10 px-1 rounded">Alert</div>}
+                          </div>
                         </div>
-                      </>
-                    ) : (
-                      <div className="text-[10px] text-brand-ivory/80 font-bold mt-2 flex flex-wrap items-center gap-2">
-                        <span className="bg-brand-gold/5 px-2 py-0.5 rounded border border-brand-gold/10">ボトル: ¥{wine.price_bottle?.toLocaleString()}</span>
-                        <span className="bg-brand-gold/5 px-2 py-0.5 rounded border border-brand-gold/10">グラス: ¥{wine.price_glass?.toLocaleString()}</span>
-                        <span className="bg-brand-gold/5 px-2 py-0.5 rounded border border-brand-gold/10">在庫: {wine.stock}</span>
-                        <span className="text-[9px] text-brand-gold/40">粗利: {Math.round((wine.price_bottle - wine.cost) / wine.price_bottle * 100)}%</span>
+                      )}
+
+                      <div className="flex items-center gap-2 shrink-0 md:ml-4">
+                        {editingWineId === wine.id ? (
+                          <button 
+                            onClick={() => setEditingWineId(null)}
+                            className="bg-brand-gold text-brand-wine px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:brightness-110 shadow-lg"
+                          >
+                            終了
+                          </button>
+                        ) : (
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => startEditingWine(wine)}
+                              className="p-2 text-brand-gold/40 hover:text-brand-gold transition-colors"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleToggleActive(wine.id, wine.isActive || false)}
+                              className={`p-2 rounded-lg transition-all ${
+                                wine.isActive ? 'text-brand-gold' : 'text-gray-600'
+                              }`}
+                            >
+                              {wine.isActive ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                            </button>
+                            <button
+                              onClick={() => handleDeleteWine(wine.id)}
+                              className="p-2 text-brand-wine/40 hover:text-rose-500 transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                  {editingWineId === wine.id ? (
-                    <div className="flex items-center gap-2">
-                      <button 
-                        onClick={() => setEditingWineId(null)}
-                        className="bg-brand-gold text-brand-wine px-6 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 hover:brightness-110 shadow-luxury transition-all"
-                      >
-                        編集を終了
-                      </button>
                     </div>
-                  ) : (
-                    <>
-                      <button
-                        onClick={() => startEditingWine(wine)}
-                        className="p-2.5 text-brand-gold/60 hover:text-brand-gold hover:bg-brand-gold/10 rounded-xl transition-all border border-brand-gold/10"
-                        title="価格・在庫編集"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleToggleActive(wine.id, wine.isActive || false)}
-                        className={`p-2.5 rounded-xl transition-all border flex items-center justify-center shrink-0 ${
-                          wine.isActive 
-                          ? 'border-brand-gold bg-brand-gold/10 text-brand-gold shadow-[0_0_15px_rgba(212,175,55,0.2)]' 
-                          : 'border-white/10 bg-white/5 text-gray-600'
-                        }`}
-                      >
-                        {wine.isActive ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                      </button>
-                      <button
-                        onClick={() => handleDeleteWine(wine.id)}
-                        className="p-2.5 text-red-400 hover:bg-red-500 hover:text-white rounded-xl transition-all border border-red-500/20 hover:border-red-500"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-            ))}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
