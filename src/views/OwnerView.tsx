@@ -11,10 +11,9 @@ import { motion, AnimatePresence } from 'motion/react';
 
 export const OwnerView: React.FC = () => {
   const { wines, user, stores } = useWines();
-  const { storeId: pathStoreId } = useParams<{ storeId: string }>();
   const [inventory, setInventory] = useState<WineMaster[]>([]);
   const [store, setStore] = useState<Store | null>(null);
-  const [selectedStoreId, setSelectedStoreId] = useState(pathStoreId || user?.storeId || '');
+  const [selectedStoreId, setSelectedStoreId] = useState(new URLSearchParams(window.location.search).get('storeId') || user?.storeId || '');
   const [selectedWine, setSelectedWine] = useState<WineMaster | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -36,15 +35,16 @@ export const OwnerView: React.FC = () => {
 
   // Handle case where admin/rep arrives without storeId or with a new one
   useEffect(() => {
-    if (pathStoreId) {
-      setSelectedStoreId(pathStoreId);
+    const urlSid = new URLSearchParams(window.location.search).get('storeId');
+    if (urlSid) {
+      setSelectedStoreId(urlSid);
     } else if (user?.storeId) {
       setSelectedStoreId(user.storeId);
     } else if (stores.length > 0 && (user?.role === 'admin' || user?.role === 'rep')) {
-      // Default to first store for admins if none selected in URL
+      // Default to first store for admins if none selected
       if (!selectedStoreId) setSelectedStoreId(stores[0].id);
     }
-  }, [stores, user, pathStoreId]);
+  }, [stores, user]);
 
   const sid = selectedStoreId;
 
@@ -316,7 +316,7 @@ export const OwnerView: React.FC = () => {
                   <select 
                     className="bg-brand-gold/10 border border-brand-gold/30 text-brand-gold rounded-full px-4 py-1 text-[10px] font-bold uppercase outline-none"
                     value={sid || ''}
-                    onChange={(e) => window.location.href = `/owner/${e.target.value}`}
+                    onChange={(e) => window.location.href = `/owner?storeId=${e.target.value}`}
                   >
                     <option value="" disabled>店舗を切り替え</option>
                     {stores.map(s => (
