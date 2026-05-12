@@ -23,11 +23,11 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
     <div className="flex flex-col min-h-screen bg-[#FDFCFB] text-slate-900 font-sans selection:bg-brand-gold/30">
       <header className="h-16 md:h-20 bg-white border-slate-200 backdrop-blur-xl flex items-center justify-between px-4 md:px-8 border-b shadow-sm shrink-0 z-50">
         <div className="flex items-center space-x-3 md:space-x-4">
-          <div className="w-8 h-8 md:w-10 md:h-10 border border-brand-wine bg-brand-wine text-white rounded-full flex items-center justify-center shadow-sm">
-            <span className="serif text-lg md:text-xl">P</span>
+          <div className="w-8 h-8 md:w-10 md:h-10 border border-brand-gold bg-brand-gold text-brand-wine rounded-full flex items-center justify-center shadow-sm">
+            <span className="serif text-lg md:text-xl font-bold">W</span>
           </div>
           <h1 className="text-slate-900 text-lg md:text-2xl font-serif tracking-[0.1em] md:tracking-[0.2em] uppercase truncate max-w-[150px] md:max-w-none">
-            Pieroth <span className="text-brand-wine font-light opacity-80">Japan</span>
+            Wine <span className="text-brand-gold font-light opacity-80 italic">Menu System</span>
           </h1>
         </div>
         
@@ -62,11 +62,11 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
 
       <footer className="hidden sm:flex h-10 border-t items-center px-8 justify-between shrink-0 bg-white border-slate-100">
         <div className="flex items-center space-x-4">
-          <span className="text-[9px] text-slate-400 uppercase font-bold tracking-widest opacity-60">© 2024 PIEROTH JAPAN K.K.</span>
+          <span className="text-[9px] text-slate-400 uppercase font-bold tracking-widest opacity-60">ADMINISTRATION CONSOLE</span>
         </div>
         <div className="flex items-center space-x-1.5">
           <div className="w-1.5 h-1.5 rounded-full bg-brand-gold animate-pulse text-xs"></div>
-          <span className="text-[9px] font-bold text-slate-400 uppercase">Authenticated Session</span>
+          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Secure Channel</span>
         </div>
       </footer>
     </div>

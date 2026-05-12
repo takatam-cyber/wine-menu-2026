@@ -27,7 +27,7 @@ export const WineProfile: React.FC<WineProfileProps> = ({ wine }) => {
             </linearGradient>
           </defs>
           <PolarGrid stroke="rgba(212,175,55,0.1)" />
-          <PolarAngleAxis dataKey="subject" tick={{ fill: '#D4AF37', fontSize: 10, fontWeight: 'bold' }} />
+          <PolarAngleAxis dataKey="subject" tick={{ fill: '#D4AF37', fontSize: 12, fontWeight: 'bold' }} />
           <Radar
             name={wine.name_jp}
             dataKey="A"

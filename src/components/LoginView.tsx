@@ -79,11 +79,11 @@ export const LoginView: React.FC = () => {
         className="max-w-md w-full bg-black/60 backdrop-blur-2xl rounded-[3rem] p-10 border border-brand-gold/30 shadow-luxury relative z-10"
       >
         <div className="w-16 h-16 bg-black border border-brand-gold rounded-full flex items-center justify-center mx-auto mb-6 shadow-[0_0_30px_rgba(212,175,55,0.3)]">
-          <span className="text-brand-gold font-serif text-3xl">P</span>
+          <Wine className="text-brand-gold w-8 h-8" strokeWidth={1} />
         </div>
 
-        <h1 className="serif text-2xl text-brand-ivory mb-1 tracking-[0.2em] uppercase text-center">Pieroth <span className="text-brand-gold">Japan</span></h1>
-        <p className="text-[9px] text-brand-gold/60 uppercase tracking-[0.4em] mb-10 font-bold text-center">Smart Menu & AI Sommelier Portal</p>
+        <h1 className="serif text-2xl text-brand-ivory mb-1 tracking-[0.2em] uppercase text-center">Wine Menu <span className="text-brand-gold">System</span></h1>
+        <p className="text-[9px] text-brand-gold/60 uppercase tracking-[0.4em] mb-10 font-bold text-center">Smart Digital Wine Selection & AI Sommelier</p>
 
         <div className="flex bg-white/5 rounded-full p-1 mb-8">
           <button 
@@ -117,7 +117,7 @@ export const LoginView: React.FC = () => {
                 <Sparkles className="w-4 h-4" />
               </button>
               <p className="mt-4 text-[9px] text-gray-500 leading-tight text-center">
-                ※ @pieroth.jp ドメインのGoogleアカウントが必要です。
+                ※ 指定された管理ドメインのアカウントが必要です。
               </p>
             </motion.div>
           ) : (
@@ -191,7 +191,7 @@ export const LoginView: React.FC = () => {
         </div>
 
         <div className="mt-8 text-[9px] text-gray-500 uppercase tracking-widest font-bold text-center">
-           Secure Single Sign-On • Pieroth Cloud
+           Secure Single Sign-On • Sommelier Cloud
         </div>
       </motion.div>
     </div>
