@@ -194,9 +194,11 @@ async function startServer() {
     ? path.resolve(__dirname) 
     : path.resolve(__dirname, "dist");
 
+  // MUST be before wildcard route for SPA support
   app.use(express.static(distPath));
 
   app.get("*", (req, res) => {
+    // Force absolute path resolution to avoid platform-specific relative path issues
     res.sendFile(path.resolve(distPath, "index.html"));
   });
 

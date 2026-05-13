@@ -1385,10 +1385,10 @@ export const AdminView: React.FC = () => {
             </div>
           </div>
         </div>
-        </div>
       </div>
-    </>
-  )}
+    </div>
+  </>
+)}
 
   <AnimatePresence>
     {/* Master Registry Edit Modal */}
