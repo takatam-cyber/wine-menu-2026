@@ -200,7 +200,7 @@ async function startServer() {
     if (req.path.startsWith("/api/")) {
       return res.status(404).json({ error: "Not Found" });
     }
-    res.sendFile(path.join(distPath, "index.html"));
+    res.sendFile(path.resolve(distPath, "index.html"));
   });
 
   app.listen(Number(PORT), "0.0.0.0", () => {
