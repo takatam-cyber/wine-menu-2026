@@ -1385,11 +1385,11 @@ export const AdminView: React.FC = () => {
           </div>
         </div>
       </div>
-        </>
-      )}
+    </>
+  )}
 
-       {/* Master Registry Edit Modal */}
-      <AnimatePresence>
+    {/* Master Registry Edit Modal */}
+    <AnimatePresence>
         {isEditingMaster && editingMasterWine && (
           <motion.div
             initial={{ opacity: 0 }}
