@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
 import { WineMaster, Store } from '../types';
 import { useWines } from '../lib/WineContext';
 import { db } from '../lib/firebase';
@@ -11,11 +11,11 @@ import { calculateProfit } from '../lib/profit-calc';
 import { motion, AnimatePresence } from 'motion/react';
 
 export const OwnerView: React.FC = () => {
-  const { storeId: routeStoreId } = useParams<{ storeId: string }>();
+  const { storeId } = useParams<{ storeId: string }>();
   const { wines, user, stores } = useWines();
   const [inventory, setInventory] = useState<WineMaster[]>([]);
   const [store, setStore] = useState<Store | null>(null);
-  const [selectedStoreId, setSelectedStoreId] = useState(routeStoreId || user?.storeId || '');
+  const [selectedStoreId, setSelectedStoreId] = useState(storeId || user?.storeId || '');
   const [selectedWine, setSelectedWine] = useState<WineMaster | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -37,15 +37,15 @@ export const OwnerView: React.FC = () => {
 
   // Handle case where admin/rep arrives without storeId or with a new one
   useEffect(() => {
-    if (routeStoreId) {
-      setSelectedStoreId(routeStoreId);
+    if (storeId) {
+      setSelectedStoreId(storeId);
     } else if (user?.storeId) {
       setSelectedStoreId(user.storeId);
     } else if (stores.length > 0 && (user?.role === 'admin' || user?.role === 'rep')) {
       // Default to first store for admins if none selected
       if (!selectedStoreId) setSelectedStoreId(stores[0].id);
     }
-  }, [stores, user, routeStoreId]);
+  }, [stores, user, storeId]);
 
   const sid = selectedStoreId;
 
