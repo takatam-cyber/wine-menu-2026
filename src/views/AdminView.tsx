@@ -1349,42 +1349,42 @@ export const AdminView: React.FC = () => {
                       <BarChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
                         <XAxis 
                           dataKey="name" 
-                          hide={true}
-                        />
-                        <Tooltip 
-                          cursor={{ fill: 'rgba(0,0,0,0.02)' }}
-                          contentStyle={{ backgroundColor: '#fff', borderRadius: '16px', border: '1px solid #e2e8f0', color: '#334155', fontSize: '11px', fontWeight: 'bold', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                          labelFormatter={(value) => `銘柄: ${value}`}
-                          formatter={(value) => [`¥${value}`, '利益']}
-                        />
-                        <Bar dataKey="profit" fill="#581C28" radius={[4, 4, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div className="text-center">
-                       <BarChart3 className="w-8 h-8 text-slate-200 mx-auto mb-2" />
-                       <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">分析データ不足</p>
-                    </div>
-                  )}
-                </div>
-            </div>
+                        hide={true}
+                      />
+                      <Tooltip 
+                        cursor={{ fill: 'rgba(0,0,0,0.02)' }}
+                        contentStyle={{ backgroundColor: '#fff', borderRadius: '16px', border: '1px solid #e2e8f0', color: '#334155', fontSize: '11px', fontWeight: 'bold', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                        labelFormatter={(value) => `銘柄: ${value}`}
+                        formatter={(value) => [`¥${value}`, '利益']}
+                      />
+                      <Bar dataKey="profit" fill="#581C28" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="text-center">
+                     <BarChart3 className="w-8 h-8 text-slate-200 mx-auto mb-2" />
+                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">分析データ不足</p>
+                  </div>
+                )}
+              </div>
+          </div>
 
-            <div className="bg-brand-gold/10 p-8 rounded-3xl border border-brand-gold shadow-sm overflow-hidden relative group">
-              <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                <Shield className="w-32 h-32 text-brand-gold" />
-              </div>
-              <h3 className="serif text-2xl text-brand-wine mb-3 relative z-10">AIコンサルティング</h3>
-              <p className="text-[10px] text-brand-wine/60 uppercase tracking-widest mb-8 relative z-10 font-bold">RAG Analytics engine v2.0</p>
-              <div className="space-y-6 relative z-10">
-                 <div className="text-[15px] font-medium leading-relaxed border-l-4 border-brand-wine pl-6 text-slate-800 font-serif">
-                   "現在のシミュレーション結果により、ワインリストの平均原価率は適正範囲内にあります。プレミアムセグメントの比率をあと12%増やすことで、目標利益への最短ルートが構築可能です。"
-                 </div>
-                 <button className="w-full py-4 rounded-2xl bg-brand-wine text-white text-[11px] font-bold uppercase tracking-[0.2em] hover:scale-[1.02] transition-all shadow-lg active:scale-95">
-                   詳細レポートを出力
-                 </button>
-              </div>
+          <div className="bg-brand-gold/10 p-8 rounded-3xl border border-brand-gold shadow-sm overflow-hidden relative group">
+            <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+              <Shield className="w-32 h-32 text-brand-gold" />
+            </div>
+            <h3 className="serif text-2xl text-brand-wine mb-3 relative z-10">AIコンサルティング</h3>
+            <p className="text-[10px] text-brand-wine/60 uppercase tracking-widest mb-8 relative z-10 font-bold">RAG Analytics engine v2.0</p>
+            <div className="space-y-6 relative z-10">
+               <div className="text-[15px] font-medium leading-relaxed border-l-4 border-brand-wine pl-6 text-slate-800 font-serif">
+                 "現在のシミュレーション結果により、ワインリストの平均原価率は適正範囲内にあります。プレミアムセグメントの比率をあと12%増やすことで、目標利益への最短ルートが構築可能です。"
+               </div>
+               <button className="w-full py-4 rounded-2xl bg-brand-wine text-white text-[11px] font-bold uppercase tracking-[0.2em] hover:scale-[1.02] transition-all shadow-lg active:scale-95">
+                 詳細レポートを出力
+               </button>
             </div>
           </div>
+        </div>
         </div>
       </div>
     </>

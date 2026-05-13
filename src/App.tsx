@@ -6,7 +6,7 @@ import { CustomerView } from './views/CustomerView';
 import { LoginView } from './components/LoginView';
 import { useWines } from './lib/WineContext';
 import { Role } from './types';
-import { User, Shield, Wine, Menu as MenuIcon, X, LogOut, Loader2, Eye } from 'lucide-react';
+import { User, Shield, Wine, Menu as MenuIcon, X, LogOut, Loader2, Eye, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { logout, signInAnonymously, auth } from './lib/firebase';
 
@@ -134,10 +134,18 @@ export default function App() {
         !user ? <Navigate to="/login" replace /> : 
         (user.role === 'admin' || user.role === 'rep') ? <Navigate to="/admin" replace /> : 
         (user.role === 'owner' && user.storeId) ? <Navigate to={`/owner/${user.storeId}`} replace /> :
-        <div className="min-h-screen bg-brand-wine flex flex-col items-center justify-center gap-6 text-center px-4">
-          <Loader2 className="w-12 h-12 animate-spin text-brand-gold" />
-          <p className="serif italic text-brand-gold/60 text-lg tracking-widest uppercase">権限を確認中...</p>
-        </div>
+        (user.role === 'owner' && !user.storeId) ? (
+          <div className="min-h-screen bg-brand-wine flex flex-col items-center justify-center gap-6 text-center px-4">
+            <AlertCircle className="w-12 h-12 text-brand-gold" />
+            <p className="serif italic text-brand-gold/60 text-lg tracking-widest uppercase">店舗情報が未設定です。管理者に連絡してください。</p>
+            <button onClick={() => logout()} className="text-brand-gold underline uppercase text-xs tracking-widest">ログアウト</button>
+          </div>
+        ) : (
+          <div className="min-h-screen bg-brand-wine flex flex-col items-center justify-center gap-6 text-center px-4">
+            <Loader2 className="w-12 h-12 animate-spin text-brand-gold" />
+            <p className="serif italic text-brand-gold/60 text-lg tracking-widest uppercase">権限を確認中...</p>
+          </div>
+        )
       } />
 
       {/* Public / Login */}
