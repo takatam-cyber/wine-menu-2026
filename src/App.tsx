@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams, useNavigate } from 'react-router-dom';
 import { AdminView } from './views/AdminView';
 import { OwnerView } from './views/OwnerView';
 import { CustomerView } from './views/CustomerView';
@@ -18,6 +18,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
   if (!user) return <Navigate to="/login" replace />;
 
   const isOwnerView = location.pathname.startsWith('/owner');
+  const navigate = useNavigate();
 
   return (
     <div className="flex flex-col min-h-screen bg-[#FDFCFB] text-slate-900 font-sans selection:bg-brand-gold/30">
@@ -34,7 +35,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
         <div className="flex items-center gap-3 md:gap-6">
           {(user.role === 'admin' || user.role === 'rep') && (
             <button
-              onClick={() => isOwnerView ? window.location.href = '/admin' : (user.storeId ? window.location.href = `/owner/${user.storeId}` : window.location.href = '/admin')}
+              onClick={() => isOwnerView ? navigate('/admin') : (user.storeId ? navigate(`/owner/${user.storeId}`) : navigate('/admin'))}
               className="hidden lg:flex items-center gap-2 px-4 py-1.5 bg-brand-gold/10 text-brand-gold border border-brand-gold/30 rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-brand-gold hover:text-brand-wine transition-all"
             >
               <Eye className="w-3.5 h-3.5" />
@@ -47,7 +48,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
           </div>
           <button
             onClick={() => {
-              logout().then(() => window.location.href = '/login');
+              logout().then(() => navigate('/login'));
             }}
             className="text-slate-400 hover:text-brand-wine p-2 transition-colors"
           >

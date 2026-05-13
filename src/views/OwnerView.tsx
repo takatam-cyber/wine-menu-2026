@@ -12,7 +12,7 @@ import { motion, AnimatePresence } from 'motion/react';
 
 export const OwnerView: React.FC = () => {
   const navigate = useNavigate();
-  const { storeId } = useParams<{ storeId: string }>();
+  const { storeId } = useParams();
   const { wines, user, stores } = useWines();
   const [inventory, setInventory] = useState<WineMaster[]>([]);
   const [store, setStore] = useState<Store | null>(null);
