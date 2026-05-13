@@ -192,10 +192,10 @@ export const CustomerView: React.FC = () => {
           <div className="justify-self-start">
             {(user?.role === 'admin' || user?.role === 'rep' || user?.role === 'owner') && (
               <button 
-                onClick={() => {
-                  const target = (user.role === 'admin' || user.role === 'rep') ? 'admin' : 'owner';
-                  window.location.href = `/${target}?storeId=${store.id}`;
-                }}
+                    onClick={() => {
+                      const target = (user.role === 'admin' || user.role === 'rep') ? 'admin' : 'owner';
+                      window.location.href = target === 'owner' ? `/owner/${store.id}` : `/admin?storeId=${store.id}`;
+                    }}
                 className="w-12 h-12 rounded-full bg-brand-gold/15 flex items-center justify-center border border-brand-gold/30 text-brand-gold hover:bg-brand-gold hover:text-brand-wine transition-all shadow-lg"
               >
                 <Edit2 className="w-5 h-5" />

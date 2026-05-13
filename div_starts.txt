@@ -1,0 +1,127 @@
+588:    <div id="admin-view" className="min-h-screen bg-[#FDFCFB] text-slate-900 pb-20 animate-in fade-in duration-700">
+592:          <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-6">
+593:            <div>
+594:              <div className="flex items-center justify-center md:justify-start gap-4 mb-1 md:mb-2 text-center md:text-left">
+608:            <div className="flex flex-col sm:flex-row gap-3 md:gap-4 px-4 md:px-0">
+634:      <div className="max-w-7xl mx-auto px-4 md:px-8">
+636:            <div className="space-y-6">
+637:              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
+638:                <div className="relative flex-1 w-full">
+647:                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+652:              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+654:                  <div key={wine.id} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex gap-4 group hover:border-brand-wine transition-all">
+655:                    <div className="w-16 h-24 bg-slate-50 rounded-xl flex items-center justify-center p-2 border border-slate-100 shrink-0">
+664:                    <div className="flex-1 min-w-0">
+665:                      <div className="text-[9px] font-bold text-brand-gold uppercase tracking-widest">{wine.country} • {wine.vintage}</div>
+668:                      <div className="flex items-center justify-between mt-auto">
+670:                        <div className="flex items-center gap-2">
+690:              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
+698:                        <div>
+699:                          <div className="flex justify-between items-start mb-6">
+700:                             <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center border border-slate-100 group-hover:bg-brand-wine group-hover:text-white transition-colors shadow-inner">
+703:                      <div className="flex flex-col items-end gap-2 relative z-[60]">
+724:                    <div className="flex items-center justify-between mt-6 pt-6 border-t border-slate-50">
+725:                      <div className="flex flex-col">
+734:                  <div className="col-span-full py-10 flex justify-center">
+745:                <div className="col-span-full py-32 text-center bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
+746:                   <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
+760:        <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-6">
+761:          <div className="flex flex-col gap-1">
+769:              <div className="space-y-4 bg-slate-50 p-4 md:p-6 rounded-2xl border border-slate-200 w-full max-w-md animate-in slide-in-from-left duration-300">
+770:                <div>
+779:                <div className="grid grid-cols-2 gap-4">
+780:                  <div>
+801:                  <div>
+811:                <div className="flex flex-col items-center justify-center bg-white p-6 rounded-2xl border border-slate-200 shadow-inner">
+812:                  <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">モバイル用QRコード</div>
+813:                  <div className="p-3 bg-white border border-slate-100 rounded-xl shadow-lg mb-4">
+821:                  <div className="flex flex-col gap-2 w-full">
+846:                    <div className="h-px bg-slate-200 my-2" />
+856:                <div>
+865:                <div className="flex gap-2">
+882:                <div className="flex items-center gap-3">
+907:          <div className="flex flex-wrap gap-2 md:gap-4">
+935:      <div className="max-w-7xl mx-auto px-4 md:px-8 space-y-8 md:space-y-12">
+938:          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 md:p-8">
+944:              <div className="p-8 border-b border-slate-100 flex items-center justify-between">
+945:                <div>
+957:              <div className="p-8 bg-slate-50 border-b border-slate-100">
+958:                <div className="relative">
+969:              <div className="flex-1 overflow-y-auto p-4 md:p-8">
+970:                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+981:                      <div 
+992:                        <div className="flex flex-col items-center gap-4 shrink-0">
+993:                          <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${
+998:                          <div className="w-16 h-24 bg-slate-50 rounded-xl flex items-center justify-center p-2 border border-slate-100">
+1008:                        <div className="flex-1 min-w-0">
+1009:                          <div className="text-[9px] font-bold text-brand-gold uppercase tracking-widest">{wine.country} • {wine.vintage}</div>
+1012:                          <div className="flex items-center justify-between mt-auto">
+1025:                  <div className="py-10 flex justify-center">
+1036:              <div className="p-8 border-t border-slate-100 bg-white flex items-center justify-between">
+1037:                <div className="text-sm font-bold text-slate-600">
+1042:                <div className="flex gap-4">
+1066:          <div className={`p-4 rounded-xl flex items-center gap-3 animate-in slide-in-from-top duration-500 ${
+1076:        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8">
+1077:          <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+1080:            <div className="mt-6 h-1.5 md:h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+1081:              <div 
+1087:          <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+1095:            <div className="text-xs md:text-sm text-green-600 font-bold mt-4 uppercase flex items-center gap-1">
+1099:          <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+1113:        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-12">
+1114:          <div className="lg:col-span-8 space-y-6 md:space-y-8">
+1115:            <div className="bg-white rounded-3xl overflow-hidden flex flex-col shadow-sm border border-slate-200">
+1116:              <div className="px-4 md:px-8 py-5 md:py-6 border-b border-slate-100 bg-slate-50 flex flex-col xl:flex-row justify-between items-center gap-6">
+1117:                <div className="flex items-center gap-3 self-start md:self-auto">
+1118:                  <div className="w-10 h-10 bg-brand-wine text-white rounded-xl flex items-center justify-center shadow-md shrink-0">
+1123:                <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
+1124:                  <div className="relative flex-1 md:flex-none group">
+1149:                  <div className="hidden md:block h-6 w-[1px] bg-slate-300 mx-1 md:mx-2"></div>
+1158:                  <div className="flex gap-2 w-full sm:w-auto mt-2 sm:mt-0">
+1175:              <div className="overflow-x-auto">
+1194:                            <div className="flex items-center gap-3">
+1208:                              <div>
+1209:                                <div className="font-bold text-slate-800 text-sm mb-1 flex items-center gap-2">
+1213:                                <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">ID: {wine.id} • {wine.region}</div>
+1230:                            <div className="flex items-center gap-4">
+1231:                               <div className="relative group">
+1243:                              <div className="flex flex-col min-w-[70px]">
+1250:                            <div className="flex flex-col gap-2">
+1251:                              <div className="flex items-center gap-2">
+1263:                                <div className="flex flex-col">
+1268:                              <div className="flex items-center gap-2">
+1285:                             <div className="flex flex-col gap-2 items-end">
+1300:                              <div className="flex items-center gap-2">
+1340:          <div className="lg:col-span-4 space-y-8">
+1341:            <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
+1342:               <div className="flex items-center gap-3 mb-8 border-b border-slate-100 pb-5">
+1346:                <div className="mt-8 relative w-full bg-slate-50/50 rounded-2xl border border-slate-100 flex items-center justify-center overflow-hidden" style={{ height: '256px', minHeight: '256px' }}>
+1364:                  <div className="text-center">
+1372:          <div className="bg-brand-gold/10 p-8 rounded-3xl border border-brand-gold shadow-sm overflow-hidden relative group">
+1373:            <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+1378:            <div className="space-y-6 relative z-10">
+1379:               <div className="text-[15px] font-medium leading-relaxed border-l-4 border-brand-wine pl-6 text-slate-800 font-serif">
+1407:          <div className="p-8 border-b border-slate-100 flex items-center justify-between">
+1408:            <div>
+1417:          <div className="p-8 space-y-6 overflow-y-auto">
+1418:            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+1419:              <div className="md:col-span-2">
+1428:              <div>
+1437:              <div>
+1446:              <div>
+1455:              <div>
+1464:              <div>
+1477:              <div>
+1486:              <div>
+1497:              <div>
+1506:               <div className="md:col-span-2">
+1516:            <div>
+1528:          <div className="p-8 border-t border-slate-100 flex justify-end gap-3 bg-slate-50/50">
+1561:          <div className="p-8 border-b border-slate-100 flex items-center justify-between">
+1562:            <div>
+1573:          <div className="p-8 space-y-6">
+1575:              <div className="py-10 text-center">
+1580:              <div className="space-y-6">
+1581:                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 space-y-4">
+1582:                  <div>
+1592:                  <div>
