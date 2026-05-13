@@ -197,9 +197,6 @@ async function startServer() {
   app.use(express.static(distPath));
 
   app.get("*", (req, res) => {
-    if (req.path.startsWith("/api/")) {
-      return res.status(404).json({ error: "Not Found" });
-    }
     res.sendFile(path.resolve(distPath, "index.html"));
   });
 
