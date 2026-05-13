@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import React, { useState, useEffect } from 'react';
 import { WineMaster, Store } from '../types';
 import { useWines } from '../lib/WineContext';
@@ -11,6 +11,7 @@ import { calculateProfit } from '../lib/profit-calc';
 import { motion, AnimatePresence } from 'motion/react';
 
 export const OwnerView: React.FC = () => {
+  const navigate = useNavigate();
   const { storeId } = useParams<{ storeId: string }>();
   const { wines, user, stores } = useWines();
   const [inventory, setInventory] = useState<WineMaster[]>([]);
@@ -317,7 +318,7 @@ export const OwnerView: React.FC = () => {
                   <select 
                     className="bg-brand-gold/10 border border-brand-gold/30 text-brand-gold rounded-full px-4 py-1 text-[10px] font-bold uppercase outline-none"
                     value={sid || ''}
-                    onChange={(e) => window.location.href = `/owner/${e.target.value}`}
+                    onChange={(e) => navigate(`/owner/${e.target.value}`)}
                   >
                     <option value="" disabled>店舗を切り替え</option>
                     {stores.map(s => (

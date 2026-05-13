@@ -1,3 +1,4 @@
+import { useParams, useNavigate } from 'react-router-dom';
 import React, { useState, useRef, useEffect } from 'react';
 import { WineMaster, Store } from '../types';
 import { useWines } from '../lib/WineContext';
@@ -26,6 +27,7 @@ const getBaseUrl = () => {
 };
 
 export const AdminView: React.FC = () => {
+  const navigate = useNavigate();
   const { wines, setWines, user, stores, refreshStores, refreshWines, searchMasterWines, hasMoreStores, hasMoreWines } = useWines();
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
   const [searchId, setSearchId] = useState('');
@@ -818,7 +820,7 @@ export const AdminView: React.FC = () => {
                   </div>
                   <div className="flex flex-col gap-2 w-full">
                     <button 
-                      onClick={() => window.location.href = `/owner/${selectedStoreId}`}
+                      onClick={() => navigate(`/owner/${selectedStoreId}`)}
                       className="w-full py-3 bg-brand-wine text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:brightness-125 flex items-center justify-center gap-2 shadow-luxury border border-brand-gold/30"
                     >
                       <Settings className="w-3.5 h-3.5" />
@@ -1388,9 +1390,9 @@ export const AdminView: React.FC = () => {
     </>
   )}
 
+  <AnimatePresence>
     {/* Master Registry Edit Modal */}
-    <AnimatePresence>
-        {isEditingMaster && editingMasterWine && (
+    {isEditingMaster && editingMasterWine && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
