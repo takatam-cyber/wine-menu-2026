@@ -133,7 +133,7 @@ export default function App() {
         <Navigate to={
           !user ? "/login" : 
           (user.role === 'admin' || user.role === 'rep') ? "/admin" : 
-          user.role === 'owner' ? "/owner" : "/login"
+          user.role === 'owner' ? `/owner/${user.storeId}` : "/login"
         } replace />
       } />
 
@@ -155,7 +155,7 @@ export default function App() {
       } />
 
       {/* Owner Section */}
-      <Route path="/owner" element={
+      <Route path="/owner/:storeId" element={
         <OwnerRoute>
           <OwnerView />
         </OwnerRoute>

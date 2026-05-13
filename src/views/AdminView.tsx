@@ -628,7 +628,128 @@ export const AdminView: React.FC = () => {
           </div>
         </header>
 
-        <div className="max-w-7xl mx-auto px-4 md:px-8">
+      <AnimatePresence>
+        {isEditingMaster && editingMasterWine && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              className="bg-white rounded-[2rem] shadow-2xl w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              <div className="p-8 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                  <h2 className="serif text-2xl text-slate-900">マスター銘柄編集</h2>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Editing Master Registry Item: {editingMasterWine.id}</p>
+                </div>
+                <button onClick={() => setIsEditingMaster(false)} className="p-2 text-slate-300 hover:text-slate-600 transition-colors">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="p-8 space-y-6 overflow-y-auto">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="md:col-span-2">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">ワイン名称 (日本語)</label>
+                    <input 
+                      type="text"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
+                      value={editMasterData.name_jp || ''}
+                      onChange={e => setEditMasterData({...editMasterData, name_jp: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">ワイン名称 (英語)</label>
+                    <input 
+                      type="text"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
+                      value={editMasterData.name_en || ''}
+                      onChange={e => setEditMasterData({...editMasterData, name_en: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">短縮メニュー名 (キャッチコピー)</label>
+                    <input 
+                      type="text"
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
+                      value={editMasterData.menu_short || ''}
+                      onChange={e => setEditMasterData({...editMasterData, menu_short: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">ヴィンテージ</label>
+                    <input 
+                      type="text"
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
+                      value={editMasterData.vintage || ''}
+                      onChange={e => setEditMasterData({...editMasterData, vintage: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">参考価格 (ボトル)</label>
+                    <input 
+                      type="number"
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
+                      value={editMasterData.price_bottle || 0}
+                      onChange={e => setEditMasterData({...editMasterData, price_bottle: parseInt(e.target.value) || 0})}
+                    />
+                  </div>
+                   <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">主要品種</label>
+                    <input 
+                      type="text"
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
+                      value={editMasterData.grape || ''}
+                      onChange={e => setEditMasterData({...editMasterData, grape: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">色</label>
+                    <select 
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none"
+                      value={editMasterData.color || ''}
+                      onChange={e => setEditMasterData({...editMasterData, color: e.target.value})}
+                    >
+                      <option value="赤">赤</option>
+                      <option value="白">白</option>
+                      <option value="泡">泡</option>
+                      <option value="ロゼ">ロゼ</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">ボディ (1-5)</label>
+                    <input 
+                      type="number" min="1" max="5"
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none"
+                      value={editMasterData.body || 3}
+                      onChange={e => setEditMasterData({...editMasterData, body: parseInt(e.target.value) || 3})}
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">AI解説文</label>
+                    <textarea 
+                      rows={3}
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none resize-none"
+                      value={editMasterData.ai_explanation || ''}
+                      onChange={e => setEditMasterData({...editMasterData, ai_explanation: e.target.value})}
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-4 pt-4">
+                  <button onClick={() => setIsEditingMaster(false)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl text-[11px] font-bold uppercase tracking-widest hover:bg-slate-200 transition-all">キャンセル</button>
+                  <button onClick={handleUpdateMaster} className="flex-1 py-4 bg-brand-wine text-white rounded-2xl text-[11px] font-bold uppercase tracking-widest hover:scale-[1.02] shadow-lg transition-all">保存してマスターを更新</button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="max-w-7xl mx-auto px-4 md:px-8">
           {showMasterCatalog ? (
             <div className="space-y-6">
               <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
@@ -820,7 +941,7 @@ export const AdminView: React.FC = () => {
                   </div>
                   <div className="flex flex-col gap-2 w-full">
                     <button 
-                      onClick={() => window.location.href = `/owner?storeId=${selectedStoreId}`}
+                      onClick={() => window.location.href = `/owner/${selectedStoreId}`}
                       className="w-full py-3 bg-brand-wine text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:brightness-125 flex items-center justify-center gap-2 shadow-luxury border border-brand-gold/30"
                     >
                       <Settings className="w-3.5 h-3.5" />

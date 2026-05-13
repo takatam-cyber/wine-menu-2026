@@ -198,7 +198,7 @@ async function startServer() {
 
   app.get("*", (req, res) => {
     if (req.path.startsWith("/api/")) {
-      return res.status(404).json({ error: "API Endpoint not found" });
+      return res.status(404).json({ error: "Not Found" });
     }
     res.sendFile(path.join(distPath, "index.html"));
   });
