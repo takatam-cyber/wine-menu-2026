@@ -133,8 +133,14 @@ export default function App() {
       <Route path="/" element={
         !user ? <Navigate to="/login" replace /> : 
         (user.role === 'admin' || user.role === 'rep') ? <Navigate to="/admin" replace /> : 
-        (user.role === 'owner' && user.storeId) ? <Navigate to={`/owner/${user.storeId}`} replace /> :
-        (
+        (user.role === 'owner') ? (
+          user.storeId ? <Navigate to={`/owner/${user.storeId}`} replace /> : (
+            <div className="min-h-screen bg-brand-wine flex flex-col items-center justify-center gap-6 text-center px-4">
+              <Loader2 className="w-12 h-12 animate-spin text-brand-gold" />
+              <p className="serif italic text-brand-gold/60 text-lg tracking-widest uppercase">店舗情報を同期中...</p>
+            </div>
+          )
+        ) : (
           <div className="min-h-screen bg-brand-wine flex flex-col items-center justify-center gap-6 text-center px-4">
             <Loader2 className="w-12 h-12 animate-spin text-brand-gold" />
             <p className="serif italic text-brand-gold/60 text-lg tracking-widest uppercase">権限を確認中... (Syncing Profile)</p>
