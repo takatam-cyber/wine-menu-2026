@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import { AdminView } from './views/AdminView';
 import { OwnerView } from './views/OwnerView';
 import { CustomerView } from './views/CustomerView';
 import { LoginView } from './components/LoginView';
 import { useWines } from './lib/WineContext';
 import { Role } from './types';
-import { User, Shield, Wine, Menu as MenuIcon, X, LogOut, Loader2, Eye, AlertCircle } from 'lucide-react';
+import { User, Shield, Wine, Menu as MenuIcon, X, LogOut, Loader2, Eye } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { logout, signInAnonymously, auth } from './lib/firebase';
 
@@ -17,8 +17,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
   
   if (!user) return <Navigate to="/login" replace />;
 
-  const isOwnerView = location.pathname.startsWith('/owner');
-  const navigate = useNavigate();
+  const isOwnerView = location.pathname === '/owner';
 
   return (
     <div className="flex flex-col min-h-screen bg-[#FDFCFB] text-slate-900 font-sans selection:bg-brand-gold/30">
@@ -35,7 +34,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
         <div className="flex items-center gap-3 md:gap-6">
           {(user.role === 'admin' || user.role === 'rep') && (
             <button
-              onClick={() => isOwnerView ? navigate('/admin') : (user.storeId ? navigate(`/owner/${user.storeId}`) : navigate('/admin'))}
+              onClick={() => isOwnerView ? window.location.href = '/admin' : window.location.href = '/owner'}
               className="hidden lg:flex items-center gap-2 px-4 py-1.5 bg-brand-gold/10 text-brand-gold border border-brand-gold/30 rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-brand-gold hover:text-brand-wine transition-all"
             >
               <Eye className="w-3.5 h-3.5" />
@@ -48,7 +47,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
           </div>
           <button
             onClick={() => {
-              logout().then(() => navigate('/login'));
+              logout().then(() => window.location.href = '/login');
             }}
             className="text-slate-400 hover:text-brand-wine p-2 transition-colors"
           >
@@ -63,11 +62,11 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
 
       <footer className="hidden sm:flex h-10 border-t items-center px-8 justify-between shrink-0 bg-white border-slate-100">
         <div className="flex items-center space-x-4">
-          <span className="text-[9px] text-slate-400 uppercase font-bold tracking-widest opacity-60">WINE SELECTION SYSTEM</span>
+          <span className="text-[9px] text-slate-400 uppercase font-bold tracking-widest opacity-60">ADMINISTRATION CONSOLE</span>
         </div>
         <div className="flex items-center space-x-1.5">
           <div className="w-1.5 h-1.5 rounded-full bg-brand-gold animate-pulse text-xs"></div>
-          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Secure Access</span>
+          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Secure Channel</span>
         </div>
       </footer>
     </div>
@@ -131,21 +130,11 @@ export default function App() {
     <Routes>
       {/* Root redirection logic */}
       <Route path="/" element={
-        !user ? <Navigate to="/login" replace /> : 
-        (user.role === 'admin' || user.role === 'rep') ? <Navigate to="/admin" replace /> : 
-        (user.role === 'owner') ? (
-          user.storeId ? <Navigate to={`/owner/${user.storeId}`} replace /> : (
-            <div className="min-h-screen bg-brand-wine flex flex-col items-center justify-center gap-6 text-center px-4">
-              <Loader2 className="w-12 h-12 animate-spin text-brand-gold" />
-              <p className="serif italic text-brand-gold/60 text-lg tracking-widest uppercase">店舗情報を同期中...</p>
-            </div>
-          )
-        ) : (
-          <div className="min-h-screen bg-brand-wine flex flex-col items-center justify-center gap-6 text-center px-4">
-            <Loader2 className="w-12 h-12 animate-spin text-brand-gold" />
-            <p className="serif italic text-brand-gold/60 text-lg tracking-widest uppercase">権限を確認中... (Syncing Profile)</p>
-          </div>
-        )
+        <Navigate to={
+          !user ? "/login" : 
+          (user.role === 'admin' || user.role === 'rep') ? "/admin" : 
+          user.role === 'owner' ? "/owner" : "/login"
+        } replace />
       } />
 
       {/* Public / Login */}
@@ -166,7 +155,7 @@ export default function App() {
       } />
 
       {/* Owner Section */}
-      <Route path="/owner/:storeId" element={
+      <Route path="/owner" element={
         <OwnerRoute>
           <OwnerView />
         </OwnerRoute>

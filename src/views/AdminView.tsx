@@ -1,4 +1,3 @@
-import { useParams, useNavigate } from 'react-router-dom';
 import React, { useState, useRef, useEffect } from 'react';
 import { WineMaster, Store } from '../types';
 import { useWines } from '../lib/WineContext';
@@ -27,7 +26,6 @@ const getBaseUrl = () => {
 };
 
 export const AdminView: React.FC = () => {
-  const navigate = useNavigate();
   const { wines, setWines, user, stores, refreshStores, refreshWines, searchMasterWines, hasMoreStores, hasMoreWines } = useWines();
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
   const [searchId, setSearchId] = useState('');
@@ -71,16 +69,9 @@ export const AdminView: React.FC = () => {
     setEditingMasterWine(wine);
     setEditMasterData({
       name_jp: wine.name_jp,
-      name_en: wine.name_en,
       ai_explanation: wine.ai_explanation,
       price_bottle: wine.price_bottle,
-      grape: wine.grape,
-      color: wine.color,
-      type: wine.type,
-      vintage: wine.vintage,
-      pairing: wine.pairing,
-      body: wine.body || 3,
-      menu_short: wine.menu_short
+      grape: wine.grape
     });
     setIsEditingMaster(true);
   };
@@ -584,118 +575,10 @@ export const AdminView: React.FC = () => {
     };
   });
 
-  // Shared Modal Helper
-  const renderModals = () => (
-    <>
-      <AnimatePresence>
-        {/* Master Registry Edit Modal */}
-        {isEditingMaster && editingMasterWine && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-          >
-            <motion.div
-              initial={{ scale: 0.95, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              className="bg-white rounded-[2rem] shadow-2xl w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh]"
-            >
-              <div className="p-8 border-b border-slate-100 flex items-center justify-between">
-                <div>
-                  <h3 className="serif text-2xl text-slate-900">マスター銘柄編集</h3>
-                  <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mt-1">Editing Master Registry Item: {editingMasterWine.id}</p>
-                </div>
-                <button onClick={() => setIsEditingMaster(false)} className="p-2 text-slate-300 hover:text-slate-600 transition-colors">
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-
-              <div className="p-8 space-y-6 overflow-y-auto">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="md:col-span-2">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">ワイン名称 (日本語)</label>
-                    <input 
-                      type="text"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
-                      value={editMasterData.name_jp || ''}
-                      onChange={e => setEditMasterData({...editMasterData, name_jp: e.target.value})}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">ワイン名称 (英語)</label>
-                    <input 
-                      type="text"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
-                      value={editMasterData.name_en || ''}
-                      onChange={e => setEditMasterData({...editMasterData, name_en: e.target.value})}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">短縮メニュー名 (キャッチコピー)</label>
-                    <input 
-                      type="text"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
-                      value={editMasterData.menu_short || ''}
-                      onChange={e => setEditMasterData({...editMasterData, menu_short: e.target.value})}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">ヴィンテージ</label>
-                    <input 
-                      type="text"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
-                      value={editMasterData.vintage || ''}
-                      onChange={e => setEditMasterData({...editMasterData, vintage: e.target.value})}
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className="p-8 border-t border-slate-100 flex justify-end gap-3 bg-slate-50/50">
-                <button onClick={() => setIsEditingMaster(false)} className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-all">キャンセル</button>
-                <button onClick={handleUpdateMaster} className="px-10 py-3 bg-brand-wine text-white rounded-full text-[11px] font-bold uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-lg">マスターを更新</button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {showOwnerForm && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[130] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-          >
-            <motion.div
-              initial={{ scale: 0.95, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md overflow-hidden flex flex-col"
-            >
-              <div className="p-8 border-b border-slate-100 flex items-center justify-between">
-                <div>
-                  <h3 className="serif text-2xl text-slate-900">店舗オーナー設定</h3>
-                </div>
-                <button onClick={() => setShowOwnerForm(false)} className="p-2 text-slate-300 hover:text-slate-600 transition-colors">
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-              <div className="p-8">
-                <button onClick={handleCreateOwner} className="w-full py-4 bg-brand-wine text-white rounded-full text-[11px] font-bold uppercase tracking-widest">保存</button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </>
-  );
-
   if (!selectedStoreId) {
     return (
       <div id="admin-view" className="min-h-screen bg-[#FDFCFB] text-slate-900 pb-20 animate-in fade-in duration-700">
-        <>
-          <header className="bg-white border-b border-slate-200 px-4 md:px-8 py-6 md:py-10 mb-6 md:mb-8 z-20 shadow-sm">
+        <header className="bg-white border-b border-slate-200 px-4 md:px-8 py-6 md:py-10 mb-6 md:mb-8 z-20 shadow-sm">
           <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div>
               <div className="flex items-center justify-center md:justify-start gap-4 mb-1 md:mb-2 text-center md:text-left">
@@ -738,7 +621,7 @@ export const AdminView: React.FC = () => {
           </div>
         </header>
 
-      <div className="max-w-7xl mx-auto px-4 md:px-8">
+        <div className="max-w-7xl mx-auto px-4 md:px-8">
           {showMasterCatalog ? (
             <div className="space-y-6">
               <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
@@ -860,16 +743,13 @@ export const AdminView: React.FC = () => {
             </div>
           )}
         </div>
-        </>
-        {renderModals()}
       </div>
     );
   }
 
   return (
     <div id="admin-view" className="min-h-screen bg-[#FDFCFB] text-slate-900 pb-20 animate-in fade-in duration-700">
-      <>
-          <header className="bg-white border-b border-slate-200 px-4 md:px-8 py-6 md:py-8 mb-6 md:mb-8 sticky top-0 z-40 backdrop-blur-md bg-white/90">
+      <header className="bg-white border-b border-slate-200 px-4 md:px-8 py-6 md:py-8 mb-6 md:mb-8 sticky top-0 z-20 shadow-sm">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex flex-col gap-1">
             <button 
@@ -933,9 +813,7 @@ export const AdminView: React.FC = () => {
                   </div>
                   <div className="flex flex-col gap-2 w-full">
                     <button 
-                      onClick={() => {
-                        window.location.href = `/owner/${selectedStoreId}`
-                      }}
+                      onClick={() => window.location.href = `/owner?storeId=${selectedStoreId}`}
                       className="w-full py-3 bg-brand-wine text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:brightness-125 flex items-center justify-center gap-2 shadow-luxury border border-brand-gold/30"
                     >
                       <Settings className="w-3.5 h-3.5" />
@@ -1464,141 +1342,212 @@ export const AdminView: React.FC = () => {
                       <BarChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
                         <XAxis 
                           dataKey="name" 
-                        hide={true}
-                      />
-                      <Tooltip 
-                        cursor={{ fill: 'rgba(0,0,0,0.02)' }}
-                        contentStyle={{ backgroundColor: '#fff', borderRadius: '16px', border: '1px solid #e2e8f0', color: '#334155', fontSize: '11px', fontWeight: 'bold', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                        labelFormatter={(value) => `銘柄: ${value}`}
-                        formatter={(value) => [`¥${value}`, '利益']}
-                      />
-                      <Bar dataKey="profit" fill="#581C28" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="text-center">
-                     <BarChart3 className="w-8 h-8 text-slate-200 mx-auto mb-2" />
-                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">分析データ不足</p>
-                  </div>
-                )}
-              </div>
-          </div>
-
-          <div className="bg-brand-gold/10 p-8 rounded-3xl border border-brand-gold shadow-sm overflow-hidden relative group">
-            <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-              <Shield className="w-32 h-32 text-brand-gold" />
+                          hide={true}
+                        />
+                        <Tooltip 
+                          cursor={{ fill: 'rgba(0,0,0,0.02)' }}
+                          contentStyle={{ backgroundColor: '#fff', borderRadius: '16px', border: '1px solid #e2e8f0', color: '#334155', fontSize: '11px', fontWeight: 'bold', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                          labelFormatter={(value) => `銘柄: ${value}`}
+                          formatter={(value) => [`¥${value}`, '利益']}
+                        />
+                        <Bar dataKey="profit" fill="#581C28" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="text-center">
+                       <BarChart3 className="w-8 h-8 text-slate-200 mx-auto mb-2" />
+                       <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">分析データ不足</p>
+                    </div>
+                  )}
+                </div>
             </div>
-            <h3 className="serif text-2xl text-brand-wine mb-3 relative z-10">AIコンサルティング</h3>
-            <p className="text-[10px] text-brand-wine/60 uppercase tracking-widest mb-8 relative z-10 font-bold">RAG Analytics engine v2.0</p>
-            <div className="space-y-6 relative z-10">
-               <div className="text-[15px] font-medium leading-relaxed border-l-4 border-brand-wine pl-6 text-slate-800 font-serif">
-                 "現在のシミュレーション結果により、ワインリストの平均原価率は適正範囲内にあります。プレミアムセグメントの比率をあと12%増やすことで、目標利益への最短ルートが構築可能です。"
+
+            <div className="bg-brand-gold/10 p-8 rounded-3xl border border-brand-gold shadow-sm overflow-hidden relative group">
+              <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                <Shield className="w-32 h-32 text-brand-gold" />
+              </div>
+              <h3 className="serif text-2xl text-brand-wine mb-3 relative z-10">AIコンサルティング</h3>
+              <p className="text-[10px] text-brand-wine/60 uppercase tracking-widest mb-8 relative z-10 font-bold">RAG Analytics engine v2.0</p>
+              <div className="space-y-6 relative z-10">
+                 <div className="text-[15px] font-medium leading-relaxed border-l-4 border-brand-wine pl-6 text-slate-800 font-serif">
+                   "現在のシミュレーション結果により、ワインリストの平均原価率は適正範囲内にあります。プレミアムセグメントの比率をあと12%増やすことで、目標利益への最短ルートが構築可能です。"
+                 </div>
+                 <button className="w-full py-4 rounded-2xl bg-brand-wine text-white text-[11px] font-bold uppercase tracking-[0.2em] hover:scale-[1.02] transition-all shadow-lg active:scale-95">
+                   詳細レポートを出力
+                 </button>
+              </div>
+            </div>
+
+            <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+               <div className="flex items-center justify-between mb-8">
+                  <div className="flex items-center gap-2">
+                     <Key className="text-brand-wine w-5 h-5" />
+                     <h2 className="text-xs font-bold uppercase tracking-widest text-slate-800">店舗統括アカウント</h2>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      if (selectedStore?.ownerId) {
+                        setOwnerEmail(selectedStore.owner_email || '');
+                        setIsEditingOwner(true);
+                      } else {
+                        setIsEditingOwner(false);
+                      }
+                      setShowOwnerForm(!showOwnerForm);
+                    }}
+                    className="text-[10px] font-bold uppercase tracking-widest text-brand-wine hover:underline"
+                  >
+                    {showOwnerForm ? 'キャンセル' : (selectedStore?.ownerId ? '編集' : '新規登録')}
+                  </button>
                </div>
-               <button className="w-full py-4 rounded-2xl bg-brand-wine text-white text-[11px] font-bold uppercase tracking-[0.2em] hover:scale-[1.02] transition-all shadow-lg active:scale-95">
-                 詳細レポートを出力
-               </button>
+
+               {selectedStore?.ownerId && !showOwnerForm ? (
+                  <div className="space-y-4">
+                     <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                        <div className="w-10 h-10 rounded-full bg-brand-wine/10 flex items-center justify-center">
+                           <Shield className="w-5 h-5 text-brand-wine" />
+                        </div>
+                        <div>
+                           <p className="text-[10px] text-brand-wine font-bold uppercase tracking-widest">Active Store Admin</p>
+                           <p className="text-sm text-slate-700 font-bold">{selectedStore.owner_email}</p>
+                        </div>
+                     </div>
+                     <p className="text-[10px] text-slate-400 italic font-medium leading-relaxed">このアカウントは店舗側のメニュー管理と在庫更新にのみアクセスが可能です。</p>
+                  </div>
+               ) : showOwnerForm ? (
+                  <div className="space-y-6 animate-in slide-in-from-top duration-300">
+                     <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 space-y-4">
+                       <div>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">ログイン ID / メール</label>
+                          <input 
+                            type="text"
+                            placeholder="store_manager_id"
+                            value={ownerEmail}
+                            onChange={(e) => setOwnerEmail(e.target.value)}
+                            className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900 focus:border-brand-wine outline-none shadow-sm"
+                          />
+                       </div>
+                       <div>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">
+                            {isEditingOwner ? '新パスワード (変更時のみ)' : '初期パスワード'}
+                          </label>
+                          <input 
+                            type="password"
+                            placeholder={isEditingOwner ? '未入力なら維持' : '6文字以上'}
+                            value={ownerPassword}
+                            onChange={(e) => setOwnerPassword(e.target.value)}
+                            className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900 focus:border-brand-wine outline-none shadow-sm"
+                          />
+                       </div>
+                       <button 
+                         onClick={handleCreateOwner}
+                         disabled={isCreatingOwner}
+                         className="w-full bg-brand-wine text-white py-3.5 rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:brightness-110 active:scale-95 transition-all shadow-lg"
+                       >
+                         {isCreatingOwner ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                         {isEditingOwner ? '情報を更新' : 'アカウントを発行'}
+                       </button>
+                     </div>
+                  </div>
+               ) : (
+                  <div className="py-12 text-center border-2 border-dashed border-slate-200 rounded-3xl bg-slate-50/50">
+                     <p className="text-[11px] text-slate-400 uppercase tracking-widest mb-6 font-bold">オーナーアカウント未設定</p>
+                     <button 
+                       onClick={() => setShowOwnerForm(true)}
+                       className="mx-auto flex items-center gap-3 px-6 py-3 bg-white border-2 border-brand-wine text-brand-wine rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-brand-wine hover:text-white transition-all shadow-sm"
+                     >
+                       <UserPlus className="w-4 h-4" />
+                       発行画面へ
+                     </button>
+                  </div>
+               )}
             </div>
           </div>
         </div>
       </div>
-    </div>
-      </>
-      {renderModals()}
+      <AnimatePresence>
+        {isEditingMaster && editingMasterWine && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              className="bg-white rounded-[2rem] shadow-2xl w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              <div className="p-8 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                  <h3 className="serif text-2xl text-slate-900">マスター銘柄編集</h3>
+                  <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mt-1">Editing Master Registry Item: {editingMasterWine.id}</p>
+                </div>
+                <button onClick={() => setIsEditingMaster(false)} className="p-2 text-slate-300 hover:text-slate-600 transition-colors">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="p-8 space-y-6 overflow-y-auto">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="md:col-span-2">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">ワイン名称 (日本語)</label>
+                    <input 
+                      type="text"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
+                      value={editMasterData.name_jp || ''}
+                      onChange={e => setEditMasterData({...editMasterData, name_jp: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">参考価格 (ボトル)</label>
+                    <input 
+                      type="number"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
+                      value={editMasterData.price_bottle || 0}
+                      onChange={e => setEditMasterData({...editMasterData, price_bottle: parseInt(e.target.value) || 0})}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">主要品種</label>
+                    <input 
+                      type="text"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
+                      value={editMasterData.grape || ''}
+                      onChange={e => setEditMasterData({...editMasterData, grape: e.target.value})}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">AIソムリエ解説文</label>
+                  <textarea 
+                    rows={4}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine resize-none"
+                    value={editMasterData.ai_explanation || ''}
+                    onChange={e => setEditMasterData({...editMasterData, ai_explanation: e.target.value})}
+                  />
+                  <p className="text-[9px] text-slate-400 mt-2 font-medium italic">※この説明は全店舗のメニューに共通して反映されます。</p>
+                </div>
+              </div>
+
+              <div className="p-8 border-t border-slate-100 flex justify-end gap-3 bg-slate-50/50">
+                <button 
+                  onClick={() => setIsEditingMaster(false)}
+                  className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-all"
+                >
+                  キャンセル
+                </button>
+                <button 
+                  onClick={handleUpdateMaster}
+                  className="px-10 py-3 bg-brand-wine text-white rounded-full text-[11px] font-bold uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-lg"
+                >
+                  マスターを更新
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
-
-/* Redundant */
-          <div className="p-8 border-b border-slate-100 flex items-center justify-between">
-            <div>
-              <h3 className="serif text-2xl text-slate-900">マスター銘柄編集</h3>
-              <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mt-1">Editing Master Registry Item: {editingMasterWine.id}</p>
-            </div>
-            <button onClick={() => setIsEditingMaster(false)} className="p-2 text-slate-300 hover:text-slate-600 transition-colors">
-              <X className="w-6 h-6" />
-            </button>
-          </div>
-
-          <div className="p-8 space-y-6 overflow-y-auto">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="md:col-span-2">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">ワイン名称 (日本語)</label>
-                <input 
-                  type="text"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
-                  value={editMasterData.name_jp || ''}
-                  onChange={e => setEditMasterData({...editMasterData, name_jp: e.target.value})}
-                />
-              </div>
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">ワイン名称 (英語)</label>
-                <input 
-                  type="text"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
-                  value={editMasterData.name_en || ''}
-                  onChange={e => setEditMasterData({...editMasterData, name_en: e.target.value})}
-                />
-              </div>
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">短縮メニュー名 (キャッチコピー)</label>
-                <input 
-                  type="text"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
-                  value={editMasterData.menu_short || ''}
-                  onChange={e => setEditMasterData({...editMasterData, menu_short: e.target.value})}
-                />
-              </div>
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">ヴィンテージ</label>
-                <input 
-                  type="text"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
-                  value={editMasterData.vintage || ''}
-                  onChange={e => setEditMasterData({...editMasterData, vintage: e.target.value})}
-                />
-              </div>
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">参考価格 (ボトル)</label>
-                <input 
-                  type="number"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
-                  value={editMasterData.price_bottle || 0}
-                  onChange={e => setEditMasterData({...editMasterData, price_bottle: parseInt(e.target.value) || 0})}
-                />
-              </div>
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">色</label>
-                <select 
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
-                  value={editMasterData.color || ''}
-                  onChange={e => setEditMasterData({...editMasterData, color: e.target.value})}
-                >
-                  <option value="赤">赤</option>
-                  <option value="白">白</option>
-                  <option value="泡">泡</option>
-                  <option value="ロゼ">ロゼ</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">タイプ (辛口/甘口/ボディ等)</label>
-                <input 
-                  type="text"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
-                  value={editMasterData.type || ''}
-                  onChange={e => setEditMasterData({...editMasterData, type: e.target.value})}
-                />
-              </div>
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">ボディ (1-5)</label>
-                <input 
-                  type="number"
-                  min="1"
-                  max="5"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
-                  value={editMasterData.body || 3}
-                  onChange={e => setEditMasterData({...editMasterData, body: parseInt(e.target.value) || 3})}
-                />
-              </div>
-/* End */
-
 

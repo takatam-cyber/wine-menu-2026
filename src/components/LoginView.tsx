@@ -90,7 +90,7 @@ export const LoginView: React.FC = () => {
             onClick={() => { setLoginMethod('google'); setError(''); }}
             className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-widest rounded-full transition-all ${loginMethod === 'google' ? 'bg-brand-gold text-brand-wine' : 'text-gray-500 hover:text-brand-gold'}`}
           >
-            管理者・担当者
+            Google (営業担当)
           </button>
           <button 
             onClick={() => { setLoginMethod('id'); setError(''); }}
