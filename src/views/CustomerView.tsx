@@ -20,28 +20,22 @@ export const CustomerView: React.FC = () => {
   const [selectedWine, setSelectedWine] = useState<WineMaster | null>(null);
   const [isScrolled, setIsScrolled] = useState(false);
 
-  // Scroll Lock for Concierge
+  // Scroll Lock for Concierge & Modal
   useEffect(() => {
-    const container = document.getElementById('scroll-container');
-    if (isConciergeOpen) {
+    if (isConciergeOpen || !!selectedWine) {
       document.body.style.overflow = 'hidden';
-      if (container) container.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
-      if (container) container.style.overflow = 'auto';
     }
-  }, [isConciergeOpen]);
+  }, [isConciergeOpen, !!selectedWine]);
 
   useEffect(() => {
-    const mainContainer = document.getElementById('scroll-container');
-    if (!mainContainer) return;
-
     const handleScroll = () => {
-      setIsScrolled(mainContainer.scrollTop > 50);
+      setIsScrolled(window.scrollY > 50);
     };
 
-    mainContainer.addEventListener('scroll', handleScroll);
-    return () => mainContainer.removeEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
   
   // Filters State
@@ -367,16 +361,42 @@ export const CustomerView: React.FC = () => {
     });
 
   return (
-    <div id="customer-view" className="min-h-screen sleek-bg md:py-8 md:px-4 flex justify-center items-start md:items-center overflow-x-hidden">
-      <div className="w-full md:max-w-[420px] md:h-[850px] md:phone-frame bg-brand-ivory overflow-hidden flex flex-col relative animate-in zoom-in duration-500 md:border md:border-brand-gold/20 md:rounded-[3rem] md:shadow-[0_0_100px_rgba(0,0,0,0.8)] min-h-screen md:min-h-0">
-        <div className="hidden md:flex absolute top-0 w-full h-8 bg-black/80 backdrop-blur-md justify-center items-center z-[60] border-b border-white/5">
-          <div className="w-20 h-5 bg-black rounded-full border border-white/10" />
-        </div>
+    <div id="customer-view" className="min-h-screen bg-brand-ivory relative">
+      {/* Header - Fixed Top */}
+      {!isDataFetching && store && (
+        <header className={`fixed top-0 inset-x-0 h-16 flex items-center px-6 border-b transition-all duration-500 z-[100] ${
+          isScrolled ? 'bg-black/90 backdrop-blur-md border-brand-gold/20' : 'bg-black border-brand-gold/30'
+        }`}>
+          <div className="flex-1">
+            {(user?.role === 'admin' || user?.role === 'rep' || user?.role === 'owner') && (
+              <button 
+                onClick={() => {
+                  if (user.role === 'admin' || user.role === 'rep') {
+                    window.location.href = `/admin?storeId=${store.id}`;
+                  } else {
+                    window.location.href = `/owner?storeId=${store.id}`;
+                  }
+                }}
+                className="w-10 h-10 rounded-full bg-brand-gold/10 flex items-center justify-center border border-brand-gold/20 text-brand-gold hover:bg-brand-gold hover:text-brand-wine transition-all"
+              >
+                <Edit2 className="w-5 h-5" />
+              </button>
+            )}
+          </div>
+          <div className="flex-none text-center">
+            <h1 className="font-serif text-brand-gold font-light text-xl md:text-2xl tracking-[0.4em] uppercase leading-tight">
+              {store.name}
+            </h1>
+          </div>
+          <div className="flex-1" />
+        </header>
+      )}
 
-      {/* Loading Skeleton */}
-      <AnimatePresence>
-        {isDataFetching && (
-          <div className="flex-1 p-6 space-y-8 overflow-hidden bg-brand-ivory">
+      {/* Main Content Area */}
+      <div className={`flex flex-col ${isDataFetching ? '' : 'pt-16'}`}>
+        {isDataFetching ? (
+          <div className="p-6 space-y-8 overflow-hidden bg-brand-ivory">
+            {/* ... Skeleton Loading (existing) ... */}
             <div className="space-y-4">
               <div className="w-32 h-4 bg-brand-gold/20 rounded animate-pulse" />
               <div className="w-64 h-10 bg-brand-wine/10 rounded-2xl animate-pulse" />
@@ -397,52 +417,13 @@ export const CustomerView: React.FC = () => {
               ))}
             </div>
           </div>
-        )}
-      </AnimatePresence>
-
-      <div className={`flex-1 mt-0 md:mt-8 flex flex-col overflow-hidden ${isDataFetching ? 'hidden' : ''}`}>
-          {/* Header */}
-          <header className={`p-6 pb-4 grid grid-cols-3 items-center border-b transition-all duration-500 shrink-0 z-40 ${
-            isScrolled ? 'bg-black/95 backdrop-blur-2xl border-brand-gold/20' : 'bg-black/80 backdrop-blur-md border-brand-gold/30'
-          } sticky top-0`}>
-            <div className="justify-self-start">
-              {(user?.role === 'admin' || user?.role === 'rep' || user?.role === 'owner') ? (
-                <button 
-                  onClick={() => {
-                    if (user.role === 'admin' || user.role === 'rep') {
-                      window.location.href = `/admin?storeId=${store.id}`;
-                    } else {
-                      window.location.href = `/owner?storeId=${store.id}`;
-                    }
-                  }}
-                  className="w-10 h-10 rounded-full bg-brand-gold/10 flex items-center justify-center border border-brand-gold/20 text-brand-gold hover:bg-brand-gold hover:text-brand-wine transition-all"
-                  title="メニューを編集"
-                >
-                  <Edit2 className="w-5 h-5" />
-                </button>
-              ) : (
-                <div className="w-10" />
-              )}
-            </div>
-            <div className="justify-self-center text-center whitespace-nowrap">
-              <h1 className="font-serif text-brand-gold font-light text-2xl md:text-3xl tracking-[0.4em] uppercase leading-tight">
-                {store.name}
-              </h1>
-            </div>
-            <div className="justify-self-end">
-              <div className="w-10" />
-            </div>
-          </header>
-
-
-
-          {/* Scrollable Content */}
-          <div id="scroll-container" className="flex-1 overflow-y-auto p-0 md:p-0 space-y-0 pb-32 scroll-smooth">
-            {/* Quick Filters - Sticky Sort Bar - Moved inside scroll container */}
-            <div className={`sticky top-0 z-30 transition-all duration-500 border-b ${
+        ) : (
+          <>
+            {/* Sticky Sort Bar */}
+            <div className={`sticky top-[64px] z-[90] transition-all duration-500 border-b ${
               isScrolled 
                 ? 'bg-brand-ivory/95 backdrop-blur-md border-brand-gold/20 shadow-[0_4px_25px_rgba(0,0,0,0.1)]' 
-                : 'bg-black/90 backdrop-blur-md border-brand-gold/10'
+                : 'bg-brand-ivory border-brand-gold/10'
             }`}>
               <div className="flex overflow-x-auto no-scrollbar py-3 px-4 gap-2 items-center">
                 <button 
@@ -458,90 +439,85 @@ export const CustomerView: React.FC = () => {
                   }}
                   className={`px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all whitespace-nowrap border ${
                     !activeColor && !activeCuisine && !activeBudget && !step1Color
-                      ? isScrolled ? 'bg-brand-gold-dark text-white border-brand-gold-dark' : 'bg-brand-gold text-brand-wine border-brand-gold' 
-                      : isScrolled ? 'bg-brand-ivory border-brand-gold/20 text-brand-gold-dark/60' : 'bg-white/5 text-brand-gold/60 border-brand-gold/10'
+                      ? 'bg-brand-gold-dark text-white border-brand-gold-dark' 
+                      : 'bg-white border-brand-gold/20 text-brand-gold-dark'
                   }`}
                 >
                   Clear
                 </button>
                 
-                <div className={`w-px h-4 shrink-0 ${isScrolled ? 'bg-brand-gold-dark/20' : 'bg-brand-gold/20'}`} />
+                <div className="w-px h-4 shrink-0 bg-brand-gold/20" />
                 
-                {/* Color Chips */}
                 {['赤', '白', '泡'].map(color => (
                   <button
                     key={color}
                     onClick={() => setActiveColor(activeColor === color ? null : color)}
                     className={`px-4 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all whitespace-nowrap border ${
                       activeColor === color 
-                        ? isScrolled ? 'bg-brand-wine text-brand-gold-dark border-brand-gold/40' : 'bg-brand-wine text-brand-gold border-brand-gold shadow-sm' 
-                        : isScrolled ? 'bg-brand-ivory border-brand-gold/20 text-brand-gold-dark/50' : 'bg-white/5 text-brand-gold/40 border-brand-gold/10'
+                        ? 'bg-brand-wine text-brand-gold border-brand-gold shadow-sm' 
+                        : 'bg-white border-brand-gold/20 text-brand-gold-dark'
                     }`}
                   >
                     {color === '泡' ? 'Sparkling' : color === '赤' ? 'Red' : 'White'}
                   </button>
                 ))}
 
-                <div className={`w-px h-4 shrink-0 ${isScrolled ? 'bg-brand-gold-dark/20' : 'bg-brand-gold/20'}`} />
+                <div className="w-px h-4 shrink-0 bg-brand-gold/20" />
                 
-                {/* Cuisine Chips */}
                 {!store?.hidePairingFilter && cuisineFilters.map(c => (
                   <button
                     key={c.id}
                     onClick={() => setActiveCuisine(activeCuisine === c.id ? null : c.id)}
                     className={`px-4 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all whitespace-nowrap border ${
                       activeCuisine === c.id 
-                        ? isScrolled ? 'bg-brand-gold-dark text-white border-brand-gold-dark' : 'bg-brand-gold text-brand-wine border-brand-gold' 
-                        : isScrolled ? 'bg-brand-ivory border-brand-gold/20 text-brand-gold-dark/50' : 'bg-white/5 text-brand-gold/40 border-brand-gold/10'
+                        ? 'bg-brand-gold-dark text-white border-brand-gold-dark' 
+                        : 'bg-white border-brand-gold/20 text-brand-gold-dark'
                     }`}
                   >
                     {c.label}
                   </button>
                 ))}
 
-                {!store?.hidePairingFilter && <div className={`w-px h-4 shrink-0 ${isScrolled ? 'bg-brand-gold-dark/20' : 'bg-brand-gold/20'}`} />}
+                {!store?.hidePairingFilter && <div className="w-px h-4 shrink-0 bg-brand-gold/20" />}
 
-                {/* Budget Chips */}
                 {budgetFilters.map(b => (
                   <button
                     key={b.id}
                     onClick={() => setActiveBudget(activeBudget === b.id ? null : b.id)}
                     className={`px-4 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all whitespace-nowrap border ${
                       activeBudget === b.id 
-                        ? isScrolled ? 'bg-brand-gold-dark text-white border-brand-gold-dark' : 'bg-brand-gold text-brand-wine border-brand-gold'
-                        : isScrolled ? 'bg-brand-ivory border-brand-gold/20 text-brand-gold-dark/50' : 'bg-white/5 text-brand-gold/40 border-brand-gold/10'
+                        ? 'bg-brand-gold-dark text-white border-brand-gold-dark'
+                        : 'bg-white border-brand-gold/20 text-brand-gold-dark'
                     }`}
                   >
                     {b.label}
                   </button>
                 ))}
 
-                <div className={`w-px h-4 shrink-0 ${isScrolled ? 'bg-brand-gold-dark/20' : 'bg-brand-gold/20'}`} />
+                <div className="w-px h-4 shrink-0 ml-auto mr-2" />
 
-                {/* Sort By Dropdown */}
-                <div className="relative shrink-0 ml-auto">
+                <div className="relative shrink-0">
                   <select
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value as any)}
-                    className={`appearance-none pl-4 pr-9 py-1.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all border outline-none ${
-                      isScrolled 
-                        ? 'bg-white/50 border-brand-gold/20 text-brand-gold-dark' 
-                        : 'bg-white/10 border-brand-gold/20 text-brand-gold'
-                    }`}
+                    className="appearance-none pl-4 pr-9 py-1.5 rounded-xl text-[11px] font-bold uppercase tracking-wider bg-white border border-brand-gold/20 text-brand-gold-dark outline-none transition-all"
                   >
                     <option value="featured">Recommended</option>
-                    <option value="price_desc">Price: High to Low</option>
-                    <option value="price_asc">Price: Low to High</option>
+                    <option value="price_desc">Price Desc</option>
+                    <option value="price_asc">Price Asc</option>
                   </select>
-                  <div className={`absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none ${isScrolled ? 'text-brand-gold-dark' : 'text-brand-gold'}`}>
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-brand-gold-dark">
                     <ChevronDown className="w-3.5 h-3.5" />
                   </div>
                 </div>
               </div>
             </div>
-            {/* Inline Concierge Section (Keep for top of list) */}
-            {!isScrolled && (
-              <div className="bg-white/40 backdrop-blur-xl border-b border-brand-gold/10 px-4 md:px-8 py-8 space-y-10 shadow-sm animate-in fade-in slide-in-from-top duration-700">
+
+            <div className="pb-32">
+              {/* Concierge Inline - Show only when not scrolled much */}
+              {!isScrolled && (
+                <div className="bg-white/40 backdrop-blur-xl border-b border-brand-gold/10 px-4 md:px-8 py-8 space-y-10 shadow-sm">
+                  {/* ... Existing Concierge UI (Step 1-3) ... */}
                   
                   {/* Section: お料理から選ぶ */}
                   {!store?.hidePairingFilter && (
@@ -700,8 +676,8 @@ export const CustomerView: React.FC = () => {
               </div>
             )}
 
-            <div className="p-4 md:p-6 space-y-8">
-              <div className="space-y-6">
+              <div className="p-4 md:p-12 space-y-8 max-w-5xl mx-auto">
+                <div className="space-y-10">
 
               {hasNoResults && (
                 <motion.div 
@@ -921,9 +897,11 @@ export const CustomerView: React.FC = () => {
             </div>
           </div>
         </div>
-        </div>
+      </>
+    )}
+  </div>
 
-        {/* Concierge Bottom Sheet FAB */}
+  {/* Concierge Bottom Sheet FAB */}
         <AnimatePresence>
           {isScrolled && !isConciergeOpen && (
             <motion.button
@@ -931,7 +909,7 @@ export const CustomerView: React.FC = () => {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.5, y: 50 }}
               onClick={() => setIsConciergeOpen(true)}
-              className="fixed bottom-24 right-6 z-[60] flex items-center bg-brand-gold-dark text-brand-ivory p-1.5 rounded-full shadow-[0_10px_40px_rgba(184,134,11,0.5)] border border-brand-gold/30 hover:scale-105 active:scale-95 transition-all group overflow-hidden"
+              className="fixed bottom-24 right-6 z-[110] flex items-center bg-brand-gold-dark text-brand-ivory p-1.5 rounded-full shadow-[0_10px_40px_rgba(184,134,11,0.5)] border border-brand-gold/30 hover:scale-105 active:scale-95 transition-all group overflow-hidden"
             >
               <div className="flex items-center gap-0 group-hover:gap-2 transition-all px-2">
                 <span className="text-[12px] font-bold tracking-tighter whitespace-nowrap overflow-hidden max-w-0 group-hover:max-w-[120px] transition-all duration-500">
@@ -954,14 +932,14 @@ export const CustomerView: React.FC = () => {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 onClick={() => setIsConciergeOpen(false)}
-                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100]"
+                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[115]"
               />
               <motion.div
                 initial={{ y: "100%" }}
                 animate={{ y: 0 }}
                 exit={{ y: "100%" }}
                 transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                className="fixed bottom-0 inset-x-0 bg-brand-ivory rounded-t-[3rem] z-[110] border-t border-brand-gold/30 px-6 pt-10 pb-12 shadow-[0_-20px_60px_rgba(0,0,0,0.3)] max-h-[90dvh] overflow-y-auto"
+                className="fixed bottom-0 inset-x-0 bg-brand-ivory rounded-t-[3rem] z-[120] border-t border-brand-gold/30 px-6 pt-10 pb-12 shadow-[0_-20px_60px_rgba(0,0,0,0.3)] max-h-[90dvh] overflow-y-auto"
               >
                 <div className="absolute top-4 left-1/2 -translate-x-1/2 w-12 h-1 bg-brand-gold-dark/20 rounded-full" />
                 
@@ -1067,7 +1045,7 @@ export const CustomerView: React.FC = () => {
                       onClick={() => setIsConciergeOpen(false)}
                       className="w-full py-4 bg-brand-wine text-brand-gold rounded-full font-black uppercase tracking-[0.4em] shadow-xl active:scale-95 transition-all"
                     >
-                      Show Results
+                      結果を表示する
                     </button>
                   </div>
                 </div>
@@ -1077,8 +1055,8 @@ export const CustomerView: React.FC = () => {
         </AnimatePresence>
 
         {/* Global Footer */}
-        <div className="absolute bottom-6 inset-x-6 z-40 flex justify-center">
-          <div className="bg-black/90 backdrop-blur-xl border border-brand-gold/30 px-8 py-3 rounded-full shadow-2xl animate-in slide-in-from-bottom duration-1000">
+        <div className="fixed bottom-6 inset-x-6 z-40 flex justify-center pointer-events-none">
+          <div className="bg-black/90 backdrop-blur-xl border border-brand-gold/30 px-8 py-3 rounded-full shadow-2xl animate-in slide-in-from-bottom duration-1000 pointer-events-auto">
             <p className="text-[10px] md:text-xs text-brand-gold font-bold uppercase tracking-[0.15em] text-center">
               条件に合うワインが見つからない場合は<br className="md:hidden" />スタッフにお尋ねください
             </p>
@@ -1098,9 +1076,9 @@ export const CustomerView: React.FC = () => {
                 stiffness: 280,
                 mass: 1.2
               }}
-              className="fixed inset-0 z-[100] bg-black/98 backdrop-blur-3xl overflow-hidden flex flex-col h-[100dvh] md:h-auto md:bottom-0 md:top-12 md:rounded-t-[2.5rem] border-t border-brand-gold/30 shadow-[0_-20px_500px_rgba(0,0,0,1)]"
+              className="fixed inset-0 z-[130] bg-black/98 backdrop-blur-3xl overflow-hidden flex flex-col h-[100dvh] md:h-auto md:bottom-0 md:top-12 md:rounded-t-[2.5rem] border-t border-brand-gold/30 shadow-[0_-20px_500px_rgba(0,0,0,1)]"
             >
-              <div className="sticky top-0 z-[110] bg-black/95 backdrop-blur-md p-8 pb-4 flex justify-between items-center border-b border-white/5">
+              <div className="sticky top-0 z-[140] bg-black/95 backdrop-blur-md p-8 pb-4 flex justify-between items-center border-b border-white/5">
                 <span className="text-sm text-brand-gold font-bold uppercase tracking-[0.2em] opacity-60">Vintage {selectedWine.vintage}</span>
                 <button 
                   onClick={() => setSelectedWine(null)} 
@@ -1180,7 +1158,7 @@ export const CustomerView: React.FC = () => {
                 )}
               </div>
 
-              <div className="sticky bottom-0 z-[110] p-6 md:p-8 pt-4 pb-[env(safe-area-inset-bottom,24px)] bg-black/95 backdrop-blur-2xl border-t border-brand-gold/20 flex flex-col gap-6 safe-bottom">
+              <div className="sticky bottom-0 z-[140] p-6 md:p-8 pt-4 pb-[env(safe-area-inset-bottom,24px)] bg-black/95 backdrop-blur-2xl border-t border-brand-gold/20 flex flex-col gap-6 safe-bottom">
                  <div className="flex justify-between items-center px-2">
                    <div className="flex flex-col">
                      <span className="text-sm text-gray-500 uppercase font-bold tracking-widest mb-1">Bottle</span>
@@ -1200,158 +1178,5 @@ export const CustomerView: React.FC = () => {
           )}
         </AnimatePresence>
       </div>
-
-      <AnimatePresence>
-        {isConciergeOpen && (
-          <>
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsConciergeOpen(false)}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100]"
-            />
-            <motion.div
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed bottom-0 inset-x-0 bg-brand-ivory rounded-t-[3rem] z-[110] border-t border-brand-gold/30 px-6 pt-10 pb-12 shadow-[0_-20px_60px_rgba(0,0,0,0.3)] max-h-[90dvh] overflow-y-auto"
-            >
-              <div className="absolute top-4 left-1/2 -translate-x-1/2 w-12 h-1 bg-brand-gold-dark/20 rounded-full" />
-              
-              <div className="flex items-center justify-between mb-8">
-                <div className="flex items-center gap-3">
-                  <ChefHat className="w-6 h-6 text-brand-gold-dark" />
-                  <h3 className="serif text-xl text-brand-wine font-light tracking-widest uppercase">Wine Concierge</h3>
-                </div>
-                <button 
-                  onClick={() => setIsConciergeOpen(false)}
-                  className="w-8 h-8 rounded-full bg-brand-gold/10 flex items-center justify-center text-brand-gold-dark"
-                >✕</button>
-              </div>
-
-              <div className="space-y-10">
-                {/* Reuse Concierge UI Components */}
-                <div className="space-y-4">
-                  <p className="text-[10px] text-brand-gold-dark font-black uppercase tracking-[0.3em] flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold flex items-center justify-center text-[10px] font-black shadow-inner">1</span>
-                    ワインの色を選ぶ
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                      {['赤', '白', '泡'].map(color => (
-                        <button
-                          key={color}
-                          onClick={() => {
-                            setStep1Color(color);
-                            setStep2Style(null);
-                            setStep3Budget(null);
-                            setSelectedDish(null);
-                          }}
-                          className={`px-8 py-3 rounded-full text-[14px] font-bold transition-all border ${
-                            step1Color === color 
-                              ? 'bg-brand-wine text-brand-gold border-brand-gold shadow-lg font-black' 
-                              : 'bg-white border-brand-gold/10 text-brand-wine/60'
-                          }`}
-                        >
-                          {color === '泡' ? 'スパークリング' : color}
-                        </button>
-                      ))}
-                  </div>
-                </div>
-
-                {step1Color && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                    className="space-y-4 pt-6 border-t border-brand-gold/10"
-                  >
-                    <p className="text-[10px] text-brand-gold-dark font-black uppercase tracking-[0.3em] flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold flex items-center justify-center text-[10px] font-black shadow-inner">2</span>
-                      スタイルを選ぶ
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {getDynamicStyles(step1Color).map(style => (
-                        <button
-                          key={style}
-                          onClick={() => {
-                            setStep2Style(style);
-                            setStep3Budget(null);
-                          }}
-                          className={`px-5 py-3 rounded-2xl text-[13px] font-bold transition-all border ${
-                            step2Style === style 
-                              ? 'bg-brand-gold text-brand-wine border-brand-gold shadow-md font-black' 
-                              : 'bg-white border-brand-gold/10 text-brand-wine/60'
-                          }`}
-                        >
-                          {style}
-                        </button>
-                      ))}
-                    </div>
-                  </motion.div>
-                )}
-
-                {step2Style && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                    className="space-y-4 pt-6 border-t border-brand-gold/10"
-                  >
-                    <p className="text-[10px] text-brand-gold-dark font-black uppercase tracking-[0.3em] flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold flex items-center justify-center text-[10px] font-black shadow-inner">3</span>
-                      予算から絞り込む
-                    </p>
-                    <div className="grid grid-cols-2 gap-2">
-                      {conciergeBudgets.map(budget => (
-                        <button
-                          key={budget.id}
-                          onClick={() => setStep3Budget(budget.id)}
-                          className={`px-4 py-3 rounded-2xl text-[12px] font-bold transition-all border ${
-                            step3Budget === budget.id 
-                              ? 'bg-brand-wine text-brand-gold border-brand-gold shadow-md' 
-                              : 'bg-white border-brand-gold/10 text-brand-wine/50'
-                          }`}
-                        >
-                          {budget.label}
-                        </button>
-                      ))}
-                    </div>
-                  </motion.div>
-                )}
-
-                <div className="pt-6">
-                  <button
-                    onClick={() => setIsConciergeOpen(false)}
-                    className="w-full py-4 bg-brand-wine text-brand-gold rounded-full font-black uppercase tracking-[0.4em] shadow-xl active:scale-95 transition-all"
-                  >
-                    Show Results
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-
-      {/* Concierge Bottom Sheet FAB */}
-      <AnimatePresence>
-        {isScrolled && !isConciergeOpen && (
-          <motion.button
-            initial={{ opacity: 0, scale: 0.5, y: 50 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.5, y: 50 }}
-            onClick={() => setIsConciergeOpen(true)}
-            className="fixed bottom-24 right-6 z-50 flex items-center bg-brand-gold-dark text-brand-ivory p-1.5 rounded-full shadow-[0_10px_40px_rgba(184,134,11,0.5)] border border-brand-gold/30 hover:scale-105 active:scale-95 transition-all group overflow-hidden"
-          >
-            <div className="flex items-center gap-0 group-hover:gap-2 transition-all px-2">
-              <span className="text-[12px] font-bold tracking-tighter whitespace-nowrap overflow-hidden max-w-0 group-hover:max-w-[120px] transition-all duration-500">
-                コンシェルジュに相談
-              </span>
-              <div className="w-10 h-10 rounded-full bg-brand-ivory text-brand-gold-dark flex items-center justify-center shadow-inner shrink-0 scale-100 group-hover:scale-90 transition-transform">
-                <Sparkles className="w-5 h-5" />
-              </div>
-            </div>
-          </motion.button>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-};
+    );
+  };
