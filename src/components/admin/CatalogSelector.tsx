@@ -2,7 +2,6 @@ import React from 'react';
 import { WineMaster, Store } from '../../types';
 import { Search, X, CheckCircle2 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { SecureImage } from '../SecureImage';
 
 interface CatalogSelectorProps {
   isOpen: boolean;
@@ -97,9 +96,11 @@ export const CatalogSelector: React.FC<CatalogSelectorProps> = ({
                       {isChecked && <CheckCircle2 className="w-4 h-4" />}
                     </div>
                     <div className="w-16 h-24 bg-slate-50 rounded-xl flex items-center justify-center p-2 border border-slate-100">
-                      <SecureImage 
-                        url={wine.image_url} 
+                      <img 
+                        src={`/api/proxy-image?url=${encodeURIComponent(wine.image_url)}`} 
                         alt="" 
+                        crossOrigin="anonymous"
+                        referrerPolicy="no-referrer" 
                         className="h-full object-contain" 
                       />
                     </div>

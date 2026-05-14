@@ -1,28 +1,18 @@
-import express, { Request, Response, NextFunction } from "express";
+import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import { rateLimit } from "express-rate-limit";
-import admin from "firebase-admin";
-import { readFileSync } from "fs";
-import apiRoutes from "./src/server/routes/api";
+
+// Routes
+import authRoutes from "./routes/authRoutes.js";
+import menuRoutes from "./routes/menuRoutes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const firebaseConfig = JSON.parse(
-  readFileSync(path.join(__dirname, "firebase-applet-config.json"), "utf-8")
-);
-
 dotenv.config();
-
-// Firebase Admin initialization
-if (!admin.apps.length) {
-  admin.initializeApp({
-    projectId: firebaseConfig.projectId
-  });
-}
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -41,10 +31,8 @@ async function startServer() {
   const app = express();
   const PORT = process.env.PORT || 3000;
 
-  // Trust Cloud Run's proxy
   app.set("trust proxy", 1);
 
-  // Normalize trailing slashes
   app.use((req, res, next) => {
     if (req.path.length > 1 && req.path.endsWith("/") && !req.path.startsWith("/api/")) {
       const query = req.url.slice(req.path.length);
@@ -58,21 +46,21 @@ async function startServer() {
   app.use(express.json());
   app.use("/api/", limiter);
 
-  // Mount API Routes
-  app.use("/api", apiRoutes);
+  // Use Routes
+  app.use("/api", authRoutes);
+  app.use("/api", menuRoutes);
 
-  // Health check
-  app.get("/api/health", (req, res) => res.json({ status: "ok" }));
-
-  // In production, serve assets explicitly
   if (process.env.NODE_ENV === "production") {
     const distPath = path.resolve(__dirname);
     
+    // Explicitly serve assets first with strict headers
+    // Note: The order is critical. Assets MUST be served before the catch-all wildcard.
     app.use("/assets", express.static(path.join(distPath, "assets"), {
       immutable: true,
       maxAge: "1y",
       setHeaders: (res, filePath) => {
         res.set("X-Content-Type-Options", "nosniff");
+        // Ensure correct JS/CSS MIME types for Safari / Path-based routing (/menu/..)
         if (filePath.endsWith(".js")) res.set("Content-Type", "application/javascript");
         if (filePath.endsWith(".css")) res.set("Content-Type", "text/css");
         if (filePath.endsWith(".svg")) res.set("Content-Type", "image/svg+xml");
@@ -81,11 +69,19 @@ async function startServer() {
     
     app.use(express.static(distPath));
     
+    // Catch-all route must be LAST and serve index.html from dist
     app.get("*", (req, res, next) => {
+      // Skip API and assets strictly
       if (req.path.startsWith("/api/")) return next();
-      const hasExtension = /\.[a-z0-9]+$/i.test(req.path);
-      if (hasExtension) return next();
       
+      // If the path has an extension, it's likely a missing asset, let it fall through to a 404
+      // This prevents serving index.html as a .js or .css file (MIME type error)
+      const hasExtension = /\.[a-z0-9]+$/i.test(req.path);
+      if (hasExtension) {
+        return next();
+      }
+      
+      // Prevent index.html from being cached to avoid "White Page" on version updates
       res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
       res.sendFile(path.join(distPath, "index.html"));
     });

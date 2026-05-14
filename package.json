@@ -3,11 +3,11 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "main": "dist/server.cjs",
+  "main": "dist/server.js",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs && cp firebase-applet-config.json dist/",
-    "start": "node dist/server.cjs",
+    "build": "vite build && tsc --project tsconfig.server.json && cp firebase-applet-config.json dist/",
+    "start": "NODE_ENV=production node dist/server.js",
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"
@@ -19,7 +19,6 @@
     "@vitejs/plugin-react": "^5.0.4",
     "clsx": "^2.1.1",
     "dotenv": "^17.2.3",
-    "esbuild": "^0.28.0",
     "express": "^4.21.2",
     "express-rate-limit": "^8.5.1",
     "firebase": "^12.12.1",

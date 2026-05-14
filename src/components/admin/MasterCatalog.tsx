@@ -2,7 +2,6 @@ import React from 'react';
 import { WineMaster } from '../../types';
 import { Search, Database, Edit2, X, Save } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { SecureImage } from '../SecureImage';
 
 interface MasterCatalogProps {
   wines: WineMaster[];
@@ -50,9 +49,11 @@ export const MasterCatalog: React.FC<MasterCatalogProps> = ({
         {wines.map(wine => (
           <div key={wine.id} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex gap-4 group hover:border-brand-wine transition-all">
             <div className="w-16 h-24 bg-slate-50 rounded-xl flex items-center justify-center p-2 border border-slate-100 shrink-0">
-              <SecureImage 
-                url={wine.image_url} 
+              <img 
+                src={`/api/proxy-image?url=${encodeURIComponent(wine.image_url)}`} 
                 alt="" 
+                crossOrigin="anonymous"
+                referrerPolicy="no-referrer" 
                 className="h-full object-contain" 
               />
             </div>

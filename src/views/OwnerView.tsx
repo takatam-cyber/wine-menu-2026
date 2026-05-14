@@ -13,7 +13,6 @@ import { useStoresQuery } from '../hooks/useStoresQuery';
 import { useInventoryQuery } from '../hooks/useInventoryQuery';
 import { useWinesMasterQuery } from '../hooks/useWinesQuery';
 import { useQueryClient } from '@tanstack/react-query';
-import { SecureImage } from '../components/SecureImage';
 
 export const OwnerView: React.FC = () => {
   const { user } = useWines();
@@ -409,8 +408,8 @@ export const OwnerView: React.FC = () => {
                   <div key={wine.id} className={`glass-panel p-3 md:p-4 rounded-xl shadow-luxury flex flex-col md:flex-row items-center group transition-all gap-4 border ${editingWineId === wine.id ? 'border-brand-gold bg-brand-gold/5' : 'border-brand-gold/5 hover:border-brand-gold/30'}`}>
                     <div className="flex items-center gap-4 flex-1 w-full min-w-0">
                       <div className="w-10 h-14 bg-black/40 flex items-center justify-center p-1 rounded-lg relative border border-white/5 shrink-0 overflow-hidden">
-                        <SecureImage 
-                          url={wine.image_url} 
+                        <img 
+                          src={`/api/proxy-image?url=${encodeURIComponent(wine.image_url)}`} 
                           alt="" 
                           className="w-full h-full object-contain relative z-10 scale-125" 
                         />
@@ -570,9 +569,11 @@ export const OwnerView: React.FC = () => {
                     <div key={w.id} className="bg-white/5 border border-white/5 rounded-2xl p-4 flex items-center justify-between group hover:border-brand-gold/30 hover:bg-white/10 transition-all">
                       <div className="flex items-center gap-4 flex-1">
                         <div className="w-12 h-16 bg-black/40 rounded-lg flex items-center justify-center p-2 border border-white/10 shrink-0">
-                          <SecureImage 
-                            url={w.image_url} 
+                          <img 
+                            src={`/api/proxy-image?url=${encodeURIComponent(w.image_url)}`} 
                             alt="" 
+                            crossOrigin="anonymous"
+                            referrerPolicy="no-referrer"
                             className="h-full object-contain" 
                           />
                         </div>

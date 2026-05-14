@@ -6,6 +6,6 @@
     "outDir": "dist",
     "rootDir": "."
   },
-  "include": ["server.ts"],
-  "exclude": ["src", "node_modules"]
+  "include": ["server.ts", "routes/**/*.ts", "controllers/**/*.ts", "lib/**/*.ts", "middleware/**/*.ts"],
+  "exclude": ["node_modules"]
 }
