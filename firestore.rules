@@ -39,20 +39,28 @@ service cloud.firestore {
 
     // --- 2. Stores ---
     match /stores/{storeId} {
-      // REQUIRE authentication for get to comply with professional security standards.
-      // NOTE: For best security, sensitive data like "owner_api_key" should be stored in 
-      // a separate, restrictive subcollection (e.g. stores/{storeId}/private/config) 
-      // where read is restricted to Admin/Owner only.
-      allow get: if isSignedIn(); 
-      allow list: if isSignedIn();
+      // Helpers for relational access
+      function storeData() {
+        return get(/databases/$(database)/documents/stores/$(storeId)).data;
+      }
+      
+      function canManageStore() {
+        let data = storeData();
+        return isAdmin() || 
+               (isRep() && data.repId == authUid()) || 
+               (isOwner() && data.ownerId == authUid());
+      }
+
+      // REQUIRE authentication for get.
+      allow get: if isSignedIn();
+      allow list: if isSignedIn(); 
       allow create: if isRep();
-      allow update, delete: if isAdmin() || 
-                    (isRep() && resource.data.repId == authUid()) || 
-                    (isOwner() && resource.data.ownerId == authUid());
+      allow update, delete: if canManageStore();
 
       match /inventory/{wineId} {
-        allow read: if true;
-        allow write: if isAdmin() || isRep() || isOwner();
+        // Restrict read to authorized personnel only. 
+        // Customers fetch via server-side API which bypasses this.
+        allow read, write: if canManageStore();
       }
     }
 
