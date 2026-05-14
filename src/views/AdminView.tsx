@@ -1,6 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { WineMaster, Store } from '../types';
 import { useWines } from '../lib/WineContext';
+import { wineRepository } from '../lib/repositories/wineRepository';
+import { useStoresQuery } from '../hooks/useStoresQuery';
+import { useWinesMasterQuery, useWinesSearchQuery } from '../hooks/useWinesQuery';
 import { db } from '../lib/firebase';
 import { doc, setDoc, collection, getDocs, getDoc, updateDoc, deleteDoc, query, where } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
@@ -9,6 +12,7 @@ import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth'
 import firebaseConfig from '../../firebase-applet-config.json';
 import { Plus, Database, Upload, Eye, Save, Settings, Edit2, Shield, Wine, Trash2, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useQueryClient } from '@tanstack/react-query';
 
 // New Components and Utils
 import { parseWineCSV } from '../lib/csv-parser';
@@ -31,7 +35,34 @@ const getBaseUrl = () => {
 };
 
 export const AdminView: React.FC = () => {
-  const { wines, setWines, user, stores, refreshStores, refreshWines, searchMasterWines, hasMoreStores, hasMoreWines } = useWines();
+  const { user } = useWines();
+  const queryClient = useQueryClient();
+  
+  // React Query Hooks
+  const { 
+    data: storesData, 
+    fetchNextPage: fetchNextStores, 
+    hasNextPage: hasMoreStores,
+    refetch: refetchStores
+  } = useStoresQuery(user);
+  
+  const { 
+    data: winesMasterData, 
+    fetchNextPage: fetchNextWinesMaster, 
+    hasNextPage: hasMoreWinesMaster,
+    refetch: refetchWinesMaster
+  } = useWinesMasterQuery();
+
+  const [masterSearchTerm, setMasterSearchTerm] = useState('');
+  const { data: searchResults } = useWinesSearchQuery(masterSearchTerm);
+
+  // Flattened Data
+  const stores = useMemo(() => storesData?.pages.flatMap(page => page.data) || [], [storesData]);
+  const wines = useMemo(() => {
+    if (masterSearchTerm && searchResults) return searchResults;
+    return winesMasterData?.pages.flatMap(page => page.data) || [];
+  }, [winesMasterData, masterSearchTerm, searchResults]);
+
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
   const [searchId, setSearchId] = useState('');
   const [selectedWines, setSelectedWines] = useState<WineMaster[]>([]);
@@ -40,7 +71,6 @@ export const AdminView: React.FC = () => {
   const [showOwnerForm, setShowOwnerForm] = useState(false);
   const [isEditingOwner, setIsEditingOwner] = useState(false);
   const [showMasterCatalog, setShowMasterCatalog] = useState(false);
-  const [masterSearchTerm, setMasterSearchTerm] = useState('');
   const [ownerEmail, setOwnerEmail] = useState('');
   const [ownerPassword, setOwnerPassword] = useState('');
   const [isCreatingOwner, setIsCreatingOwner] = useState(false);
@@ -63,10 +93,6 @@ export const AdminView: React.FC = () => {
 
   const handleSearchMaster = (term: string) => {
     setMasterSearchTerm(term);
-    const timeout = setTimeout(() => {
-      searchMasterWines(term);
-    }, 500);
-    return () => clearTimeout(timeout);
   };
 
   const startEditingMaster = (wine: WineMaster) => {
@@ -86,24 +112,19 @@ export const AdminView: React.FC = () => {
       await updateDoc(doc(db, 'winesMaster', editingMasterWine.id), editMasterData);
       setImportStatus({ type: 'success', message: 'マスターデータを更新しました' });
       setIsEditingMaster(false);
-      refreshWines(false);
+      queryClient.invalidateQueries({ queryKey: ['winesMaster'] });
+      if (masterSearchTerm) queryClient.invalidateQueries({ queryKey: ['winesMasterSearch', masterSearchTerm] });
     } catch (error: any) {
       handleFirestoreError(error, OperationType.UPDATE, `winesMaster/${editingMasterWine.id}`);
     }
   };
 
-  useEffect(() => {
-    if (showMasterCatalog && masterSearchTerm === '') {
-      refreshWines(false);
-    }
-  }, [showMasterCatalog, masterSearchTerm, refreshWines]);
-  
   const handleLoadMoreStores = () => {
-    refreshStores(true, 12);
+    fetchNextStores();
   };
 
   const handleLoadMoreWines = () => {
-    refreshWines(true, 50);
+    fetchNextWinesMaster();
   };
 
   const selectedStore = stores.find(s => s.id === selectedStoreId);
@@ -159,10 +180,7 @@ export const AdminView: React.FC = () => {
     
     if (!wine) {
       try {
-        const mDoc = await getDoc(doc(db, 'winesMaster', idToUse));
-        if (mDoc.exists()) {
-          wine = { id: mDoc.id, ...mDoc.data() } as WineMaster;
-        }
+        wine = await wineRepository.getWineById(idToUse) || undefined;
       } catch (e) {
         console.error("Master wine fetch error:", e);
       }
@@ -244,7 +262,7 @@ export const AdminView: React.FC = () => {
       };
       
       await setDoc(doc(db, 'stores', newStoreId), newStore);
-      await refreshStores();
+      queryClient.invalidateQueries({ queryKey: ['stores'] });
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, path);
     }
@@ -304,7 +322,7 @@ export const AdminView: React.FC = () => {
       setIsEditingOwner(false);
       setOwnerEmail('');
       setOwnerPassword('');
-      refreshStores();
+      queryClient.invalidateQueries({ queryKey: ['stores'] });
     } catch (error: any) {
       console.error('Error handling owner:', error);
       let message = error.message;
@@ -335,7 +353,7 @@ export const AdminView: React.FC = () => {
       await updateDoc(doc(db, 'stores', selectedStoreId), editStoreData);
       setImportStatus({ type: 'success', message: '店舗情報を更新しました' });
       setIsEditingStore(false);
-      refreshStores();
+      queryClient.invalidateQueries({ queryKey: ['stores'] });
     } catch (error: any) {
       handleFirestoreError(error, OperationType.UPDATE, `stores/${selectedStoreId}`);
     }
@@ -348,7 +366,7 @@ export const AdminView: React.FC = () => {
       if (selectedStoreId === storeId) {
         setSelectedStoreId(null);
       }
-      await refreshStores();
+      queryClient.invalidateQueries({ queryKey: ['stores'] });
     } catch (error: any) {
       handleFirestoreError(error, OperationType.DELETE, `stores/${storeId}`);
     }
@@ -363,7 +381,6 @@ export const AdminView: React.FC = () => {
 
     try {
       const importedWines = await parseWineCSV(file);
-      setWines(importedWines);
       
       const CHUNK_SIZE = 50;
       for (let i = 0; i < importedWines.length; i += CHUNK_SIZE) {
@@ -373,6 +390,8 @@ export const AdminView: React.FC = () => {
         });
         await Promise.all(saveMasterPromises);
       }
+
+      queryClient.invalidateQueries({ queryKey: ['winesMaster'] });
 
       if (selectedStoreId) {
         for (let i = 0; i < importedWines.length; i += CHUNK_SIZE) {
@@ -711,7 +730,7 @@ export const AdminView: React.FC = () => {
           selectedMasterIds={selectedMasterIds}
           toggleMasterSelection={toggleMasterSelection}
           handleBulkAddWines={handleBulkAddWines}
-          hasMoreWines={hasMoreWines}
+          hasMoreWines={hasMoreWinesMaster}
           onLoadMoreWines={handleLoadMoreWines}
         />
 
@@ -743,7 +762,7 @@ export const AdminView: React.FC = () => {
               onSaveInventory={handleSaveInventory}
               onDeleteWine={handleDeleteWine}
               fileInputRef={fileInputRef}
-              hasMoreWines={hasMoreWines}
+              hasMoreWines={hasMoreWinesMaster}
               onLoadMoreWines={handleLoadMoreWines}
             />
           </div>

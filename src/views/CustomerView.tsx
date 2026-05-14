@@ -10,13 +10,12 @@ import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { ChevronRight, Info, Wine, Utensils, Award, Loader2, Sparkles, CheckCircle2, Search, AlertCircle, Edit2, Beef, Fish, ChefHat, MapPin, Tag } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
+import { usePublicMenuQuery } from '../hooks/usePublicMenuQuery';
+
 export const CustomerView: React.FC = () => {
   const { storeId: routeStoreId } = useParams();
-  const { wines, user, loading: authLoading } = useWines();
+  const { user, loading: authLoading } = useWines();
   const [selectedWine, setSelectedWine] = useState<WineMaster | null>(null);
-  const [store, setStore] = useState<Store | null>(null);
-  const [inventory, setInventory] = useState<WineMaster[]>([]);
-  const [isDataFetching, setIsDataFetching] = useState(true);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'featured' | 'price_desc' | 'price_asc'>('featured');
   const [filterCategory, setFilterCategory] = useState<string>('all');
@@ -25,6 +24,12 @@ export const CustomerView: React.FC = () => {
   const [step1Color, setStep1Color] = useState<string | null>(null);
   const [step2Style, setStep2Style] = useState<string | null>(null);
   const [step3Budget, setStep3Budget] = useState<number | null>(null);
+
+  const finalStoreId = routeStoreId || new URLSearchParams(window.location.search).get('storeId') || user?.storeId;
+  const { data: menuData, isLoading: isDataFetching, refetch: fetchStoreData } = usePublicMenuQuery(finalStoreId || null);
+  
+  const store = menuData?.store || null;
+  const inventory = menuData?.menu || [];
 
   const budgets = [
     { id: 5000, label: '〜5,000円', max: 5000 },
@@ -111,34 +116,6 @@ export const CustomerView: React.FC = () => {
       }, 800);
     }
   };
-
-  const fetchStoreData = async () => {
-    const finalStoreId = routeStoreId || user?.storeId;
-
-    if (!finalStoreId) {
-      if (authLoading) return; 
-      setIsDataFetching(false);
-      return;
-    }
-
-    try {
-      const response = await fetch(`/api/menu/${finalStoreId}`);
-      if (!response.ok) throw new Error("Failed to fetch menu");
-      
-      const data = await response.json();
-      setStore(data.store);
-      setInventory(data.menu);
-    } catch (error) {
-      console.error("Fetch Error:", error);
-      // Fallback or error handling
-    } finally {
-      setIsDataFetching(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchStoreData();
-  }, [user, routeStoreId]);
 
   const SkeletonItem = () => (
     <div className="flex gap-5 p-4 rounded-[2rem] border border-brand-wine/5 animate-in fade-in duration-700">

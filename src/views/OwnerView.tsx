@@ -8,20 +8,47 @@ import { Wine, Camera, MessageSquare, Save, Eye, EyeOff, Loader2, X, Trash2, Plu
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import { calculateProfit } from '../lib/profit-calc';
 import { motion, AnimatePresence } from 'motion/react';
+import { wineRepository } from '../lib/repositories/wineRepository';
+import { useStoresQuery } from '../hooks/useStoresQuery';
+import { useInventoryQuery } from '../hooks/useInventoryQuery';
+import { useWinesMasterQuery } from '../hooks/useWinesQuery';
+import { useQueryClient } from '@tanstack/react-query';
 
 export const OwnerView: React.FC = () => {
-  const { wines, user, stores } = useWines();
-  const [inventory, setInventory] = useState<WineMaster[]>([]);
-  const [store, setStore] = useState<Store | null>(null);
+  const { user } = useWines();
+  const queryClient = useQueryClient();
   const [selectedStoreId, setSelectedStoreId] = useState(new URLSearchParams(window.location.search).get('storeId') || user?.storeId || '');
-  const [selectedWine, setSelectedWine] = useState<WineMaster | null>(null);
-  const [loading, setLoading] = useState(true);
+  
+  const { data: storesData } = useStoresQuery(user);
+  const stores = storesData?.pages.flatMap(p => p.data) || [];
+
+  const { data: inventoryData, isLoading: inventoryLoading } = useInventoryQuery(selectedStoreId);
+  const store = inventoryData?.store || null;
+  const initialInventory = inventoryData?.inventory || [];
+
+  const { data: masterWinesData } = useWinesMasterQuery();
+  const masterWines = masterWinesData?.pages.flatMap(p => p.data) || [];
+
+  const [inventory, setInventory] = useState<WineMaster[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [isEditingStore, setIsEditingStore] = useState(false);
   const [editStoreData, setEditStoreData] = useState<Partial<Store>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [editingWineId, setEditingWineId] = useState<string | null>(null);
+  
+  useEffect(() => {
+    if (initialInventory.length > 0) {
+      setInventory(initialInventory);
+    }
+  }, [initialInventory]);
+
+  useEffect(() => {
+    if (store) {
+      setEditStoreData(store);
+    }
+  }, [store]);
+
   const [editWineData, setEditWineData] = useState<{ price_bottle: number; price_glass: number; stock: number; visible: boolean; isFeatured: boolean; promoLabel: string }>({ 
     price_bottle: 0, 
     price_glass: 0, 
@@ -30,7 +57,6 @@ export const OwnerView: React.FC = () => {
     isFeatured: false,
     promoLabel: ''
   });
-  const [isAnalysing, setIsAnalysing] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
   // Handle case where admin/rep arrives without storeId or with a new one
@@ -41,7 +67,6 @@ export const OwnerView: React.FC = () => {
     } else if (user?.storeId) {
       setSelectedStoreId(user.storeId);
     } else if (stores.length > 0 && (user?.role === 'admin' || user?.role === 'rep')) {
-      // Default to first store for admins if none selected
       if (!selectedStoreId) setSelectedStoreId(stores[0].id);
     }
   }, [stores, user]);
@@ -76,90 +101,23 @@ export const OwnerView: React.FC = () => {
     return () => clearTimeout(timer);
   }, [editWineData, editingWineId, sid]);
 
-  const fetchData = async () => {
-    if (!sid) {
-       setLoading(false);
-       return;
-    }
-
-    try {
-      // Fetch Store Info
-      const storeDoc = await getDoc(doc(db, 'stores', sid));
-      if (storeDoc.exists()) {
-        const storeData = { id: storeDoc.id, ...storeDoc.data() } as Store;
-        setStore(storeData);
-        setEditStoreData({
-          ...storeData
-        });
-      }
-
-      // Fetch Inventory
-      const querySnapshot = await getDocs(collection(db, 'stores', sid, 'inventory'));
-      const items = querySnapshot.docs.map(d => ({ ...d.data(), id: d.id }));
-      
-      const enriched = await Promise.all(items.map(async (item) => {
-        let master = wines.find(w => w.id === item.id);
-        
-        // If not found in context (due to 50 items limit), fetch directly
-        if (!master) {
-          try {
-            const masterDoc = await getDoc(doc(db, 'winesMaster', item.id));
-            if (masterDoc.exists()) {
-              master = { id: masterDoc.id, ...masterDoc.data() } as WineMaster;
-            }
-          } catch (e) {
-            console.error(`Failed to fetch master data for ${item.id}`, e);
-          }
-        }
-
-        if (!master) return null;
-
-        return { 
-          ...master, 
-          isActive: (item as any).isActive ?? true, 
-          visible: (item as any).visible ?? true,
-          isFeatured: (item as any).isFeatured ?? false,
-          promoLabel: (item as any).promoLabel || '',
-          price_bottle: (item as any).price_bottle || master.price_bottle,
-          price_glass: (item as any).price_glass || master.price_glass,
-          stock: (item as any).stock ?? master.stock,
-          cost: master.cost || 2000 // Fallback cost if missing
-        };
-      }));
-
-      setInventory(enriched.filter(w => w !== null) as WineMaster[]);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.GET, `stores/${sid}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (user) {
-      fetchData();
-    }
-  }, [user]);
-
   const handleUpdateStore = async () => {
     if (!sid || !user?.uid) return;
     setIsSaving(true);
     try {
-      // Update Store Info
       await updateDoc(doc(db, 'stores', sid), {
         name: editStoreData.name,
         cuisine_type: editStoreData.cuisine_type,
         address: editStoreData.address
       });
 
-      // Update User Profile Name if changed
       if (editStoreData.name !== store?.name) {
         await updateDoc(doc(db, 'users', user.uid), {
           name: editStoreData.name
         });
       }
 
-      setStore(prev => prev ? { ...prev, ...editStoreData } as Store : null);
+      queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
       setIsEditingStore(false);
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `stores/${sid}`);
@@ -209,28 +167,6 @@ export const OwnerView: React.FC = () => {
     }
   };
 
-  const handleSaveWineEdit = async (wineId: string) => {
-    if (!sid) return;
-    setIsSaving(true);
-    try {
-      await updateDoc(doc(db, 'stores', sid, 'inventory', wineId), {
-        price_bottle: editWineData.price_bottle,
-        price_glass: editWineData.price_glass,
-        stock: editWineData.stock,
-        visible: editWineData.visible,
-        isFeatured: editWineData.isFeatured,
-        promoLabel: editWineData.promoLabel,
-        updatedAt: new Date().toISOString()
-      });
-      setInventory(prev => prev.map(w => w.id === wineId ? { ...w, ...editWineData } : w));
-      setEditingWineId(null);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `stores/${sid}/inventory/${wineId}`);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   const startEditingWine = (wine: WineMaster) => {
     setEditingWineId(wine.id);
     setEditWineData({
@@ -243,7 +179,14 @@ export const OwnerView: React.FC = () => {
     });
   };
 
-  if (loading) {
+  const filteredMasterWines = masterWines.filter(w => 
+    !inventory.some(inv => inv.id === w.id) &&
+    (w.name_jp.toLowerCase().includes(searchTerm.toLowerCase()) || 
+     w.name_en.toLowerCase().includes(searchTerm.toLowerCase()) ||
+     w.id.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  if (inventoryLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-full py-24 gap-4">
         <Loader2 className="w-8 h-8 animate-spin text-brand-gold" />
@@ -251,13 +194,6 @@ export const OwnerView: React.FC = () => {
       </div>
     );
   }
-
-  const filteredMasterWines = wines.filter(w => 
-    !inventory.some(inv => inv.id === w.id) &&
-    (w.name_jp.toLowerCase().includes(searchTerm.toLowerCase()) || 
-     w.name_en.toLowerCase().includes(searchTerm.toLowerCase()) ||
-     w.id.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
 
   return (
     <div id="owner-view" className="max-w-4xl mx-auto px-4 py-8 md:py-12 space-y-8 animate-in fade-in duration-700">
