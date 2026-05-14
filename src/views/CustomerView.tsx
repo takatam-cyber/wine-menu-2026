@@ -41,6 +41,9 @@ export const CustomerView: React.FC = () => {
   const [step2Style, setStep2Style] = useState<string | null>(null);
   const [step3Budget, setStep3Budget] = useState<number | null>(null);
   const [selectedDish, setSelectedDish] = useState<string | null>(null);
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<'featured' | 'price_desc' | 'price_asc'>('featured');
+  const [selectedWine, setSelectedWine] = useState<WineMaster | null>(null);
 
   const finalStoreId = routeStoreId || new URLSearchParams(window.location.search).get('storeId') || user?.storeId;
   const { data: menuData, isLoading: isDataFetching, refetch: fetchStoreData } = usePublicMenuQuery(finalStoreId || null);
@@ -365,8 +368,8 @@ export const CustomerView: React.FC = () => {
 
       <div className={`flex-1 mt-0 md:mt-8 flex flex-col overflow-hidden ${isDataFetching ? 'hidden' : ''}`}>
           {/* Header */}
-          <header className={`p-6 grid grid-cols-3 items-center border-b transition-all duration-300 shrink-0 z-50 ${
-            isScrolled ? 'bg-black/95 backdrop-blur-xl border-brand-gold/20 py-4' : 'bg-black/80 backdrop-blur-md border-brand-gold/30'
+          <header className={`p-6 pb-4 grid grid-cols-3 items-center border-b transition-all duration-500 shrink-0 z-50 ${
+            isScrolled ? 'bg-black/95 backdrop-blur-2xl border-brand-gold/20' : 'bg-black/80 backdrop-blur-md border-brand-gold/30'
           } sticky top-0`}>
             <div className="justify-self-start">
               {(user?.role === 'admin' || user?.role === 'rep' || user?.role === 'owner') ? (
@@ -398,8 +401,8 @@ export const CustomerView: React.FC = () => {
           </header>
 
           {/* Quick Filters - Sticky Sort Bar */}
-          <div className={`transition-all duration-300 border-b z-40 sticky top-[72px] md:top-[88px] ${
-            isScrolled ? 'bg-black/95 backdrop-blur-xl border-brand-gold/20 shadow-lg' : 'bg-black/90 backdrop-blur-md border-brand-gold/10'
+          <div className={`transition-all duration-500 border-b z-40 sticky top-[72px] md:top-[88px] ${
+            isScrolled ? 'bg-white/70 backdrop-blur-md border-brand-gold/20 shadow-[0_10px_30px_rgba(0,0,0,0.1)]' : 'bg-black/90 backdrop-blur-md border-brand-gold/10'
           }`}>
             <div className="flex overflow-x-auto no-scrollbar py-3 px-4 gap-2 items-center">
               <button 
@@ -407,17 +410,22 @@ export const CustomerView: React.FC = () => {
                   setActiveColor(null);
                   setActiveCuisine(null);
                   setActiveBudget(null);
+                  setSelectedDish(null);
+                  setStep1Color(null);
+                  setStep2Style(null);
+                  setStep3Budget(null);
+                  setSortBy('featured');
                 }}
                 className={`px-4 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all whitespace-nowrap border ${
-                  !activeColor && !activeCuisine && !activeBudget 
-                    ? 'bg-brand-gold text-brand-wine border-brand-gold' 
-                    : 'bg-white/5 text-brand-gold/60 border-brand-gold/10'
+                  !activeColor && !activeCuisine && !activeBudget && !step1Color
+                    ? isScrolled ? 'bg-brand-gold-dark text-white border-brand-gold-dark' : 'bg-brand-gold text-brand-wine border-brand-gold' 
+                    : isScrolled ? 'bg-white border-brand-gold/10 text-brand-gold-dark/40' : 'bg-white/5 text-brand-gold/60 border-brand-gold/10'
                 }`}
               >
                 ALL
               </button>
               
-              <div className="w-px h-4 bg-brand-gold/20 shrink-0" />
+              <div className={`w-px h-4 shrink-0 ${isScrolled ? 'bg-brand-gold-dark/20' : 'bg-brand-gold/20'}`} />
               
               {/* Color Chips */}
               {['赤', '白', '泡'].map(color => (
@@ -427,7 +435,7 @@ export const CustomerView: React.FC = () => {
                   className={`px-4 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all whitespace-nowrap border ${
                     activeColor === color 
                       ? 'bg-brand-wine text-brand-gold border-brand-gold shadow-sm' 
-                      : 'bg-white/5 text-brand-gold/40 border-brand-gold/10'
+                      : isScrolled ? 'bg-white border-brand-gold/10 text-brand-gold-dark/40' : 'bg-white/5 text-brand-gold/40 border-brand-gold/10'
                   }`}
                 >
                   {color === '泡' ? 'Sparkling' : color === '赤' ? 'Red' : 'White'}
@@ -460,13 +468,35 @@ export const CustomerView: React.FC = () => {
                   onClick={() => setActiveBudget(activeBudget === b.id ? null : b.id)}
                   className={`px-4 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all whitespace-nowrap border ${
                     activeBudget === b.id 
-                      ? 'bg-brand-gold text-brand-wine border-brand-gold' 
-                      : 'bg-white/5 text-brand-gold/40 border-brand-gold/10'
+                      ? isScrolled ? 'bg-brand-gold-dark text-white border-brand-gold-dark' : 'bg-brand-gold text-brand-wine border-brand-gold'
+                      : isScrolled ? 'bg-white border-brand-gold/10 text-brand-gold-dark/40' : 'bg-white/5 text-brand-gold/40 border-brand-gold/10'
                   }`}
                 >
                   {b.label}
                 </button>
               ))}
+
+              <div className={`w-px h-4 shrink-0 ${isScrolled ? 'bg-brand-gold-dark/20' : 'bg-brand-gold/20'}`} />
+
+              {/* Sort By Dropdown */}
+              <div className="relative shrink-0">
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as any)}
+                  className={`appearance-none pl-4 pr-8 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all border outline-none ${
+                    isScrolled 
+                      ? 'bg-white border-brand-gold/20 text-brand-gold-dark' 
+                      : 'bg-white/10 border-brand-gold/20 text-brand-gold'
+                  }`}
+                >
+                  <option value="featured">おすすめ順</option>
+                  <option value="price_desc">価格が高い順</option>
+                  <option value="price_asc">価格が安い順</option>
+                </select>
+                <div className={`absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none ${isScrolled ? 'text-brand-gold-dark' : 'text-brand-gold'}`}>
+                  <ChevronRight className="w-3 h-3 rotate-90" />
+                </div>
+              </div>
             </div>
           </div>
 
@@ -802,24 +832,22 @@ export const CustomerView: React.FC = () => {
                           />
                         </div>
                         <div className="flex-1 flex flex-col justify-center gap-0.5">
-                          <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                            {wine.color && (
-                                <div className={`px-2 py-1 text-[11px] font-black rounded-full uppercase tracking-widest shrink-0 ${
-                                  wine.color === '赤' ? 'bg-[#641E16] text-white' : 
-                                  wine.color === '白' ? 'bg-[#D4AF37] text-white' : 
-                                  wine.color === '泡' || wine.color === 'スパークリング' ? 'bg-[#717D7E] text-white' : 'bg-slate-500 text-white'
-                                }`}>
-                                  {wine.color}
-                                </div>
-                              )}
-                            <div className="text-[13px] uppercase font-bold text-brand-gold-dark/60 tracking-[0.2em]">
-                              {wine.country}
-                            </div>
-                            <div className="flex items-center gap-1 ml-auto opacity-40">
-                                {wine.pairing?.includes('肉') && <Beef className="w-4 h-4" />}
-                                {wine.pairing?.includes('魚') && <Fish className="w-4 h-4" />}
-                            </div>
-                          </div>
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <div className={`px-2 py-1 text-[11px] font-black rounded-full uppercase tracking-widest shrink-0 ${
+                          wine.color === '赤' ? 'bg-[#641E16] text-white' : 
+                          wine.color === '白' ? 'bg-[#D4AF37] text-white' : 
+                          wine.color === '泡' || wine.color === 'スパークリング' ? 'bg-[#717D7E] text-white' : 'bg-slate-500 text-white'
+                        }`}>
+                          {wine.color}
+                        </div>
+                        <div className="text-[13px] uppercase font-bold text-brand-gold-dark tracking-[0.2em]">
+                          {wine.country}
+                        </div>
+                        <div className="flex items-center gap-1 ml-auto opacity-40">
+                             {wine.pairing?.includes('肉') && <Beef className="w-4 h-4 text-brand-wine" />}
+                             {wine.pairing?.includes('魚') && <Fish className="w-4 h-4 text-brand-wine" />}
+                        </div>
+                      </div>
                           {wine.menu_short && (
                             <div className="mb-1">
                               <span className="text-sm font-serif text-brand-gold-dark italic border-l border-brand-gold pl-1.5 leading-relaxed">
@@ -1037,22 +1065,22 @@ export const CustomerView: React.FC = () => {
                 >✕</button>
               </div>
               
-              <div className="flex-1 overflow-y-auto overscroll-behavior-contain px-6 md:px-8 pb-10 space-y-10 custom-scrollbar scroll-smooth">
-                <div className="text-center pt-4">
-                  <div className="w-full aspect-square md:aspect-[4/5] bg-black/40 border border-brand-gold/20 rounded-3xl mb-8 flex items-center justify-center p-8 relative shadow-inner group overflow-hidden">
-                    <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,rgba(212,175,55,0.15),transparent_70%)]" />
-                    <AuthImage 
-                      url={selectedWine.image_url}
-                      alt="" 
-                      crossOrigin="anonymous"
-                      referrerPolicy="no-referrer"
-                      className="h-full object-contain relative z-10 transition-transform duration-2000 group-hover:scale-105" 
-                    />
+                <div className="flex-1 overflow-y-auto overscroll-behavior-contain px-6 md:px-8 pb-10 space-y-10 custom-scrollbar scroll-smooth">
+                  <div className="text-center pt-4">
+                    <div className="w-full aspect-square md:aspect-[4/5] bg-brand-dark/40 border border-brand-gold/20 rounded-3xl mb-8 flex items-center justify-center p-8 relative shadow-inner group overflow-hidden">
+                      <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,rgba(184,134,11,0.25),transparent_70%)]" />
+                      <AuthImage 
+                        url={selectedWine.image_url}
+                        alt="" 
+                        crossOrigin="anonymous"
+                        referrerPolicy="no-referrer"
+                        className="h-full object-contain relative z-10 transition-transform duration-2000 group-hover:scale-105" 
+                      />
+                    </div>
+                    <h2 className="serif text-3xl md:text-5xl text-brand-gold mb-3 tracking-tight leading-tight">{selectedWine.name_jp}</h2>
+                    <p className="text-[13px] md:text-sm text-gray-400 tracking-[0.3em] uppercase font-bold mb-2">{selectedWine.name_en}</p>
+                    <p className="text-sm text-brand-gold-dark font-bold uppercase tracking-widest border-t border-brand-gold/20 pt-2 inline-block">主要品種: {selectedWine.grape}</p>
                   </div>
-                  <h2 className="serif text-3xl md:text-5xl text-brand-gold mb-3 tracking-tight leading-tight">{selectedWine.name_jp}</h2>
-                  <p className="text-[13px] md:text-sm text-gray-400 tracking-[0.3em] uppercase font-bold mb-2">{selectedWine.name_en}</p>
-                  <p className="text-sm text-brand-gold font-bold uppercase tracking-widest border-t border-brand-gold/20 pt-2 inline-block">主要品種: {selectedWine.grape}</p>
-                </div>
 
                 <div className="space-y-6 pt-8 border-t border-white/10">
                   <div className="flex items-center gap-3 text-brand-gold">
