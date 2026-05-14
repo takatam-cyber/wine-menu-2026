@@ -16,9 +16,20 @@ import { usePublicMenuQuery } from '../hooks/usePublicMenuQuery';
 export const CustomerView: React.FC = () => {
   const { storeId: routeStoreId } = useParams();
   const { user, loading: authLoading } = useWines();
-  const [selectedWine, setSelectedWine] = useState<WineMaster | null>(null);
-  const [highlightedId, setHighlightedId] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<'featured' | 'price_desc' | 'price_asc'>('featured');
+  const [isConciergeOpen, setIsConciergeOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const mainContainer = document.getElementById('scroll-container');
+    if (!mainContainer) return;
+
+    const handleScroll = () => {
+      setIsScrolled(mainContainer.scrollTop > 50);
+    };
+
+    mainContainer.addEventListener('scroll', handleScroll);
+    return () => mainContainer.removeEventListener('scroll', handleScroll);
+  }, []);
   
   // Filters State
   const [activeCuisine, setActiveCuisine] = useState<string | null>(null);
@@ -354,7 +365,9 @@ export const CustomerView: React.FC = () => {
 
       <div className={`flex-1 mt-0 md:mt-8 flex flex-col overflow-hidden ${isDataFetching ? 'hidden' : ''}`}>
           {/* Header */}
-          <header className="p-6 grid grid-cols-3 items-center border-b border-brand-gold/30 shrink-0 bg-black/80 backdrop-blur-md sticky top-0 z-50">
+          <header className={`p-6 grid grid-cols-3 items-center border-b transition-all duration-300 shrink-0 z-50 ${
+            isScrolled ? 'bg-black/95 backdrop-blur-xl border-brand-gold/20 py-4' : 'bg-black/80 backdrop-blur-md border-brand-gold/30'
+          } sticky top-0`}>
             <div className="justify-self-start">
               {(user?.role === 'admin' || user?.role === 'rep' || user?.role === 'owner') ? (
                 <button 
@@ -384,8 +397,10 @@ export const CustomerView: React.FC = () => {
             </div>
           </header>
 
-          {/* Quick Filters */}
-          <div className="bg-black/90 backdrop-blur-md border-b border-brand-gold/10 sticky top-[72px] md:top-[88px] z-40">
+          {/* Quick Filters - Sticky Sort Bar */}
+          <div className={`transition-all duration-300 border-b z-40 sticky top-[72px] md:top-[88px] ${
+            isScrolled ? 'bg-black/95 backdrop-blur-xl border-brand-gold/20 shadow-lg' : 'bg-black/90 backdrop-blur-md border-brand-gold/10'
+          }`}>
             <div className="flex overflow-x-auto no-scrollbar py-3 px-4 gap-2 items-center">
               <button 
                 onClick={() => {
@@ -456,190 +471,165 @@ export const CustomerView: React.FC = () => {
           </div>
 
           {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto p-0 md:p-0 space-y-0 pb-32 scroll-smooth">
-            {/* Design Enhanced Concierge Section */}
-            <div className="bg-white/40 backdrop-blur-xl border-b border-brand-gold/10 px-4 md:px-8 py-8 space-y-10 shadow-sm">
-                
-                {/* Section: お料理から選ぶ */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <div className="h-4 w-1 bg-brand-gold rounded-full" />
-                    <h4 className="text-[13px] font-black text-brand-gold-dark uppercase tracking-[0.2em]">お料理から選ぶ</h4>
-                  </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    {cuisineFilters.map(dish => (
-                      <button
-                        key={dish.id}
-                        onClick={() => {
-                          setSelectedDish(selectedDish === dish.id ? null : dish.id);
-                          // Clear other filters for clarity
-                          setStep1Color(null);
-                          setStep2Style(null);
-                          setStep3Budget(null);
-                        }}
-                        className={`flex flex-col items-center justify-center gap-1.5 py-4 rounded-2xl border transition-all ${
-                          selectedDish === dish.id 
-                            ? 'bg-brand-gold text-brand-wine border-brand-gold shadow-lg scale-[1.02]' 
-                            : 'bg-white/80 text-brand-wine/70 border-brand-gold/10 hover:border-brand-gold/30'
-                        }`}
-                      >
-                        <span className="text-[13px] font-bold tracking-tight whitespace-nowrap">{dish.label}</span>
-                        <span className="text-[10px] font-bold opacity-40 uppercase tracking-widest">{dish.id}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Section: ワイン・コンシェルジュ */}
-                <div className="space-y-5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <div className="h-5 w-1.5 bg-brand-gold-dark rounded-full" />
-                      <h4 className="text-[14px] font-black text-brand-gold-dark uppercase tracking-[0.25em]">ワイン・コンシェルジュ</h4>
+          <div id="scroll-container" className="flex-1 overflow-y-auto p-0 md:p-0 space-y-0 pb-32 scroll-smooth">
+            {/* Inline Concierge Section (Keep for top of list) */}
+            {!isScrolled && (
+              <div className="bg-white/40 backdrop-blur-xl border-b border-brand-gold/10 px-4 md:px-8 py-8 space-y-10 shadow-sm animate-in fade-in slide-in-from-top duration-700">
+                  
+                  {/* Section: お料理から選ぶ */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className="h-4 w-1 bg-brand-gold rounded-full" />
+                      <h4 className="text-[13px] font-black text-brand-gold-dark uppercase tracking-[0.2em]">お料理から選ぶ</h4>
                     </div>
-                    <div className="flex gap-1.5">
-                      {[1, 2, 3].map(step => {
-                        let isComplete = false;
-                        if (step === 1) isComplete = !!step1Color;
-                        if (step === 2) isComplete = !!step2Style;
-                        if (step === 3) isComplete = !!step3Budget;
-                        
-                        return (
+                    <div className="grid grid-cols-3 gap-3">
+                      {cuisineFilters.map(dish => (
+                        <button
+                          key={dish.id}
+                          onClick={() => {
+                            setSelectedDish(selectedDish === dish.id ? null : dish.id);
+                            setStep1Color(null);
+                            setStep2Style(null);
+                            setStep3Budget(null);
+                          }}
+                          className={`flex flex-col items-center justify-center gap-1.5 py-4 rounded-2xl border transition-all ${
+                            selectedDish === dish.id 
+                              ? 'bg-brand-gold text-brand-wine border-brand-gold shadow-lg scale-[1.02]' 
+                              : 'bg-white/80 text-brand-wine/70 border-brand-gold/10 hover:border-brand-gold/30'
+                          }`}
+                        >
+                          <span className="text-[13px] font-bold tracking-tight whitespace-nowrap">{dish.label}</span>
+                          <span className="text-[10px] font-bold opacity-40 uppercase tracking-widest">{dish.id}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Section: ワイン・コンシェルジュ */}
+                  <div className="space-y-5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-5 w-1.5 bg-brand-gold-dark rounded-full" />
+                        <h4 className="text-[14px] font-black text-brand-gold-dark uppercase tracking-[0.25em]">ワイン・コンシェルジュ</h4>
+                      </div>
+                      <div className="flex gap-1.5">
+                        {[1, 2, 3].map(step => (
                           <div 
                             key={step} 
                             className={`h-1.5 w-6 rounded-full transition-all duration-500 ${
-                              isComplete ? 'bg-brand-gold' : 'bg-brand-gold/20'
+                              (step === 1 && !!step1Color) || (step === 2 && !!step2Style) || (step === 3 && !!step3Budget) ? 'bg-brand-gold' : 'bg-brand-gold/20'
                             }`}
                           />
-                        );
-                      })}
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-8 bg-brand-wine/[0.03] p-6 rounded-[2.5rem] border border-brand-gold/10 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                       <Wine className="w-24 h-24" strokeWidth={0.5} />
-                    </div>
-
-                    {/* Step 1: Color */}
-                    <div className="space-y-3 relative z-10">
-                      <p className="text-[10px] text-brand-gold-dark font-black uppercase tracking-[0.3em] flex items-center gap-2">
-                        <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold flex items-center justify-center text-[10px] font-black shadow-inner">1</span>
-                        ワインの色を選ぶ
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {['赤', '白', '泡'].map(color => (
-                          <button
-                            key={color}
-                            onClick={() => {
-                              const newColor = step1Color === color ? null : color;
-                              setStep1Color(newColor);
-                              setStep2Style(null);
-                              setStep3Budget(null);
-                              setSelectedDish(null);
-                            }}
-                            className={`px-8 py-3 rounded-full text-[14px] font-bold transition-all border ${
-                              step1Color === color 
-                                ? 'bg-brand-wine text-brand-gold border-brand-gold shadow-lg scale-105' 
-                                : 'bg-white border-brand-gold/10 text-brand-wine/60'
-                            }`}
-                          >
-                            {color === '泡' ? 'スパークリング' : color}
-                          </button>
                         ))}
                       </div>
                     </div>
+                    
+                    <div className="space-y-8 bg-brand-wine/[0.03] p-6 rounded-[2.5rem] border border-brand-gold/10 relative overflow-hidden group">
+                      <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                         <Wine className="w-24 h-24" strokeWidth={0.5} />
+                      </div>
 
-                    {/* Step 2: Style */}
-                    <AnimatePresence mode="wait">
-                      {step1Color && (
-                        <motion.div 
-                          key="step2"
-                          initial={{ opacity: 0, height: 0, y: 10 }}
-                          animate={{ opacity: 1, height: 'auto', y: 0 }}
-                          exit={{ opacity: 0, height: 0, y: 10 }}
-                          className="space-y-3 pt-6 border-t border-brand-gold/10 overflow-hidden relative z-10"
-                        >
-                          <p className="text-[10px] text-brand-gold-dark font-black uppercase tracking-[0.3em] flex items-center gap-2">
-                            <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold flex items-center justify-center text-[10px] font-black shadow-inner">2</span>
-                            スタイルを選ぶ
-                          </p>
-                          <div className="flex flex-wrap gap-2">
-                            {getDynamicStyles(step1Color).map(style => (
-                              <button
-                                key={style}
-                                onClick={() => {
-                                  setStep2Style(step2Style === style ? null : style);
-                                  setStep3Budget(null);
-                                }}
-                                className={`px-5 py-3 rounded-2xl text-[13px] font-bold transition-all border ${
-                                  step2Style === style 
-                                    ? 'bg-brand-gold text-brand-wine border-brand-gold shadow-md scale-105 font-black' 
-                                    : 'bg-white/50 border-brand-gold/10 text-brand-wine/60'
-                                }`}
-                              >
-                                {style}
-                              </button>
-                            ))}
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+                      {/* Step 1: Color */}
+                      <div className="space-y-3 relative z-10">
+                        <p className="text-[10px] text-brand-gold-dark font-black uppercase tracking-[0.3em] flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold flex items-center justify-center text-[10px] font-black shadow-inner">1</span>
+                          ワインの色を選ぶ
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {['赤', '白', '泡'].map(color => (
+                            <button
+                              key={color}
+                              onClick={() => {
+                                const newColor = step1Color === color ? null : color;
+                                setStep1Color(newColor);
+                                setStep2Style(null);
+                                setStep3Budget(null);
+                                setSelectedDish(null);
+                              }}
+                              className={`px-8 py-3 rounded-full text-[14px] font-bold transition-all border ${
+                                step1Color === color 
+                                  ? 'bg-brand-wine text-brand-gold border-brand-gold shadow-lg scale-105' 
+                                  : 'bg-white border-brand-gold/10 text-brand-wine/60'
+                              }`}
+                            >
+                              {color === '泡' ? 'スパークリング' : color}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
 
-                    {/* Step 3: Budget */}
-                    <AnimatePresence mode="wait">
-                      {step2Style && (
-                        <motion.div 
-                          key="step3"
-                          initial={{ opacity: 0, height: 0, y: 10 }}
-                          animate={{ opacity: 1, height: 'auto', y: 0 }}
-                          exit={{ opacity: 0, height: 0, y: 10 }}
-                          className="space-y-3 pt-6 border-t border-brand-gold/10 overflow-hidden relative z-10"
-                        >
-                          <p className="text-[10px] text-brand-gold-dark font-black uppercase tracking-[0.3em] flex items-center gap-2">
-                            <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold flex items-center justify-center text-[10px] font-black shadow-inner">3</span>
-                            予算から絞り込む
-                          </p>
-                          <div className="grid grid-cols-2 gap-2">
-                            {conciergeBudgets.map(budget => (
-                              <button
-                                key={budget.id}
-                                onClick={() => setStep3Budget(step3Budget === budget.id ? null : budget.id)}
-                                className={`px-4 py-3 rounded-2xl text-[12px] font-bold transition-all border ${
-                                  step3Budget === budget.id 
-                                    ? 'bg-brand-wine text-brand-gold border-brand-gold shadow-md' 
-                                    : 'bg-white/30 border-brand-gold/10 text-brand-wine/50'
-                                }`}
-                              >
-                                {budget.label}
-                              </button>
-                            ))}
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+                      {/* Step 2: Style */}
+                      <AnimatePresence mode="wait">
+                        {step1Color && (
+                          <motion.div 
+                            key="step2"
+                            initial={{ opacity: 0, height: 0, y: 10 }}
+                            animate={{ opacity: 1, height: 'auto', y: 0 }}
+                            exit={{ opacity: 0, height: 0, y: 10 }}
+                            className="space-y-3 pt-6 border-t border-brand-gold/10 overflow-hidden relative z-10"
+                          >
+                            <p className="text-[10px] text-brand-gold-dark font-black uppercase tracking-[0.3em] flex items-center gap-2">
+                              <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold flex items-center justify-center text-[10px] font-black shadow-inner">2</span>
+                              スタイルを選ぶ
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {getDynamicStyles(step1Color).map(style => (
+                                <button
+                                  key={style}
+                                  onClick={() => {
+                                    setStep2Style(step2Style === style ? null : style);
+                                    setStep3Budget(null);
+                                  }}
+                                  className={`px-5 py-3 rounded-2xl text-[13px] font-bold transition-all border ${
+                                    step2Style === style 
+                                      ? 'bg-brand-gold text-brand-wine border-brand-gold shadow-md scale-105 font-black' 
+                                      : 'bg-white/50 border-brand-gold/10 text-brand-wine/60'
+                                  }`}
+                                >
+                                  {style}
+                                </button>
+                              ))}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
+                      {/* Step 3: Budget */}
+                      <AnimatePresence mode="wait">
+                        {step2Style && (
+                          <motion.div 
+                            key="step3"
+                            initial={{ opacity: 0, height: 0, y: 10 }}
+                            animate={{ opacity: 1, height: 'auto', y: 0 }}
+                            exit={{ opacity: 0, height: 0, y: 10 }}
+                            className="space-y-3 pt-6 border-t border-brand-gold/10 overflow-hidden relative z-10"
+                          >
+                            <p className="text-[10px] text-brand-gold-dark font-black uppercase tracking-[0.3em] flex items-center gap-2">
+                              <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold flex items-center justify-center text-[10px] font-black shadow-inner">3</span>
+                              予算から絞り込む
+                            </p>
+                            <div className="grid grid-cols-2 gap-2">
+                              {conciergeBudgets.map(budget => (
+                                <button
+                                  key={budget.id}
+                                  onClick={() => setStep3Budget(step3Budget === budget.id ? null : budget.id)}
+                                  className={`px-4 py-3 rounded-2xl text-[12px] font-bold transition-all border ${
+                                    step3Budget === budget.id 
+                                      ? 'bg-brand-wine text-brand-gold border-brand-gold shadow-md' 
+                                      : 'bg-white/30 border-brand-gold/10 text-brand-wine/50'
+                                  }`}
+                                >
+                                  {budget.label}
+                                </button>
+                              ))}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
                   </div>
-                </div>
-
-                {/* Reset Button */}
-                <div className="flex justify-center pt-2">
-                   <button 
-                      onClick={() => {
-                        setStep1Color(null);
-                        setStep2Style(null);
-                        setStep3Budget(null);
-                        setSelectedDish(null);
-                        setActiveColor(null);
-                        setActiveCuisine(null);
-                        setActiveBudget(null);
-                      }}
-                      className="text-[11px] text-brand-gold-dark/50 font-black uppercase tracking-[0.3em] hover:text-brand-gold-dark transition-colors flex items-center gap-2 group"
-                    >
-                      <AlertCircle className="w-3.5 h-3.5 group-hover:rotate-12 transition-transform" />
-                      条件をリセット
-                    </button>
-                </div>
-            </div>
+              </div>
+            )}
 
             <div className="p-4 md:p-6 space-y-8">
               <div className="space-y-6">
@@ -865,6 +855,155 @@ export const CustomerView: React.FC = () => {
           </div>
         </div>
         </div>
+
+        {/* Concierge Bottom Sheet FAB */}
+        <AnimatePresence>
+          {isScrolled && !isConciergeOpen && (
+            <motion.button
+              initial={{ opacity: 0, scale: 0.5, y: 50 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.5, y: 50 }}
+              onClick={() => setIsConciergeOpen(true)}
+              className="fixed bottom-24 right-6 z-[60] flex items-center gap-3 bg-brand-gold-dark text-brand-ivory pl-4 pr-1.5 py-1.5 rounded-full shadow-[0_10px_30px_rgba(184,134,11,0.4)] border border-brand-gold/30 hover:scale-105 active:scale-95 transition-all group"
+            >
+              <span className="text-[11px] font-black uppercase tracking-[0.2em] hidden sm:block">Concierge</span>
+              <div className="w-10 h-10 rounded-full bg-brand-ivory text-brand-gold-dark flex items-center justify-center shadow-inner">
+                <ChefHat className="w-5 h-5" />
+              </div>
+            </motion.button>
+          )}
+        </AnimatePresence>
+
+        {/* Concierge Bottom Sheet (Drawer) */}
+        <AnimatePresence>
+          {isConciergeOpen && (
+            <>
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setIsConciergeOpen(false)}
+                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100]"
+              />
+              <motion.div
+                initial={{ y: "100%" }}
+                animate={{ y: 0 }}
+                exit={{ y: "100%" }}
+                transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                className="fixed bottom-0 inset-x-0 bg-brand-ivory rounded-t-[3rem] z-[110] border-t border-brand-gold/30 px-6 pt-10 pb-12 shadow-[0_-20px_60px_rgba(0,0,0,0.3)] max-h-[90dvh] overflow-y-auto"
+              >
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 w-12 h-1 bg-brand-gold-dark/20 rounded-full" />
+                
+                <div className="flex items-center justify-between mb-8">
+                  <div className="flex items-center gap-3">
+                    <ChefHat className="w-6 h-6 text-brand-gold-dark" />
+                    <h3 className="serif text-xl text-brand-wine font-light tracking-widest uppercase">Wine Concierge</h3>
+                  </div>
+                  <button 
+                    onClick={() => setIsConciergeOpen(false)}
+                    className="w-8 h-8 rounded-full bg-brand-gold/10 flex items-center justify-center text-brand-gold-dark"
+                  >✕</button>
+                </div>
+
+                <div className="space-y-10">
+                  {/* Reuse Concierge UI Components */}
+                  <div className="space-y-4">
+                    <p className="text-[10px] text-brand-gold-dark font-black uppercase tracking-[0.3em] flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold flex items-center justify-center text-[10px] font-black shadow-inner">1</span>
+                      ワインの色を選ぶ
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                        {['赤', '白', '泡'].map(color => (
+                          <button
+                            key={color}
+                            onClick={() => {
+                              setStep1Color(color);
+                              setStep2Style(null);
+                              setStep3Budget(null);
+                              setSelectedDish(null);
+                            }}
+                            className={`px-8 py-3 rounded-full text-[14px] font-bold transition-all border ${
+                              step1Color === color 
+                                ? 'bg-brand-wine text-brand-gold border-brand-gold shadow-lg font-black' 
+                                : 'bg-white border-brand-gold/10 text-brand-wine/60'
+                            }`}
+                          >
+                            {color === '泡' ? 'スパークリング' : color}
+                          </button>
+                        ))}
+                    </div>
+                  </div>
+
+                  {step1Color && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                      className="space-y-4 pt-6 border-t border-brand-gold/10"
+                    >
+                      <p className="text-[10px] text-brand-gold-dark font-black uppercase tracking-[0.3em] flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold flex items-center justify-center text-[10px] font-black shadow-inner">2</span>
+                        スタイルを選ぶ
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {getDynamicStyles(step1Color).map(style => (
+                          <button
+                            key={style}
+                            onClick={() => {
+                              setStep2Style(style);
+                              setStep3Budget(null);
+                            }}
+                            className={`px-5 py-3 rounded-2xl text-[13px] font-bold transition-all border ${
+                              step2Style === style 
+                                ? 'bg-brand-gold text-brand-wine border-brand-gold shadow-md font-black' 
+                                : 'bg-white border-brand-gold/10 text-brand-wine/60'
+                            }`}
+                          >
+                            {style}
+                          </button>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {step2Style && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                      className="space-y-4 pt-6 border-t border-brand-gold/10"
+                    >
+                      <p className="text-[10px] text-brand-gold-dark font-black uppercase tracking-[0.3em] flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold flex items-center justify-center text-[10px] font-black shadow-inner">3</span>
+                        予算から絞り込む
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {conciergeBudgets.map(budget => (
+                          <button
+                            key={budget.id}
+                            onClick={() => setStep3Budget(budget.id)}
+                            className={`px-4 py-3 rounded-2xl text-[12px] font-bold transition-all border ${
+                              step3Budget === budget.id 
+                                ? 'bg-brand-wine text-brand-gold border-brand-gold shadow-md' 
+                                : 'bg-white border-brand-gold/10 text-brand-wine/50'
+                            }`}
+                          >
+                            {budget.label}
+                          </button>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+
+                  <div className="pt-6">
+                    <button
+                      onClick={() => setIsConciergeOpen(false)}
+                      className="w-full py-4 bg-brand-wine text-brand-gold rounded-full font-black uppercase tracking-[0.4em] shadow-xl active:scale-95 transition-all"
+                    >
+                      Show Results
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
 
         {/* Global Footer */}
         <div className="absolute bottom-6 inset-x-6 z-40 flex justify-center">
