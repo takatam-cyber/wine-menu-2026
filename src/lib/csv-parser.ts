@@ -60,6 +60,16 @@ export const parseWineCSV = (file: File): Promise<WineMaster[]> => {
                 return parseFloat(strVal) || 0;
               };
 
+              const getImageUrl = (keys: string[]) => {
+                const url = getString(keys);
+                if (!url) return '';
+                // If it's just an alphanumeric string of length 33 (likely a Drive ID)
+                if (/^[a-zA-Z0-9_-]{33}$/.test(url)) {
+                  return `https://drive.google.com/uc?id=${url}`;
+                }
+                return url;
+              };
+
               return {
                 id: getString(['id', 'ID', '商品コード', 'コード']),
                 name_jp: getString(['name_jp', '商品名', '名称']),
@@ -92,7 +102,7 @@ export const parseWineCSV = (file: File): Promise<WineMaster[]> => {
                 aroma_features: getString(['aroma_features', '香りの特徴']),
                 tags: getString(['tags', 'タグ']),
                 best_drinking: getString(['best_drinking', '飲み頃']),
-                image_url: getString(['image_url', '画像URL']),
+                image_url: getImageUrl(['image_url', '画像URL']),
                 visible: normalizedRow.visible === 'ON' || normalizedRow.visible === true || getString(['visible']) === 'ON',
                 glasses_per_bottle: getNumber(['glasses_per_bottle', '杯数']) || 6
               };

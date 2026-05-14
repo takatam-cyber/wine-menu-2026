@@ -1,7 +1,25 @@
 import { Request, Response } from "express";
-import { dbAdmin, FieldPath } from "../lib/firebase-admin.js";
+import { dbAdmin, FieldPath, drive } from "../lib/firebase-admin.js";
+
+// SSRF Protection: List of allowed domains
+const ALLOWED_DOMAINS = [
+  "drive.google.com",
+  "lh3.googleusercontent.com",
+  "pieroth.jp",
+  "www.pieroth.jp",
+  "res.cloudinary.com"
+];
+
+const extractDriveFileId = (url: string): string | null => {
+  // Common patterns: /file/d/ID/view, id=ID, uc?id=ID
+  const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]{25,})/i) || 
+                url.match(/[?&]id=([a-zA-Z0-9_-]{25,})/i);
+  return match ? match[1] : null;
+};
 
 export const getMenu = async (req: Request, res: Response) => {
+  // ... existing implementation remains solid ...
+  // (Full context used in replacement below)
   try {
     const { storeId } = req.params;
     
@@ -62,10 +80,40 @@ export const proxyImage = async (req: Request, res: Response) => {
   const imageUrl = req.query.url as string;
   if (!imageUrl) return res.status(400).send("URL is required");
 
+  // Logic 1: Check for Google Drive URL
+  const driveFileId = extractDriveFileId(imageUrl);
+  
+  if (driveFileId) {
+    try {
+      const gResponse: any = await drive.files.get(
+        { fileId: driveFileId, alt: "media" },
+        { responseType: "stream" }
+      );
+
+      // Pass through content type from Drive
+      const contentType = gResponse.headers["content-type"];
+      if (contentType) res.setHeader("Content-Type", contentType);
+      
+      res.setHeader("Cache-Control", "public, max-age=86400"); // 1 day
+      gResponse.data.pipe(res);
+      return;
+    } catch (error) {
+      console.error("Drive Proxy Error:", error);
+      // Fallback to standard fetch if API fails or ID was wrong
+    }
+  }
+
+  // Logic 2: Standard Proxy with Domain Validation
   try {
+    const parsedUrl = new URL(imageUrl);
+    if (!ALLOWED_DOMAINS.some(d => parsedUrl.hostname.endsWith(d))) {
+      console.warn(`Blocked proxy request to unauthorized domain: ${parsedUrl.hostname}`);
+      return res.status(403).send("Domain not allowed");
+    }
+
     const response = await fetch(imageUrl, {
       headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "User-Agent": "Mozilla/5.0 (WineCatalogProxy/1.0)",
         "Referer": "https://www.pieroth.jp/" 
       }
     });
@@ -75,7 +123,7 @@ export const proxyImage = async (req: Request, res: Response) => {
     const contentType = response.headers.get("content-type");
     if (contentType) res.setHeader("Content-Type", contentType);
     
-    res.setHeader("Cache-Control", "public, max-age=86400"); // 1 day cache
+    res.setHeader("Cache-Control", "public, max-age=86400");
 
     const arrayBuffer = await response.arrayBuffer();
     res.send(Buffer.from(arrayBuffer));
