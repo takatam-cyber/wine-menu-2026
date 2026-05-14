@@ -21,6 +21,18 @@ export const CustomerView: React.FC = () => {
   const [selectedWine, setSelectedWine] = useState<WineMaster | null>(null);
   const [isScrolled, setIsScrolled] = useState(false);
 
+  // Scroll Lock for Concierge & Modal
+  useEffect(() => {
+    if (isConciergeOpen || !!selectedWine) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isConciergeOpen, !!selectedWine]);
+
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 50);
@@ -613,168 +625,6 @@ export const CustomerView: React.FC = () => {
             </div>
 
             <div className="pb-32">
-              {/* Concierge Inline - Show only when not scrolled much */}
-              {!isScrolled && (
-                <div className="bg-white/40 backdrop-blur-xl border-b border-brand-gold/10 px-4 md:px-8 py-8 space-y-10 shadow-sm">
-                  {/* ... Existing Concierge UI (Step 1-3) ... */}
-                  
-                  {/* Section: お料理から選ぶ */}
-                  {!store?.hidePairingFilter && (
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-3">
-                        <div className="h-4 w-1 bg-brand-gold rounded-full" />
-                        <h4 className="text-[13px] font-black text-brand-gold-dark uppercase tracking-[0.2em]">{t[language].selectFromDishes}</h4>
-                      </div>
-                      <div className="grid grid-cols-3 gap-3">
-                        {cuisineFilters.map(dish => (
-                          <button
-                            key={dish.id}
-                            onClick={() => {
-                              setSelectedDish(selectedDish === dish.id ? null : dish.id);
-                              setStep1Color(null);
-                              setStep2Style(null);
-                              setStep3Budget(null);
-                            }}
-                            className={`flex flex-col items-center justify-center gap-1.5 py-4 rounded-2xl border transition-all ${
-                              selectedDish === dish.id 
-                                ? 'bg-brand-gold text-brand-wine border-brand-gold shadow-lg scale-[1.02]' 
-                                : 'bg-white/80 text-brand-wine/70 border-brand-gold/10 hover:border-brand-gold/30'
-                            }`}
-                          >
-                            <span className="text-[13px] font-bold tracking-tight whitespace-nowrap">{dish.label}</span>
-                            <span className="text-[10px] font-bold opacity-40 uppercase tracking-widest">{dish.id}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Section: ワイン・コンシェルジュ */}
-                  <div className="space-y-5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2.5">
-                        <div className="h-5 w-1.5 bg-brand-gold-dark rounded-full" />
-                        <h4 className="text-[14px] font-black text-brand-gold-dark uppercase tracking-[0.25em]">{t[language].wineConcierge}</h4>
-                      </div>
-                      <div className="flex gap-1.5">
-                        {[1, 2, 3].map(step => (
-                          <div 
-                            key={step} 
-                            className={`h-1.5 w-6 rounded-full transition-all duration-500 ${
-                              (step === 1 && !!step1Color) || (step === 2 && !!step2Style) || (step === 3 && !!step3Budget) ? 'bg-brand-gold' : 'bg-brand-gold/20'
-                            }`}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-8 bg-brand-wine/[0.03] p-6 rounded-[2.5rem] border border-brand-gold/10 relative overflow-hidden group">
-                      <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                         <Wine className="w-24 h-24" strokeWidth={0.5} />
-                      </div>
-
-                      {/* Step 1: Color */}
-                      <div className="space-y-3 relative z-10">
-                        <p className="text-[10px] text-brand-gold-dark font-black uppercase tracking-[0.3em] flex items-center gap-2">
-                          <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold flex items-center justify-center text-[10px] font-black shadow-inner">1</span>
-                          {t[language].chooseColor}
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          {['赤', '白', '泡'].map(color => (
-                            <button
-                              key={color}
-                              onClick={() => {
-                                const newColor = step1Color === color ? null : color;
-                                setStep1Color(newColor);
-                                setStep2Style(null);
-                                setStep3Budget(null);
-                                setSelectedDish(null);
-                              }}
-                              className={`px-8 py-3 rounded-full text-[14px] font-bold transition-all border ${
-                                step1Color === color 
-                                  ? 'bg-brand-wine text-brand-gold border-brand-gold shadow-lg scale-105' 
-                                  : 'bg-white border-brand-gold/10 text-brand-wine/60'
-                              }`}
-                            >
-                              {color === '赤' ? t[language].red : color === '白' ? t[language].white : t[language].sparkling}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Step 2: Style */}
-                      <AnimatePresence mode="wait">
-                        {step1Color && (
-                          <motion.div 
-                            key="step2"
-                            initial={{ opacity: 0, height: 0, y: 10 }}
-                            animate={{ opacity: 1, height: 'auto', y: 0 }}
-                            exit={{ opacity: 0, height: 0, y: 10 }}
-                            className="space-y-3 pt-6 border-t border-brand-gold/10 overflow-hidden relative z-10"
-                          >
-                            <p className="text-[10px] text-brand-gold-dark font-black uppercase tracking-[0.3em] flex items-center gap-2">
-                              <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold flex items-center justify-center text-[10px] font-black shadow-inner">2</span>
-                              {t[language].chooseStyle}
-                            </p>
-                            <div className="flex flex-wrap gap-2">
-                              {getDynamicStyles(step1Color).map(style => (
-                                <button
-                                  key={style}
-                                  onClick={() => {
-                                    setStep2Style(step2Style === style ? null : style);
-                                    setStep3Budget(null);
-                                  }}
-                                  className={`px-5 py-3 rounded-2xl text-[13px] font-bold transition-all border ${
-                                    step2Style === style 
-                                      ? 'bg-brand-gold text-brand-wine border-brand-gold shadow-md scale-105 font-black' 
-                                      : 'bg-white/50 border-brand-gold/10 text-brand-wine/60'
-                                  }`}
-                                >
-                                  {style}
-                                </button>
-                              ))}
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-
-                      {/* Step 3: Budget */}
-                      <AnimatePresence mode="wait">
-                        {step2Style && (
-                          <motion.div 
-                            key="step3"
-                            initial={{ opacity: 0, height: 0, y: 10 }}
-                            animate={{ opacity: 1, height: 'auto', y: 0 }}
-                            exit={{ opacity: 0, height: 0, y: 10 }}
-                            className="space-y-3 pt-6 border-t border-brand-gold/10 overflow-hidden relative z-10"
-                          >
-                            <p className="text-[10px] text-brand-gold-dark font-black uppercase tracking-[0.3em] flex items-center gap-2">
-                              <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold flex items-center justify-center text-[10px] font-black shadow-inner">3</span>
-                              {t[language].narrowBudget}
-                            </p>
-                            <div className="grid grid-cols-2 gap-2">
-                              {conciergeBudgets.map(budget => (
-                                <button
-                                  key={budget.id}
-                                  onClick={() => setStep3Budget(step3Budget === budget.id ? null : budget.id)}
-                                  className={`px-4 py-3 rounded-2xl text-[12px] font-bold transition-all border ${
-                                    step3Budget === budget.id 
-                                      ? 'bg-brand-wine text-brand-gold border-brand-gold shadow-md' 
-                                      : 'bg-white/30 border-brand-gold/10 text-brand-wine/50'
-                                  }`}
-                                >
-                                  {budget.label}
-                                </button>
-                              ))}
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  </div>
-              </div>
-            )}
-
               <div className="p-4 md:p-12 space-y-8 max-w-5xl mx-auto">
                 <div className="space-y-10">
 
