@@ -45,6 +45,9 @@ export const getMenu = async (req: Request, res: Response) => {
       cuisine_type: storeData?.cuisine_type,
       hasAiSommelier: storeData?.hasAiSommelier,
       logo_url: storeData?.logo_url,
+      hidePairingFilter: storeData?.hidePairingFilter || false,
+      hideWinePairing: storeData?.hideWinePairing || false,
+      budgetTiers: storeData?.budgetTiers || null,
     };
 
     const invSnap = await dbAdmin.collection("stores").doc(storeId).collection("inventory").get();

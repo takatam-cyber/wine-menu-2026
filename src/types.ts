@@ -50,6 +50,9 @@ export interface Store {
   isActive: boolean;
   hasAiSommelier: boolean;
   owner_api_key?: string;
+  hidePairingFilter?: boolean;
+  hideWinePairing?: boolean;
+  budgetTiers?: number[];
 }
 
 export type Role = 'admin' | 'rep' | 'owner' | 'customer';

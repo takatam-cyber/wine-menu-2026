@@ -594,6 +594,50 @@ export const AdminView: React.FC = () => {
                     </button>
                   </div>
                 </div>
+
+                {/* New Customization Settings */}
+                <div className="space-y-4 pt-4 border-t border-slate-200">
+                  <div className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">ペアリングフィルターを非表示</span>
+                      <span className="text-[8px] text-slate-400 uppercase">「お料理から選ぶ」を隠す</span>
+                    </div>
+                    <button 
+                      onClick={() => setEditStoreData({...editStoreData, hidePairingFilter: !editStoreData.hidePairingFilter})}
+                      className={`w-12 h-6 rounded-full transition-all relative ${editStoreData.hidePairingFilter ? 'bg-brand-wine' : 'bg-slate-200'}`}
+                    >
+                      <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${editStoreData.hidePairingFilter ? 'left-7' : 'left-1'}`} />
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">マリアージュ詳細を非表示</span>
+                      <span className="text-[8px] text-slate-400 uppercase">「最高のマリアージュ」を隠す</span>
+                    </div>
+                    <button 
+                      onClick={() => setEditStoreData({...editStoreData, hideWinePairing: !editStoreData.hideWinePairing})}
+                      className={`w-12 h-6 rounded-full transition-all relative ${editStoreData.hideWinePairing ? 'bg-brand-wine' : 'bg-slate-200'}`}
+                    >
+                      <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${editStoreData.hideWinePairing ? 'left-7' : 'left-1'}`} />
+                    </button>
+                  </div>
+
+                  <div>
+                    <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">予算設定 (カンマ区切り)</label>
+                    <input 
+                      type="text"
+                      placeholder="5000, 10000, 20000"
+                      value={editStoreData.budgetTiers?.join(', ') || ''}
+                      onChange={e => {
+                        const tiers = e.target.value.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+                        setEditStoreData({...editStoreData, budgetTiers: tiers});
+                      }}
+                      className="w-full bg-white border border-slate-300 rounded px-3 py-2 text-sm text-slate-900 focus:border-brand-wine outline-none transition-all"
+                    />
+                    <p className="text-[8px] text-slate-400 mt-1 uppercase tracking-tighter">例: 5000, 10000, 20000 (数値のみ入力してください)</p>
+                  </div>
+                </div>
                 <div className="flex flex-col items-center justify-center bg-white p-6 rounded-2xl border border-slate-200 shadow-inner">
                   <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">モバイル用QRコード</div>
                   <div className="p-3 bg-white border border-slate-100 rounded-xl shadow-lg mb-4">

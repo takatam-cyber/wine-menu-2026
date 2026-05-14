@@ -63,18 +63,40 @@ export const CustomerView: React.FC = () => {
   const store = menuData?.store || null;
   const inventory = menuData?.menu || [];
 
-  const budgetFilters = [
-    { id: 'b1', label: '〜¥5,000', max: 5000 },
-    { id: 'b2', label: '〜¥10,000', max: 10000 },
-    { id: 'b3', label: '¥10,000〜', min: 10000 }
-  ];
+  interface FilterOption {
+    id: string;
+    label: string;
+    min?: number;
+    max?: number;
+  }
 
-  const conciergeBudgets = [
-    { id: 5000, label: '〜5,000円', max: 5000 },
-    { id: 10000, label: '〜10,000円', max: 10000 },
-    { id: 20000, label: '〜20,000円', max: 20000 },
-    { id: 999999, label: '20,000円以上', min: 20000 }
-  ];
+  interface ConciergeOption {
+    id: number;
+    label: string;
+    min?: number;
+    max?: number;
+  }
+
+  const budgetFilters: FilterOption[] = store?.budgetTiers && store.budgetTiers.length > 0 
+    ? (store.budgetTiers.map((tier, idx, arr) => {
+        if (idx === 0) return { id: `b${idx}`, label: `〜¥${tier.toLocaleString()}`, max: tier };
+        return { id: `b${idx}`, label: `¥${arr[idx-1].toLocaleString()}〜¥${tier.toLocaleString()}`, min: arr[idx-1], max: tier };
+      }) as FilterOption[]).concat([{ id: 'blast', label: `¥${store.budgetTiers[store.budgetTiers.length - 1].toLocaleString()}〜`, min: store.budgetTiers[store.budgetTiers.length - 1] }])
+    : [
+        { id: 'b1', label: '〜¥5,000', max: 5000 },
+        { id: 'b2', label: '〜¥10,000', max: 10000 },
+        { id: 'b3', label: '¥10,000〜', min: 10000 }
+      ];
+
+  const conciergeBudgets: ConciergeOption[] = store?.budgetTiers && store.budgetTiers.length > 0
+    ? (store.budgetTiers.map(tier => ({ id: tier, label: `〜${tier.toLocaleString()}円`, max: tier })) as ConciergeOption[])
+        .concat([{ id: 999999, label: `${store.budgetTiers[store.budgetTiers.length - 1].toLocaleString()}円以上`, min: store.budgetTiers[store.budgetTiers.length - 1] }])
+    : [
+        { id: 5000, label: '〜5,000円', max: 5000 },
+        { id: 10000, label: '〜10,000円', max: 10000 },
+        { id: 20000, label: '〜20,000円', max: 20000 },
+        { id: 999999, label: '20,000円以上', min: 20000 }
+      ];
 
   const cuisineFilters = [
     { id: 'meat', label: 'お肉料理', match: /肉|ステーキ|ラム|牛|豚/i },
@@ -456,10 +478,10 @@ export const CustomerView: React.FC = () => {
                 </button>
               ))}
 
-              <div className="w-px h-4 bg-brand-gold/20 shrink-0" />
-
+              <div className={`w-px h-4 shrink-0 ${isScrolled ? 'bg-brand-gold-dark/20' : 'bg-brand-gold/20'}`} />
+              
               {/* Cuisine Chips */}
-              {cuisineFilters.map(c => (
+              {!store?.hidePairingFilter && cuisineFilters.map(c => (
                 <button
                   key={c.id}
                   onClick={() => setActiveCuisine(activeCuisine === c.id ? null : c.id)}
@@ -473,7 +495,7 @@ export const CustomerView: React.FC = () => {
                 </button>
               ))}
 
-              <div className={`w-px h-4 shrink-0 ${isScrolled ? 'bg-brand-gold-dark/20' : 'bg-brand-gold/20'}`} />
+              {!store?.hidePairingFilter && <div className={`w-px h-4 shrink-0 ${isScrolled ? 'bg-brand-gold-dark/20' : 'bg-brand-gold/20'}`} />}
 
               {/* Budget Chips */}
               {budgetFilters.map(b => (
@@ -521,33 +543,35 @@ export const CustomerView: React.FC = () => {
               <div className="bg-white/40 backdrop-blur-xl border-b border-brand-gold/10 px-4 md:px-8 py-8 space-y-10 shadow-sm animate-in fade-in slide-in-from-top duration-700">
                   
                   {/* Section: お料理から選ぶ */}
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-3">
-                      <div className="h-4 w-1 bg-brand-gold rounded-full" />
-                      <h4 className="text-[13px] font-black text-brand-gold-dark uppercase tracking-[0.2em]">お料理から選ぶ</h4>
+                  {!store?.hidePairingFilter && (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-4 w-1 bg-brand-gold rounded-full" />
+                        <h4 className="text-[13px] font-black text-brand-gold-dark uppercase tracking-[0.2em]">お料理から選ぶ</h4>
+                      </div>
+                      <div className="grid grid-cols-3 gap-3">
+                        {cuisineFilters.map(dish => (
+                          <button
+                            key={dish.id}
+                            onClick={() => {
+                              setSelectedDish(selectedDish === dish.id ? null : dish.id);
+                              setStep1Color(null);
+                              setStep2Style(null);
+                              setStep3Budget(null);
+                            }}
+                            className={`flex flex-col items-center justify-center gap-1.5 py-4 rounded-2xl border transition-all ${
+                              selectedDish === dish.id 
+                                ? 'bg-brand-gold text-brand-wine border-brand-gold shadow-lg scale-[1.02]' 
+                                : 'bg-white/80 text-brand-wine/70 border-brand-gold/10 hover:border-brand-gold/30'
+                            }`}
+                          >
+                            <span className="text-[13px] font-bold tracking-tight whitespace-nowrap">{dish.label}</span>
+                            <span className="text-[10px] font-bold opacity-40 uppercase tracking-widest">{dish.id}</span>
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                    <div className="grid grid-cols-3 gap-3">
-                      {cuisineFilters.map(dish => (
-                        <button
-                          key={dish.id}
-                          onClick={() => {
-                            setSelectedDish(selectedDish === dish.id ? null : dish.id);
-                            setStep1Color(null);
-                            setStep2Style(null);
-                            setStep3Budget(null);
-                          }}
-                          className={`flex flex-col items-center justify-center gap-1.5 py-4 rounded-2xl border transition-all ${
-                            selectedDish === dish.id 
-                              ? 'bg-brand-gold text-brand-wine border-brand-gold shadow-lg scale-[1.02]' 
-                              : 'bg-white/80 text-brand-wine/70 border-brand-gold/10 hover:border-brand-gold/30'
-                          }`}
-                        >
-                          <span className="text-[13px] font-bold tracking-tight whitespace-nowrap">{dish.label}</span>
-                          <span className="text-[10px] font-bold opacity-40 uppercase tracking-widest">{dish.id}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                  )}
 
                   {/* Section: ワイン・コンシェルジュ */}
                   <div className="space-y-5">
@@ -1138,19 +1162,21 @@ export const CustomerView: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="space-y-6">
-                  <div className="flex items-center gap-3 text-brand-gold">
-                    <Utensils className="w-6 h-6 opacity-70" />
-                    <h4 className="text-sm font-bold uppercase tracking-[0.3em]">最高のマリアージュ</h4>
+                {!store?.hideWinePairing && (
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-3 text-brand-gold">
+                      <Utensils className="w-6 h-6 opacity-70" />
+                      <h4 className="text-sm font-bold uppercase tracking-[0.3em]">最高のマリアージュ</h4>
+                    </div>
+                    <div className="flex flex-wrap gap-2 md:gap-3">
+                      {selectedWine.pairing.split('、').map(p => (
+                        <span key={p} className="bg-brand-gold/10 border border-brand-gold/30 px-5 py-3 rounded-full text-sm text-brand-gold font-bold tracking-wider">
+                          {p}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                  <div className="flex flex-wrap gap-2 md:gap-3">
-                    {selectedWine.pairing.split('、').map(p => (
-                      <span key={p} className="bg-brand-gold/10 border border-brand-gold/30 px-5 py-3 rounded-full text-sm text-brand-gold font-bold tracking-wider">
-                        {p}
-                      </span>
-                    ))}
-                  </div>
-                </div>
+                )}
               </div>
 
               <div className="sticky bottom-0 z-[110] p-6 md:p-8 pt-4 pb-[env(safe-area-inset-bottom,24px)] bg-black/95 backdrop-blur-2xl border-t border-brand-gold/20 flex flex-col gap-6 safe-bottom">

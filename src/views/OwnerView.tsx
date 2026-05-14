@@ -104,7 +104,10 @@ export const OwnerView: React.FC = () => {
       await updateStoreMutation.mutateAsync({
         name: editStoreData.name,
         cuisine_type: editStoreData.cuisine_type,
-        address: editStoreData.address
+        address: editStoreData.address,
+        hidePairingFilter: editStoreData.hidePairingFilter,
+        hideWinePairing: editStoreData.hideWinePairing,
+        budgetTiers: editStoreData.budgetTiers,
       });
 
       if (editStoreData.name !== store?.name) {
@@ -203,25 +206,70 @@ export const OwnerView: React.FC = () => {
                   />
                 </div>
               </div>
-              <div>
-                <label className="text-[9px] font-bold text-brand-gold/60 uppercase tracking-widest block mb-1">住所</label>
-                <input 
-                  className="w-full bg-white/5 border border-brand-gold/20 rounded-lg px-3 py-2 text-brand-ivory text-sm outline-none focus:border-brand-gold"
-                  value={editStoreData.address || ''}
-                  onChange={e => setEditStoreData({...editStoreData, address: e.target.value})}
-                />
-              </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <button onClick={() => setIsEditingStore(false)} className="px-4 py-2 text-[10px] uppercase font-bold text-gray-400 hover:text-white transition-colors">キャンセル</button>
-                <button 
-                  onClick={handleUpdateStore} 
-                  disabled={isSaving}
-                  className="bg-brand-gold text-brand-wine px-6 py-2 rounded-lg text-[10px] uppercase font-bold tracking-widest flex items-center gap-2 hover:brightness-110"
-                >
-                  {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
-                  保存する
-                </button>
-              </div>
+                <div>
+                  <label className="text-[9px] font-bold text-brand-gold/60 uppercase tracking-widest block mb-1">住所</label>
+                  <input 
+                    className="w-full bg-white/5 border border-brand-gold/20 rounded-lg px-3 py-2 text-brand-ivory text-sm outline-none focus:border-brand-gold"
+                    value={editStoreData.address || ''}
+                    onChange={e => setEditStoreData({...editStoreData, address: e.target.value})}
+                  />
+                </div>
+
+                {/* New Customization Settings */}
+                <div className="space-y-4 pt-4 border-t border-brand-gold/20">
+                  <div className="flex items-center justify-between p-3 bg-white/5 border border-brand-gold/20 rounded-xl">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-bold text-brand-gold-dark uppercase tracking-wider">ペアリングフィルターを非表示</span>
+                      <span className="text-[8px] text-gray-500 uppercase">「お料理から選ぶ」を隠す</span>
+                    </div>
+                    <button 
+                      onClick={() => setEditStoreData({...editStoreData, hidePairingFilter: !editStoreData.hidePairingFilter})}
+                      className={`w-12 h-6 rounded-full transition-all relative ${editStoreData.hidePairingFilter ? 'bg-brand-gold' : 'bg-gray-700'}`}
+                    >
+                      <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${editStoreData.hidePairingFilter ? 'left-7' : 'left-1'}`} />
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 bg-white/5 border border-brand-gold/20 rounded-xl">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-bold text-brand-gold-dark uppercase tracking-wider">マリアージュ詳細を非表示</span>
+                      <span className="text-[8px] text-gray-500 uppercase">「最高のマリアージュ」を隠す</span>
+                    </div>
+                    <button 
+                      onClick={() => setEditStoreData({...editStoreData, hideWinePairing: !editStoreData.hideWinePairing})}
+                      className={`w-12 h-6 rounded-full transition-all relative ${editStoreData.hideWinePairing ? 'bg-brand-gold' : 'bg-gray-700'}`}
+                    >
+                      <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${editStoreData.hideWinePairing ? 'left-7' : 'left-1'}`} />
+                    </button>
+                  </div>
+
+                  <div>
+                    <label className="text-[9px] font-bold text-brand-gold/60 uppercase tracking-widest block mb-1">予算設定 (カンマ区切り)</label>
+                    <input 
+                      type="text"
+                      placeholder="5000, 10000, 20000"
+                      value={editStoreData.budgetTiers?.join(', ') || ''}
+                      onChange={e => {
+                        const tiers = e.target.value.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+                        setEditStoreData({...editStoreData, budgetTiers: tiers});
+                      }}
+                      className="w-full bg-white/5 border border-brand-gold/20 rounded-lg px-3 py-2 text-brand-ivory text-sm outline-none focus:border-brand-gold transition-all"
+                    />
+                    <p className="text-[8px] text-gray-500 mt-1 uppercase tracking-tighter">例: 5000, 10000, 20000 (数値のみ入力してください)</p>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <button onClick={() => setIsEditingStore(false)} className="px-4 py-2 text-[10px] uppercase font-bold text-gray-400 hover:text-white transition-colors">キャンセル</button>
+                  <button 
+                    onClick={handleUpdateStore} 
+                    disabled={isSaving}
+                    className="bg-brand-gold text-brand-wine px-6 py-2 rounded-lg text-[10px] uppercase font-bold tracking-widest flex items-center gap-2 hover:brightness-110"
+                  >
+                    {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                    保存する
+                  </button>
+                </div>
             </div>
           ) : (
             <div>
