@@ -5,6 +5,9 @@ import {
   getDocs, 
   getDoc,
   doc,
+  updateDoc,
+  deleteDoc,
+  setDoc,
   limit, 
   startAfter, 
   QueryDocumentSnapshot, 
@@ -52,5 +55,25 @@ export const storeRepository = {
     const q = query(collection(db, 'stores', storeId, 'inventory'));
     const snapshot = await getDocs(q);
     return snapshot.docs.map(d => ({ ...d.data(), id: d.id }));
+  },
+
+  async updateStore(storeId: string, data: Partial<Store>): Promise<void> {
+    const d = doc(db, 'stores', storeId);
+    await updateDoc(d, data);
+  },
+
+  async updateInventoryItem(storeId: string, itemId: string, data: any): Promise<void> {
+    const d = doc(db, 'stores', storeId, 'inventory', itemId);
+    await updateDoc(d, data);
+  },
+
+  async deleteInventoryItem(storeId: string, itemId: string): Promise<void> {
+    const d = doc(db, 'stores', storeId, 'inventory', itemId);
+    await deleteDoc(d);
+  },
+
+  async addInventoryItem(storeId: string, itemId: string, data: any): Promise<void> {
+    const d = doc(db, 'stores', storeId, 'inventory', itemId);
+    await setDoc(d, data);
   }
 };

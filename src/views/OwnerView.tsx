@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { WineMaster, Store } from '../types';
+import { AuthImage } from '../components/ui/AuthImage';
 import { useWines } from '../lib/WineContext';
 import { db } from '../lib/firebase';
 import { collection, getDocs, doc, getDoc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
@@ -10,38 +11,31 @@ import { calculateProfit } from '../lib/profit-calc';
 import { motion, AnimatePresence } from 'motion/react';
 import { wineRepository } from '../lib/repositories/wineRepository';
 import { useStoresQuery } from '../hooks/useStoresQuery';
-import { useInventoryQuery } from '../hooks/useInventoryQuery';
+import { useInventoryQuery, useInventoryMutations } from '../hooks/useInventoryQuery';
 import { useWinesMasterQuery } from '../hooks/useWinesQuery';
-import { useQueryClient } from '@tanstack/react-query';
 
 export const OwnerView: React.FC = () => {
   const { user } = useWines();
-  const queryClient = useQueryClient();
   const [selectedStoreId, setSelectedStoreId] = useState(new URLSearchParams(window.location.search).get('storeId') || user?.storeId || '');
   
   const { data: storesData } = useStoresQuery(user);
   const stores = storesData?.pages.flatMap(p => p.data) || [];
 
   const { data: inventoryData, isLoading: inventoryLoading } = useInventoryQuery(selectedStoreId);
+  const { updateStoreMutation, updateItemMutation, deleteItemMutation, addItemMutation } = useInventoryMutations(selectedStoreId);
+  
   const store = inventoryData?.store || null;
-  const initialInventory = inventoryData?.inventory || [];
+  const inventory = inventoryData?.inventory || [];
 
   const { data: masterWinesData } = useWinesMasterQuery();
   const masterWines = masterWinesData?.pages.flatMap(p => p.data) || [];
 
-  const [inventory, setInventory] = useState<WineMaster[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [isEditingStore, setIsEditingStore] = useState(false);
   const [editStoreData, setEditStoreData] = useState<Partial<Store>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [editingWineId, setEditingWineId] = useState<string | null>(null);
-  
-  useEffect(() => {
-    if (initialInventory.length > 0) {
-      setInventory(initialInventory);
-    }
-  }, [initialInventory]);
 
   useEffect(() => {
     if (store) {
@@ -58,8 +52,7 @@ export const OwnerView: React.FC = () => {
     promoLabel: ''
   });
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-
-  // Handle case where admin/rep arrives without storeId or with a new one
+  
   useEffect(() => {
     const urlSid = new URLSearchParams(window.location.search).get('storeId');
     if (urlSid) {
@@ -77,10 +70,11 @@ export const OwnerView: React.FC = () => {
   useEffect(() => {
     if (!editingWineId || !sid) return;
 
-    const timer = setTimeout(async () => {
+    const timer = setTimeout(() => {
       setAutoSaveStatus('saving');
-      try {
-        await updateDoc(doc(db, 'stores', sid, 'inventory', editingWineId), {
+      updateItemMutation.mutate({
+        itemId: editingWineId,
+        data: {
           price_bottle: editWineData.price_bottle,
           price_glass: editWineData.price_glass,
           stock: editWineData.stock,
@@ -88,24 +82,26 @@ export const OwnerView: React.FC = () => {
           isFeatured: editWineData.isFeatured,
           promoLabel: editWineData.promoLabel,
           updatedAt: new Date().toISOString()
-        });
-        setInventory(prev => prev.map(w => w.id === editingWineId ? { ...w, ...editWineData } : w));
-        setAutoSaveStatus('saved');
-        setTimeout(() => setAutoSaveStatus('idle'), 2000);
-      } catch (error) {
-        console.error("Auto-save error:", error);
-        setAutoSaveStatus('error');
-      }
+        }
+      }, {
+        onSuccess: () => {
+          setAutoSaveStatus('saved');
+          setTimeout(() => setAutoSaveStatus('idle'), 2000);
+        },
+        onError: () => {
+          setAutoSaveStatus('error');
+        }
+      });
     }, 2000); // 2 second debounce
 
     return () => clearTimeout(timer);
-  }, [editWineData, editingWineId, sid]);
+  }, [editWineData, editingWineId, sid, updateItemMutation]);
 
   const handleUpdateStore = async () => {
     if (!sid || !user?.uid) return;
     setIsSaving(true);
     try {
-      await updateDoc(doc(db, 'stores', sid), {
+      await updateStoreMutation.mutateAsync({
         name: editStoreData.name,
         cuisine_type: editStoreData.cuisine_type,
         address: editStoreData.address
@@ -117,7 +113,6 @@ export const OwnerView: React.FC = () => {
         });
       }
 
-      queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
       setIsEditingStore(false);
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `stores/${sid}`);
@@ -127,44 +122,33 @@ export const OwnerView: React.FC = () => {
   };
 
   const handleToggleActive = async (wineId: string, currentStatus: boolean) => {
-    if (!sid) return;
-    try {
-      await updateDoc(doc(db, 'stores', sid, 'inventory', wineId), {
-        isActive: !currentStatus
-      });
-      setInventory(prev => prev.map(w => w.id === wineId ? { ...w, isActive: !currentStatus } : w));
-    } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `stores/${sid}/inventory/${wineId}`);
-    }
+    updateItemMutation.mutate({
+      itemId: wineId,
+      data: { isActive: !currentStatus }
+    });
   };
 
   const handleDeleteWine = async (wineId: string) => {
-    if (!sid || !window.confirm('このワインをメニューから削除しますか？')) return;
-    try {
-      await deleteDoc(doc(db, 'stores', sid, 'inventory', wineId));
-      setInventory(prev => prev.filter(w => w.id !== wineId));
-    } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `stores/${sid}/inventory/${wineId}`);
-    }
+    if (!window.confirm('このワインをメニューから削除しますか？')) return;
+    deleteItemMutation.mutate(wineId);
   };
 
   const handleAddWine = async (masterWine: WineMaster) => {
-    if (!sid) return;
-    try {
-      await setDoc(doc(db, 'stores', sid, 'inventory', masterWine.id), {
+    addItemMutation.mutate({
+      itemId: masterWine.id,
+      data: {
         id: masterWine.id,
         isActive: true,
         visible: true,
         price_bottle: masterWine.price_bottle,
         price_glass: masterWine.price_glass,
         updatedAt: new Date().toISOString()
-      });
-      
-      setInventory(prev => [...prev, { ...masterWine, isActive: true, visible: true }]);
-      setShowAddModal(false);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `stores/${sid}/inventory/${masterWine.id}`);
-    }
+      }
+    }, {
+      onSuccess: () => {
+        setShowAddModal(false);
+      }
+    });
   };
 
   const startEditingWine = (wine: WineMaster) => {
@@ -282,7 +266,7 @@ export const OwnerView: React.FC = () => {
           <div className="lg:col-span-2 glass-panel p-6 rounded-3xl border border-brand-gold/10 relative overflow-hidden">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h3 className="text-xs font-bold text-brand-gold uppercase tracking-widest">収益分析：銘柄別利益（ボトル）</h3>
+                <h3 className="text-xs font-bold text-brand-gold-dark uppercase tracking-widest">収益分析：銘柄別利益（ボトル）</h3>
                 <p className="text-[10px] text-gray-500 mt-1 uppercase">利益の高い上位8銘柄を表示</p>
               </div>
             </div>
@@ -333,7 +317,7 @@ export const OwnerView: React.FC = () => {
 
           <div className="glass-panel p-6 rounded-3xl border border-brand-gold/10 flex flex-col justify-between">
             <div>
-              <h3 className="text-xs font-bold text-brand-gold uppercase tracking-widest">原価率別・銘柄構成</h3>
+              <h3 className="text-xs font-bold text-brand-gold-dark uppercase tracking-widest">原価率別・銘柄構成</h3>
               <p className="text-[10px] text-gray-500 mt-1 uppercase">平均原価率: {inventory.length > 0 ? Math.round(inventory.reduce((acc, w) => acc + (w.cost / w.price_bottle * 100), 0) / inventory.length) : 0}%</p>
             </div>
             <div className="h-[200px] flex items-center justify-center">
@@ -362,8 +346,8 @@ export const OwnerView: React.FC = () => {
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-tighter">
-                 <span className="text-brand-gold">ポテンシャル：</span>
-                 <span className="text-brand-ivory">{inventory.filter(w => w.price_bottle > w.cost * 3).length}件の高収益アイテムを検知</span>
+                 <span className="text-brand-gold-dark">ポテンシャル：</span>
+                 <span className="text-brand-dark/60">{inventory.filter(w => w.price_bottle > w.cost * 3).length}件の高収益アイテムを検知</span>
               </div>
             </div>
           </div>
@@ -408,8 +392,8 @@ export const OwnerView: React.FC = () => {
                   <div key={wine.id} className={`glass-panel p-3 md:p-4 rounded-xl shadow-luxury flex flex-col md:flex-row items-center group transition-all gap-4 border ${editingWineId === wine.id ? 'border-brand-gold bg-brand-gold/5' : 'border-brand-gold/5 hover:border-brand-gold/30'}`}>
                     <div className="flex items-center gap-4 flex-1 w-full min-w-0">
                       <div className="w-10 h-14 bg-black/40 flex items-center justify-center p-1 rounded-lg relative border border-white/5 shrink-0 overflow-hidden">
-                        <img 
-                          src={`/api/proxy-image?url=${encodeURIComponent(wine.image_url)}`} 
+                        <AuthImage 
+                          url={wine.image_url} 
                           alt="" 
                           className="w-full h-full object-contain relative z-10 scale-125" 
                         />
@@ -569,8 +553,8 @@ export const OwnerView: React.FC = () => {
                     <div key={w.id} className="bg-white/5 border border-white/5 rounded-2xl p-4 flex items-center justify-between group hover:border-brand-gold/30 hover:bg-white/10 transition-all">
                       <div className="flex items-center gap-4 flex-1">
                         <div className="w-12 h-16 bg-black/40 rounded-lg flex items-center justify-center p-2 border border-white/10 shrink-0">
-                          <img 
-                            src={`/api/proxy-image?url=${encodeURIComponent(w.image_url)}`} 
+                          <AuthImage 
+                            url={w.image_url} 
                             alt="" 
                             crossOrigin="anonymous"
                             referrerPolicy="no-referrer"

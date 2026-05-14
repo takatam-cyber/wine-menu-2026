@@ -11,14 +11,21 @@ const ALLOWED_DOMAINS = [
 ];
 
 const extractDriveFileId = (url: string): string | null => {
-  // Patterns: 
-  // 1. /file/d/ID/view
-  // 2. id=ID (query param)
-  // 3. thumbnail?id=ID
-  // 4. uc?id=ID
-  const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]{25,})/i) || 
-                url.match(/[?&]id=([a-zA-Z0-9_-]{25,})/i);
-  return match ? match[1] : null;
+  if (!url) return null;
+  
+  // High-confidence patterns for Google Drive
+  const patterns = [
+    /\/file\/d\/([a-zA-Z0-9_-]{25,})/i,
+    /[?&]id=([a-zA-Z0-9_-]{25,})/i,
+    /drive\.google\.com\/open\?id=([a-zA-Z0-9_-]{25,})/i,
+    /drive\.google\.com\/uc\?id=([a-zA-Z0-9_-]{25,})/i
+  ];
+
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match && match[1]) return match[1];
+  }
+  return null;
 };
 
 export const getMenu = async (req: Request, res: Response) => {

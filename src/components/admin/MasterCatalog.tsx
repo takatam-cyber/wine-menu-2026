@@ -1,5 +1,6 @@
 import React from 'react';
 import { WineMaster } from '../../types';
+import { AuthImage } from '../ui/AuthImage';
 import { Search, Database, Edit2, X, Save } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -49,8 +50,8 @@ export const MasterCatalog: React.FC<MasterCatalogProps> = ({
         {wines.map(wine => (
           <div key={wine.id} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex gap-4 group hover:border-brand-wine transition-all">
             <div className="w-16 h-24 bg-slate-50 rounded-xl flex items-center justify-center p-2 border border-slate-100 shrink-0">
-              <img 
-                src={`/api/proxy-image?url=${encodeURIComponent(wine.image_url)}`} 
+              <AuthImage 
+                url={wine.image_url} 
                 alt="" 
                 crossOrigin="anonymous"
                 referrerPolicy="no-referrer" 
@@ -58,7 +59,7 @@ export const MasterCatalog: React.FC<MasterCatalogProps> = ({
               />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-[9px] font-bold text-brand-gold uppercase tracking-widest">{wine.country} • {wine.vintage}</div>
+              <div className="text-[9px] font-bold text-brand-gold-dark uppercase tracking-widest">{wine.country} • {wine.vintage}</div>
               <h4 className="font-bold text-slate-900 text-sm mb-1 truncate">{wine.name_jp}</h4>
               <p className="text-[10px] text-slate-500 font-mono italic mb-2">{wine.grape}</p>
               <div className="flex items-center justify-between mt-auto">

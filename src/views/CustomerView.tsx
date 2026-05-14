@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { WineMaster, Store } from '../types';
 import { useWines } from '../lib/WineContext';
 import { WineProfile } from '../components/WineProfile';
+import { AuthImage } from '../components/ui/AuthImage';
 import { db, auth } from '../lib/firebase';
 import { signInAnonymously } from 'firebase/auth';
 import { doc, getDoc, collection, getDocs, query, where, setDoc } from 'firebase/firestore';
@@ -56,16 +57,20 @@ export const CustomerView: React.FC = () => {
   ];
 
   const getDynamicStyles = (color: string) => {
-    if (color === '赤') {
-      return ['フルボディ', 'ミディアムボディ', 'ライトボディ'];
-    }
-    // For White/Sparkling, extract unique types from inventory if possible, or use defaults
-    const styles = Array.from(new Set(inventory
+    // Extract unique types from inventory for this color
+    const stylesInInventory = Array.from(new Set(inventory
       .filter(w => w.color === color && w.type)
       .map(w => w.type as string)
     )).sort();
     
-    return styles.length > 0 ? styles : ['辛口', '甘口'];
+    if (stylesInInventory.length > 0) return stylesInInventory;
+
+    // Fallbacks if no types found in current inventory
+    if (color === '赤') return ['フルボディ', 'ミディアムボディ', 'ライトボディ'];
+    if (color === '白') return ['辛口', '中辛口', '甘口'];
+    if (color === '泡' || color === 'スパークリング') return ['Brut', 'Extra Dry', 'Demi-Sec'];
+    
+    return ['辛口', '甘口'];
   };
 
   // Auto-refresh and Auth Handling
@@ -648,7 +653,7 @@ export const CustomerView: React.FC = () => {
                   <p className="text-[14px] text-brand-wine font-bold leading-relaxed mb-1">
                     ご希望の条件に近い、<br/>ソムリエおすすめのワインを表示しています
                   </p>
-                  <p className="text-[13px] text-brand-gold font-bold uppercase tracking-widest opacity-60">
+                  <p className="text-[13px] text-brand-gold-dark font-bold uppercase tracking-widest opacity-60">
                     Showing Recommended Selections
                   </p>
                 </motion.div>
@@ -696,8 +701,8 @@ export const CustomerView: React.FC = () => {
                               <div className="absolute inset-0 opacity-5 bg-[url('https://www.transparenttextures.com/patterns/handmade-paper.png')] rounded-[3rem]" />
                               <div className="w-32 h-40 bg-white flex items-center justify-center p-4 rounded-[2rem] relative border border-brand-gold/20 shadow-xl group-hover:border-brand-gold/50 transition-all overflow-hidden shrink-0">
                                 <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]" />
-                                <img
-                                  src={`/api/proxy-image?url=${encodeURIComponent(wine.image_url)}`}
+                                <AuthImage
+                                  url={wine.image_url}
                                   alt=""
                                   crossOrigin="anonymous"
                                   referrerPolicy="no-referrer"
@@ -730,7 +735,7 @@ export const CustomerView: React.FC = () => {
                                   {wine.menu_short && (
                                     <div className="mb-2">
                                       <div className="inline-flex items-center gap-2 px-2 py-1 bg-brand-gold/10 border-l-2 border-brand-gold">
-                                        <span className="text-sm font-serif text-brand-gold italic tracking-wider leading-relaxed">
+                                        <span className="text-sm font-serif text-brand-gold-dark italic tracking-wider leading-relaxed">
                                           {wine.menu_short}
                                         </span>
                                       </div>
@@ -774,11 +779,9 @@ export const CustomerView: React.FC = () => {
 
                 {/* Regular Menu Section */}
                 <div className="space-y-6">
-                  {displayedInventory.some(w => !w.isFeatured) && (
-                    <div className="px-2 pb-2">
-                       <h3 className="text-[10px] text-brand-wine/40 uppercase tracking-[0.4em] font-bold">Standard Collection</h3>
-                    </div>
-                  )}
+                      <div className="px-2 pb-2">
+                         <h3 className="text-[10px] text-brand-wine/40 uppercase tracking-[0.4em] font-bold">Standard Collection</h3>
+                      </div>
                   <div className="grid gap-6">
                     {displayedInventory.filter(w => !w.isFeatured).map((wine) => (
                       <motion.div
@@ -800,8 +803,8 @@ export const CustomerView: React.FC = () => {
                         className="group cursor-pointer flex gap-5 border border-transparent border-b-brand-wine/5 p-4 hover:bg-brand-gold/[0.02] transition-all duration-300 relative overflow-hidden"
                       >
                         <div className="w-24 h-28 bg-white/50 backdrop-blur-sm flex items-center justify-center p-3 rounded-2xl relative border border-brand-gold/10 shadow-sm group-hover:border-brand-gold/30 transition-all shrink-0">
-                          <img
-                            src={`/api/proxy-image?url=${encodeURIComponent(wine.image_url)}`}
+                        <AuthImage
+                            url={wine.image_url}
                             alt=""
                             crossOrigin="anonymous"
                             referrerPolicy="no-referrer"
@@ -829,7 +832,7 @@ export const CustomerView: React.FC = () => {
                           </div>
                           {wine.menu_short && (
                             <div className="mb-1">
-                              <span className="text-sm font-serif text-brand-gold italic border-l border-brand-gold pl-1.5 leading-relaxed">
+                              <span className="text-sm font-serif text-brand-gold-dark italic border-l border-brand-gold pl-1.5 leading-relaxed">
                                 {wine.menu_short}
                               </span>
                             </div>
@@ -899,8 +902,8 @@ export const CustomerView: React.FC = () => {
                 <div className="text-center pt-4">
                   <div className="w-full aspect-square md:aspect-[4/5] bg-black/40 border border-brand-gold/20 rounded-3xl mb-8 flex items-center justify-center p-8 relative shadow-inner group overflow-hidden">
                     <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,rgba(212,175,55,0.15),transparent_70%)]" />
-                    <img 
-                      src={`/api/proxy-image?url=${encodeURIComponent(selectedWine.image_url)}`}
+                    <AuthImage 
+                      url={selectedWine.image_url}
                       alt="" 
                       crossOrigin="anonymous"
                       referrerPolicy="no-referrer"
@@ -928,20 +931,20 @@ export const CustomerView: React.FC = () => {
                   <div className="relative">
                     <div className="absolute top-4 left-4 text-brand-gold/20"><Sparkles className="w-8 h-8" /></div>
                     <div className="bg-brand-gold/5 p-6 pt-10 rounded-2xl border border-brand-gold/10 shadow-inner space-y-6">
-                      <p className="text-sm md:text-lg leading-relaxed text-gray-200 italic font-serif first-letter:text-3xl first-letter:float-left first-letter:mr-2 first-letter:text-brand-gold">
+                      <p className="text-xl md:text-2xl leading-relaxed text-brand-gold-dark font-serif first-letter:text-5xl first-letter:float-left first-letter:mr-3 first-letter:mt-1 first-letter:text-brand-gold-dark font-medium italic">
                         {selectedWine.ai_explanation || selectedWine.aroma_features}
                       </p>
                       
                       {selectedWine.aroma_features && (
                         <div className="pt-4 border-t border-brand-gold/10">
-                          <p className="text-[11px] text-brand-gold/40 font-black uppercase tracking-widest mb-2">Aroma & Features</p>
-                          <p className="text-xs text-gray-400 leading-relaxed font-sans">{selectedWine.aroma_features}</p>
+                          <p className="text-[11px] text-brand-gold-dark/40 font-black uppercase tracking-widest mb-2">Aroma & Features</p>
+                          <p className="text-sm text-gray-700 leading-relaxed font-sans">{selectedWine.aroma_features}</p>
                         </div>
                       )}
 
                       <div className="flex flex-wrap gap-2 pt-4 border-t border-brand-gold/10">
                         {selectedWine.tags?.split('、').map(tag => (
-                          <span key={tag} className="px-3 py-1 bg-brand-gold/10 rounded-full text-xs text-brand-gold font-bold tracking-widest whitespace-nowrap">
+                          <span key={tag} className="px-3 py-1 bg-brand-gold/10 rounded-full text-xs text-brand-gold-dark font-bold tracking-widest whitespace-nowrap border border-brand-gold/20">
                             #{tag}
                           </span>
                         ))}
