@@ -19,10 +19,16 @@ export const CustomerView: React.FC = () => {
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'featured' | 'price_desc' | 'price_asc'>('featured');
   
-  // New Quick Filters State
+  // Filters State
   const [activeCuisine, setActiveCuisine] = useState<string | null>(null);
   const [activeColor, setActiveColor] = useState<string | null>(null);
   const [activeBudget, setActiveBudget] = useState<string | null>(null);
+
+  // Concierge State
+  const [step1Color, setStep1Color] = useState<string | null>(null);
+  const [step2Style, setStep2Style] = useState<string | null>(null);
+  const [step3Budget, setStep3Budget] = useState<number | null>(null);
+  const [selectedDish, setSelectedDish] = useState<string | null>(null);
 
   const finalStoreId = routeStoreId || new URLSearchParams(window.location.search).get('storeId') || user?.storeId;
   const { data: menuData, isLoading: isDataFetching, refetch: fetchStoreData } = usePublicMenuQuery(finalStoreId || null);
@@ -36,11 +42,31 @@ export const CustomerView: React.FC = () => {
     { id: 'b3', label: '¥10,000〜', min: 10000 }
   ];
 
+  const conciergeBudgets = [
+    { id: 5000, label: '〜5,000円', max: 5000 },
+    { id: 10000, label: '〜10,000円', max: 10000 },
+    { id: 20000, label: '〜20,000円', max: 20000 },
+    { id: 999999, label: '20,000円以上', min: 20000 }
+  ];
+
   const cuisineFilters = [
     { id: 'meat', label: 'お肉料理', match: /肉|ステーキ|ラム|牛|豚/i },
     { id: 'fish', label: 'お魚料理', match: /魚|シーフード|刺身|カルパッチョ/i },
     { id: 'appetizer', label: '前菜・サラダ', match: /前菜|サラダ|カルパッチョ|小皿/i }
   ];
+
+  const getDynamicStyles = (color: string) => {
+    if (color === '赤') {
+      return ['フルボディ', 'ミディアムボディ', 'ライトボディ'];
+    }
+    // For White/Sparkling, extract unique types from inventory if possible, or use defaults
+    const styles = Array.from(new Set(inventory
+      .filter(w => w.color === color && w.type)
+      .map(w => w.type as string)
+    )).sort();
+    
+    return styles.length > 0 ? styles : ['辛口', '甘口'];
+  };
 
   // Auto-refresh and Auth Handling
   useEffect(() => {
@@ -221,6 +247,7 @@ export const CustomerView: React.FC = () => {
   const displayedInventoryRaw = inventory.filter(w => {
     let matches = true;
 
+    // Quick Chips Filters
     if (activeColor) {
       matches = matches && w.color === activeColor;
     }
@@ -238,10 +265,38 @@ export const CustomerView: React.FC = () => {
       }
     }
 
+    // Concierge Filters
+    if (step1Color) {
+      matches = matches && w.color === step1Color;
+      
+      if (step2Style) {
+        if (step1Color === '赤') {
+          if (step2Style === 'フルボディ') matches = matches && (w.body || 0) >= 4;
+          else if (step2Style === 'ミディアムボディ') matches = matches && (w.body || 0) === 3;
+          else if (step2Style === 'ライトボディ') matches = matches && (w.body || 0) <= 2;
+        } else {
+          matches = matches && w.type === step2Style;
+        }
+      }
+    }
+
+    if (step3Budget) {
+      const budget = conciergeBudgets.find(b => b.id === step3Budget);
+      if (budget) {
+        if (budget.max) matches = matches && (w.price_bottle || 0) <= budget.max;
+        if (budget.min) matches = matches && (w.price_bottle || 0) >= budget.min;
+      }
+    }
+
+    if (selectedDish) {
+      const dish = cuisineFilters.find(d => d.id === selectedDish);
+      if (dish) matches = matches && dish.match.test(w.pairing || '');
+    }
+
     return matches;
   });
 
-  const hasNoResults = (activeColor || activeCuisine || activeBudget) && displayedInventoryRaw.length === 0;
+  const hasNoResults = (activeColor || activeCuisine || activeBudget || step1Color || step2Style || step3Budget || selectedDish) && displayedInventoryRaw.length === 0;
   
   const displayedInventory = (hasNoResults ? inventory.filter(w => w.isFeatured) : displayedInventoryRaw)
     .sort((a, b) => {
@@ -396,8 +451,193 @@ export const CustomerView: React.FC = () => {
           </div>
 
           {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-8 pb-32 scroll-smooth">
-            <div className="space-y-6">
+          <div className="flex-1 overflow-y-auto p-0 md:p-0 space-y-0 pb-32 scroll-smooth">
+            {/* Design Enhanced Concierge Section */}
+            <div className="bg-white/40 backdrop-blur-xl border-b border-brand-gold/10 px-4 md:px-8 py-8 space-y-10 shadow-sm">
+                
+                {/* Section: お料理から選ぶ */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-4 w-1 bg-brand-gold rounded-full" />
+                    <h4 className="text-[13px] font-black text-brand-gold-dark uppercase tracking-[0.2em]">お料理から選ぶ</h4>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    {cuisineFilters.map(dish => (
+                      <button
+                        key={dish.id}
+                        onClick={() => {
+                          setSelectedDish(selectedDish === dish.id ? null : dish.id);
+                          // Clear other filters for clarity
+                          setStep1Color(null);
+                          setStep2Style(null);
+                          setStep3Budget(null);
+                        }}
+                        className={`flex flex-col items-center justify-center gap-1.5 py-4 rounded-2xl border transition-all ${
+                          selectedDish === dish.id 
+                            ? 'bg-brand-gold text-brand-wine border-brand-gold shadow-lg scale-[1.02]' 
+                            : 'bg-white/80 text-brand-wine/70 border-brand-gold/10 hover:border-brand-gold/30'
+                        }`}
+                      >
+                        <span className="text-[13px] font-bold tracking-tight whitespace-nowrap">{dish.label}</span>
+                        <span className="text-[10px] font-bold opacity-40 uppercase tracking-widest">{dish.id}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Section: ワイン・コンシェルジュ */}
+                <div className="space-y-5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="h-5 w-1.5 bg-brand-gold-dark rounded-full" />
+                      <h4 className="text-[14px] font-black text-brand-gold-dark uppercase tracking-[0.25em]">ワイン・コンシェルジュ</h4>
+                    </div>
+                    <div className="flex gap-1.5">
+                      {[1, 2, 3].map(step => {
+                        let isComplete = false;
+                        if (step === 1) isComplete = !!step1Color;
+                        if (step === 2) isComplete = !!step2Style;
+                        if (step === 3) isComplete = !!step3Budget;
+                        
+                        return (
+                          <div 
+                            key={step} 
+                            className={`h-1.5 w-6 rounded-full transition-all duration-500 ${
+                              isComplete ? 'bg-brand-gold' : 'bg-brand-gold/20'
+                            }`}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-8 bg-brand-wine/[0.03] p-6 rounded-[2.5rem] border border-brand-gold/10 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                       <Wine className="w-24 h-24" strokeWidth={0.5} />
+                    </div>
+
+                    {/* Step 1: Color */}
+                    <div className="space-y-3 relative z-10">
+                      <p className="text-[10px] text-brand-gold-dark font-black uppercase tracking-[0.3em] flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold flex items-center justify-center text-[10px] font-black shadow-inner">1</span>
+                        ワインの色を選ぶ
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {['赤', '白', '泡'].map(color => (
+                          <button
+                            key={color}
+                            onClick={() => {
+                              const newColor = step1Color === color ? null : color;
+                              setStep1Color(newColor);
+                              setStep2Style(null);
+                              setStep3Budget(null);
+                              setSelectedDish(null);
+                            }}
+                            className={`px-8 py-3 rounded-full text-[14px] font-bold transition-all border ${
+                              step1Color === color 
+                                ? 'bg-brand-wine text-brand-gold border-brand-gold shadow-lg scale-105' 
+                                : 'bg-white border-brand-gold/10 text-brand-wine/60'
+                            }`}
+                          >
+                            {color === '泡' ? 'スパークリング' : color}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Step 2: Style */}
+                    <AnimatePresence mode="wait">
+                      {step1Color && (
+                        <motion.div 
+                          key="step2"
+                          initial={{ opacity: 0, height: 0, y: 10 }}
+                          animate={{ opacity: 1, height: 'auto', y: 0 }}
+                          exit={{ opacity: 0, height: 0, y: 10 }}
+                          className="space-y-3 pt-6 border-t border-brand-gold/10 overflow-hidden relative z-10"
+                        >
+                          <p className="text-[10px] text-brand-gold-dark font-black uppercase tracking-[0.3em] flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold flex items-center justify-center text-[10px] font-black shadow-inner">2</span>
+                            スタイルを選ぶ
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {getDynamicStyles(step1Color).map(style => (
+                              <button
+                                key={style}
+                                onClick={() => {
+                                  setStep2Style(step2Style === style ? null : style);
+                                  setStep3Budget(null);
+                                }}
+                                className={`px-5 py-3 rounded-2xl text-[13px] font-bold transition-all border ${
+                                  step2Style === style 
+                                    ? 'bg-brand-gold text-brand-wine border-brand-gold shadow-md scale-105 font-black' 
+                                    : 'bg-white/50 border-brand-gold/10 text-brand-wine/60'
+                                }`}
+                              >
+                                {style}
+                              </button>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    {/* Step 3: Budget */}
+                    <AnimatePresence mode="wait">
+                      {step2Style && (
+                        <motion.div 
+                          key="step3"
+                          initial={{ opacity: 0, height: 0, y: 10 }}
+                          animate={{ opacity: 1, height: 'auto', y: 0 }}
+                          exit={{ opacity: 0, height: 0, y: 10 }}
+                          className="space-y-3 pt-6 border-t border-brand-gold/10 overflow-hidden relative z-10"
+                        >
+                          <p className="text-[10px] text-brand-gold-dark font-black uppercase tracking-[0.3em] flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold flex items-center justify-center text-[10px] font-black shadow-inner">3</span>
+                            予算から絞り込む
+                          </p>
+                          <div className="grid grid-cols-2 gap-2">
+                            {conciergeBudgets.map(budget => (
+                              <button
+                                key={budget.id}
+                                onClick={() => setStep3Budget(step3Budget === budget.id ? null : budget.id)}
+                                className={`px-4 py-3 rounded-2xl text-[12px] font-bold transition-all border ${
+                                  step3Budget === budget.id 
+                                    ? 'bg-brand-wine text-brand-gold border-brand-gold shadow-md' 
+                                    : 'bg-white/30 border-brand-gold/10 text-brand-wine/50'
+                                }`}
+                              >
+                                {budget.label}
+                              </button>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </div>
+
+                {/* Reset Button */}
+                <div className="flex justify-center pt-2">
+                   <button 
+                      onClick={() => {
+                        setStep1Color(null);
+                        setStep2Style(null);
+                        setStep3Budget(null);
+                        setSelectedDish(null);
+                        setActiveColor(null);
+                        setActiveCuisine(null);
+                        setActiveBudget(null);
+                      }}
+                      className="text-[11px] text-brand-gold-dark/50 font-black uppercase tracking-[0.3em] hover:text-brand-gold-dark transition-colors flex items-center gap-2 group"
+                    >
+                      <AlertCircle className="w-3.5 h-3.5 group-hover:rotate-12 transition-transform" />
+                      条件をリセット
+                    </button>
+                </div>
+            </div>
+
+            <div className="p-4 md:p-6 space-y-8">
+              <div className="space-y-6">
 
               {hasNoResults && (
                 <motion.div 
@@ -420,9 +660,9 @@ export const CustomerView: React.FC = () => {
                   {displayedInventory.some(w => w.isFeatured) && (
                     <div className="space-y-6">
                       <div className="flex items-center gap-3 px-2">
-                        <Sparkles className="w-5 h-5 text-brand-gold" />
-                        <h3 className="serif text-[13px] text-brand-gold uppercase tracking-[0.4em] font-bold">Sommelier's Selection</h3>
-                        <div className="flex-1 h-px bg-brand-gold/20" />
+                        <Sparkles className="w-5 h-5 text-brand-gold-dark" />
+                        <h3 className="serif text-[13px] text-brand-gold-dark uppercase tracking-[0.4em] font-bold">Sommelier's Selection</h3>
+                        <div className="flex-1 h-px bg-brand-gold-dark/20" />
                       </div>
                       <div className="grid gap-8">
                         {displayedInventory.filter(w => w.isFeatured).map((wine) => (
@@ -483,7 +723,7 @@ export const CustomerView: React.FC = () => {
                                       {wine.color}
                                     </div>
                                   )}
-                                  <div className="text-[12px] uppercase font-bold text-brand-gold tracking-[0.2em] opacity-80 ml-1">
+                                  <div className="text-[12px] uppercase font-bold text-brand-gold-dark tracking-[0.2em] opacity-80 ml-1">
                                     {wine.country}
                                   </div>
                                 </div>
@@ -579,7 +819,7 @@ export const CustomerView: React.FC = () => {
                                   {wine.color}
                                 </div>
                               )}
-                            <div className="text-[13px] uppercase font-bold text-brand-gold/60 tracking-[0.2em]">
+                            <div className="text-[13px] uppercase font-bold text-brand-gold-dark/60 tracking-[0.2em]">
                               {wine.country}
                             </div>
                             <div className="flex items-center gap-1 ml-auto opacity-40">
@@ -620,6 +860,7 @@ export const CustomerView: React.FC = () => {
               </div>
             </div>
           </div>
+        </div>
         </div>
 
         {/* Global Footer */}
@@ -682,14 +923,22 @@ export const CustomerView: React.FC = () => {
                 <div className="space-y-6">
                   <div className="flex items-center gap-3 text-brand-gold">
                     <Info className="w-6 h-6 opacity-70" />
-                    <h4 className="text-sm font-bold uppercase tracking-[0.3em]">アロマ・特徴</h4>
+                    <h4 className="text-sm font-bold uppercase tracking-[0.3em]">ソムリエによる解説</h4>
                   </div>
                   <div className="relative">
                     <div className="absolute top-4 left-4 text-brand-gold/20"><Sparkles className="w-8 h-8" /></div>
-                    <div className="bg-brand-gold/5 p-6 pt-10 rounded-2xl border border-brand-gold/10 shadow-inner space-y-4">
-                      <p className="text-sm md:text-lg leading-relaxed text-gray-200 italic font-serif">
-                        {selectedWine.aroma_features}
+                    <div className="bg-brand-gold/5 p-6 pt-10 rounded-2xl border border-brand-gold/10 shadow-inner space-y-6">
+                      <p className="text-sm md:text-lg leading-relaxed text-gray-200 italic font-serif first-letter:text-3xl first-letter:float-left first-letter:mr-2 first-letter:text-brand-gold">
+                        {selectedWine.ai_explanation || selectedWine.aroma_features}
                       </p>
+                      
+                      {selectedWine.aroma_features && (
+                        <div className="pt-4 border-t border-brand-gold/10">
+                          <p className="text-[11px] text-brand-gold/40 font-black uppercase tracking-widest mb-2">Aroma & Features</p>
+                          <p className="text-xs text-gray-400 leading-relaxed font-sans">{selectedWine.aroma_features}</p>
+                        </div>
+                      )}
+
                       <div className="flex flex-wrap gap-2 pt-4 border-t border-brand-gold/10">
                         {selectedWine.tags?.split('、').map(tag => (
                           <span key={tag} className="px-3 py-1 bg-brand-gold/10 rounded-full text-xs text-brand-gold font-bold tracking-widest whitespace-nowrap">

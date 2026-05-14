@@ -189,8 +189,8 @@ export const OwnerView: React.FC = () => {
   if (inventoryLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-full py-24 gap-4">
-        <Loader2 className="w-8 h-8 animate-spin text-brand-gold" />
-        <p className="text-brand-gold/60 text-xs font-bold uppercase tracking-widest">セラーを読み込み中...</p>
+        <Loader2 className="w-8 h-8 animate-spin text-brand-gold-dark" />
+        <p className="text-brand-gold-dark/60 text-xs font-bold uppercase tracking-widest">セラーを読み込み中...</p>
       </div>
     );
   }
@@ -243,20 +243,20 @@ export const OwnerView: React.FC = () => {
             <div>
               <div className="flex flex-col md:flex-row md:items-center gap-3">
                 <div className="flex items-center gap-3">
-                  <h1 className="serif text-3xl text-brand-gold">{store?.name || '店舗情報不明'}</h1>
-                  <button onClick={() => setIsEditingStore(true)} className="p-2 text-brand-gold/40 hover:text-brand-gold transition-colors">
+                  <h1 className="serif text-3xl text-brand-gold-dark">{store?.name || '店舗情報不明'}</h1>
+                  <button onClick={() => setIsEditingStore(true)} className="p-2 text-brand-gold-dark/40 hover:text-brand-gold-dark transition-colors">
                     <Edit2 className="w-4 h-4" />
                   </button>
                 </div>
                 {(user?.role === 'admin' || user?.role === 'rep') && (
                   <select 
-                    className="bg-brand-gold/10 border border-brand-gold/30 text-brand-gold rounded-full px-4 py-1 text-[10px] font-bold uppercase outline-none"
+                    className="bg-brand-gold-dark/10 border border-brand-gold-dark/30 text-brand-gold-dark rounded-full px-4 py-1 text-[10px] font-bold uppercase outline-none"
                     value={sid || ''}
                     onChange={(e) => window.location.href = `/owner?storeId=${e.target.value}`}
                   >
                     <option value="" disabled>店舗を切り替え</option>
                     {stores.map(s => (
-                      <option key={s.id} value={s.id} className="bg-brand-wine text-brand-gold font-sans">{s.name}</option>
+                      <option key={s.id} value={s.id} className="bg-brand-wine text-brand-gold-dark font-sans">{s.name}</option>
                     ))}
                   </select>
                 )}
@@ -371,9 +371,9 @@ export const OwnerView: React.FC = () => {
       )}
 
       <div className="grid gap-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-brand-gold/20 pb-3 mb-2 gap-4">
-          <h3 className="text-xs font-bold uppercase tracking-widest text-brand-gold flex items-center justify-center md:justify-start gap-2">
-            <Wine className="w-4 h-4 text-brand-gold" />
+        <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-brand-gold-dark/20 pb-3 mb-2 gap-4">
+          <h3 className="text-xs font-bold uppercase tracking-widest text-brand-gold-dark flex items-center justify-center md:justify-start gap-2">
+            <Wine className="w-4 h-4 text-brand-gold-dark" />
             稼働中のワインリスト ({inventory.length})
           </h3>
           <span className="text-[9px] text-gray-500 uppercase font-mono tracking-tighter text-center md:text-right italic">

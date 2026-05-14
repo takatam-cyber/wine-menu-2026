@@ -11,7 +11,11 @@ const ALLOWED_DOMAINS = [
 ];
 
 const extractDriveFileId = (url: string): string | null => {
-  // Common patterns: /file/d/ID/view, id=ID, uc?id=ID
+  // Patterns: 
+  // 1. /file/d/ID/view
+  // 2. id=ID (query param)
+  // 3. thumbnail?id=ID
+  // 4. uc?id=ID
   const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]{25,})/i) || 
                 url.match(/[?&]id=([a-zA-Z0-9_-]{25,})/i);
   return match ? match[1] : null;
