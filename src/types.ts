@@ -17,6 +17,7 @@ export interface WineMaster {
   supplier: string;
   storage: string;
   ai_explanation: string;
+  ai_explanation_en?: string;
   menu_short: string;
   pairing: string;
   sweetness: number;

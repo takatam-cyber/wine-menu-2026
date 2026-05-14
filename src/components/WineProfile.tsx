@@ -4,16 +4,36 @@ import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer } fro
 
 interface WineProfileProps {
   wine: WineMaster;
+  language?: 'jp' | 'en';
 }
 
-export const WineProfile: React.FC<WineProfileProps> = ({ wine }) => {
+export const WineProfile: React.FC<WineProfileProps> = ({ wine, language = 'jp' }) => {
+  const t = {
+    jp: {
+      sweetness: '甘味',
+      body: 'コク',
+      acidity: '酸味',
+      tannins: '渋み',
+      aroma: '香りの豊かさ',
+      complexity: '余韻の深さ'
+    },
+    en: {
+      sweetness: 'Sweetness',
+      body: 'Body',
+      acidity: 'Acidity',
+      tannins: 'Tannins',
+      aroma: 'Aroma',
+      complexity: 'Complexity'
+    }
+  };
+
   const data = [
-    { subject: '甘味', A: wine.sweetness || 1, fullMark: 5 },
-    { subject: 'コク', A: wine.body || 3, fullMark: 5 },
-    { subject: '酸味', A: wine.acidity || 3, fullMark: 5 },
-    { subject: '渋み', A: wine.tannins || 3, fullMark: 5 },
-    { subject: '香りの豊かさ', A: wine.aroma_intensity || 3, fullMark: 5 },
-    { subject: '余韻の深さ', A: wine.complexity || 3, fullMark: 5 },
+    { subject: t[language].sweetness, A: wine.sweetness || 1, fullMark: 5 },
+    { subject: t[language].body, A: wine.body || 3, fullMark: 5 },
+    { subject: t[language].acidity, A: wine.acidity || 3, fullMark: 5 },
+    { subject: t[language].tannins, A: wine.tannins || 3, fullMark: 5 },
+    { subject: t[language].aroma, A: wine.aroma_intensity || 3, fullMark: 5 },
+    { subject: t[language].complexity, A: wine.complexity || 3, fullMark: 5 },
   ];
 
   return (

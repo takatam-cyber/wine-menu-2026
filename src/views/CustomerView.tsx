@@ -16,18 +16,10 @@ import { usePublicMenuQuery } from '../hooks/usePublicMenuQuery';
 export const CustomerView: React.FC = () => {
   const { storeId: routeStoreId } = useParams();
   const { user, loading: authLoading } = useWines();
+  const [language, setLanguage] = useState<'jp' | 'en'>('jp');
   const [isConciergeOpen, setIsConciergeOpen] = useState(false);
   const [selectedWine, setSelectedWine] = useState<WineMaster | null>(null);
   const [isScrolled, setIsScrolled] = useState(false);
-
-  // Scroll Lock for Concierge & Modal
-  useEffect(() => {
-    if (isConciergeOpen || !!selectedWine) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-  }, [isConciergeOpen, !!selectedWine]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -50,6 +42,101 @@ export const CustomerView: React.FC = () => {
   const [selectedDish, setSelectedDish] = useState<string | null>(null);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'featured' | 'price_desc' | 'price_asc'>('featured');
+
+  const t = {
+    jp: {
+      selectFromDishes: 'お料理から選ぶ',
+      budget: '予算',
+      clear: 'クリア',
+      sort: '並び替え',
+      wineConcierge: 'ワイン・コンシェルジュ',
+      recommended: 'おすすめ順',
+      priceDesc: '価格が高い順',
+      priceAsc: '価格が安い順',
+      meat: 'お肉料理',
+      fish: 'お魚料理',
+      appetizer: '前菜・サラダ',
+      sparkling: 'スパークリング',
+      red: '赤',
+      white: '白',
+      sommelierSelection: "Sommelier's Selection",
+      standardCollection: "Standard Collection",
+      noResults: "ご希望の条件に近い、ソムリエおすすめのワインを表示しています",
+      showingRecommended: "Showing Recommended Selections",
+      consultStaff: "条件に合うワインが見つからない場合はスタッフにお尋ねください",
+      bottle: "ボトル",
+      glass: "グラス",
+      vintage: "ヴィンテージ",
+      grape: "主要品種",
+      flavorProfile: "味わいのプロファイル",
+      sommelierExplanation: "ソムリエによる解説",
+      bestMarriage: "最高のマリアージュ",
+      underTwenty: "飲酒は20歳になってから正しく適切に。",
+      loading: "読み込み中...",
+      notFound: "店舗が見つかりません",
+      qrRetry: "QRコードを再度読み取ってください。または店舗スタッフにお声がけください。",
+      preparation: "現在、ソムリエが在庫状況の最終確認およびワインリストの調整を行っております。まもなく公開されますので、少々お待ちください。",
+      urgent: "恐れ入りますが、お急ぎの場合は近くのスタッフまでお声がけください。",
+      refresh: "リストを更新する",
+      showResults: "結果を表示する",
+      chooseColor: "ワインの色を選ぶ",
+      chooseStyle: "スタイルを選ぶ",
+      narrowBudget: "予算から絞り込む",
+      back: "戻る",
+      fullBodied: "フルボディ",
+      mediumBodied: "ミディアムボディ",
+      lightBodied: "ライトボディ",
+      dry: "辛口",
+      mediumDry: "中辛口",
+      sweet: "甘口",
+    },
+    en: {
+      selectFromDishes: 'Select from Dishes',
+      budget: 'Budget',
+      clear: 'Clear',
+      sort: 'Sort',
+      wineConcierge: 'Wine Concierge',
+      recommended: 'Recommended',
+      priceDesc: 'Price: High to Low',
+      priceAsc: 'Price: Low to High',
+      meat: 'Meat Dishes',
+      fish: 'Fish Dishes',
+      appetizer: 'Appetizers & Salads',
+      sparkling: 'Sparkling',
+      red: 'Red',
+      white: 'White',
+      sommelierSelection: "Sommelier's Selection",
+      standardCollection: "Standard Collection",
+      noResults: "Matching wines weren't found. Showing our sommelier's top recommendations.",
+      showingRecommended: "Showing Recommended Selections",
+      consultStaff: "If you cannot find your ideal wine, please consult our staff.",
+      bottle: "Bottle",
+      glass: "Glass",
+      vintage: "Vintage",
+      grape: "Grapes",
+      flavorProfile: "Flavor Profile",
+      sommelierExplanation: "Sommelier's Note",
+      bestMarriage: "Best Pairings",
+      underTwenty: "Drinking age is 20 and over. Enjoy responsibly.",
+      loading: "Loading...",
+      notFound: "Store not found",
+      qrRetry: "Please try scanning the QR code again or contact the staff.",
+      preparation: "Our sommelier is finalizing the list. It will be available shortly.",
+      urgent: "We apologize for the wait. If you are in a hurry, please contact our staff.",
+      refresh: "Refresh List",
+      showResults: "Show Results",
+      chooseColor: "Choose Color",
+      chooseStyle: "Choose Style",
+      narrowBudget: "Narrow by Budget",
+      back: "Back",
+      fullBodied: "Full-bodied",
+      mediumBodied: "Medium-bodied",
+      lightBodied: "Light-bodied",
+      dry: "Dry",
+      mediumDry: "Med-Dry",
+      sweet: "Sweet",
+    }
+  };
 
   const finalStoreId = routeStoreId || new URLSearchParams(window.location.search).get('storeId') || user?.storeId;
   const { data: menuData, isLoading: isDataFetching, refetch: fetchStoreData } = usePublicMenuQuery(finalStoreId || null);
@@ -93,9 +180,9 @@ export const CustomerView: React.FC = () => {
       ];
 
   const cuisineFilters = [
-    { id: 'meat', label: 'お肉料理', match: /肉|ステーキ|ラム|牛|豚/i },
-    { id: 'fish', label: 'お魚料理', match: /魚|シーフード|刺身|カルパッチョ/i },
-    { id: 'appetizer', label: '前菜・サラダ', match: /前菜|サラダ|カルパッチョ|小皿/i }
+    { id: 'meat', label: t[language].meat, match: /肉|ステーキ|ラム|牛|豚/i },
+    { id: 'fish', label: t[language].fish, match: /魚|シーフード|刺身|カルパッチョ/i },
+    { id: 'appetizer', label: t[language].appetizer, match: /前菜|サラダ|カルパッチョ|小皿/i }
   ];
 
   const getDynamicStyles = (color: string) => {
@@ -108,11 +195,11 @@ export const CustomerView: React.FC = () => {
     if (stylesInInventory.length > 0) return stylesInInventory;
 
     // Fallbacks if no types found in current inventory
-    if (color === '赤') return ['フルボディ', 'ミディアムボディ', 'ライトボディ'];
-    if (color === '白') return ['辛口', '中辛口', '甘口'];
+    if (color === '赤') return [t[language].fullBodied, t[language].mediumBodied, t[language].lightBodied];
+    if (color === '白') return [t[language].dry, t[language].mediumDry, t[language].sweet];
     if (color === '泡' || color === 'スパークリング') return ['Brut', 'Extra Dry', 'Demi-Sec'];
     
-    return ['辛口', '甘口'];
+    return [t[language].dry, t[language].sweet];
   };
 
   // Auto-refresh and Auth Handling
@@ -203,8 +290,8 @@ export const CustomerView: React.FC = () => {
     return (
       <div className="min-h-screen bg-brand-wine flex flex-col items-center justify-center p-8 text-center">
         <Wine className="w-16 h-16 text-brand-gold/20 mb-6" />
-        <h2 className="serif text-2xl text-brand-gold mb-4">店舗が見つかりません</h2>
-        <p className="text-sm text-brand-ivory/60 leading-relaxed max-w-xs">QRコードを再度読み取ってください。または店舗スタッフにお声がけください。</p>
+        <h2 className="serif text-2xl text-brand-gold mb-4">{t[language].notFound}</h2>
+        <p className="text-sm text-brand-ivory/60 leading-relaxed max-w-xs">{t[language].qrRetry}</p>
       </div>
     );
   }
@@ -254,12 +341,10 @@ export const CustomerView: React.FC = () => {
             
             <div className="space-y-4">
               <p className="text-[12px] text-brand-ivory/80 leading-relaxed max-w-[320px] mx-auto serif italic tracking-[0.15em] uppercase">
-                現在、ソムリエが在庫状況の最終確認および<br/>
-                ワインリストの調整を行っております。<br/>
-                まもなく公開されますので、少々お待ちください。
+                {t[language].preparation}
               </p>
               <p className="text-[11px] text-brand-gold/60 leading-relaxed max-w-[280px] mx-auto serif tracking-[0.1em]">
-                恐れ入りますが、お急ぎの場合は<br/>近くのスタッフまでお声がけください。
+                {language === 'en' ? t[language].urgent : <>{t[language].urgent}</>}
               </p>
             </div>
 
@@ -275,7 +360,7 @@ export const CustomerView: React.FC = () => {
                 }}
                 className="px-14 py-4 bg-transparent border border-brand-gold/30 text-brand-gold text-[10px] uppercase tracking-[0.4em] rounded-full hover:bg-brand-gold/10 hover:border-brand-gold/60 active:scale-95 transition-all font-bold backdrop-blur-md shadow-lg"
               >
-                リストを更新する
+                {t[language].refresh}
               </button>
               
               <div className="flex items-center gap-3 opacity-30">
@@ -383,10 +468,24 @@ export const CustomerView: React.FC = () => {
               </button>
             )}
           </div>
-          <div className="flex-none text-center">
+          <div className="flex-none text-center flex flex-col md:flex-row items-center gap-1 md:gap-4">
             <h1 className="font-serif text-brand-gold font-light text-xl md:text-2xl tracking-[0.4em] uppercase leading-tight">
               {store.name}
             </h1>
+            <div className="flex items-center bg-white/10 rounded-full p-0.5 border border-brand-gold/20">
+              <button 
+                onClick={() => setLanguage('jp')} 
+                className={`px-2.5 py-0.5 rounded-full text-[9px] font-black transition-all ${language === 'jp' ? 'bg-brand-gold text-brand-wine' : 'text-brand-gold/50'}`}
+              >
+                JP
+              </button>
+              <button 
+                onClick={() => setLanguage('en')} 
+                className={`px-2.5 py-0.5 rounded-full text-[9px] font-black transition-all ${language === 'en' ? 'bg-brand-gold text-brand-wine' : 'text-brand-gold/50'}`}
+              >
+                EN
+              </button>
+            </div>
           </div>
           <div className="flex-1" />
         </header>
@@ -502,9 +601,9 @@ export const CustomerView: React.FC = () => {
                     onChange={(e) => setSortBy(e.target.value as any)}
                     className="appearance-none pl-4 pr-9 py-1.5 rounded-xl text-[11px] font-bold uppercase tracking-wider bg-white border border-brand-gold/20 text-brand-gold-dark outline-none transition-all"
                   >
-                    <option value="featured">Recommended</option>
-                    <option value="price_desc">Price Desc</option>
-                    <option value="price_asc">Price Asc</option>
+                    <option value="featured">{t[language].recommended}</option>
+                    <option value="price_desc">{t[language].priceDesc}</option>
+                    <option value="price_asc">{t[language].priceAsc}</option>
                   </select>
                   <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-brand-gold-dark">
                     <ChevronDown className="w-3.5 h-3.5" />
@@ -524,7 +623,7 @@ export const CustomerView: React.FC = () => {
                     <div className="space-y-4">
                       <div className="flex items-center gap-3">
                         <div className="h-4 w-1 bg-brand-gold rounded-full" />
-                        <h4 className="text-[13px] font-black text-brand-gold-dark uppercase tracking-[0.2em]">お料理から選ぶ</h4>
+                        <h4 className="text-[13px] font-black text-brand-gold-dark uppercase tracking-[0.2em]">{t[language].selectFromDishes}</h4>
                       </div>
                       <div className="grid grid-cols-3 gap-3">
                         {cuisineFilters.map(dish => (
@@ -555,7 +654,7 @@ export const CustomerView: React.FC = () => {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2.5">
                         <div className="h-5 w-1.5 bg-brand-gold-dark rounded-full" />
-                        <h4 className="text-[14px] font-black text-brand-gold-dark uppercase tracking-[0.25em]">ワイン・コンシェルジュ</h4>
+                        <h4 className="text-[14px] font-black text-brand-gold-dark uppercase tracking-[0.25em]">{t[language].wineConcierge}</h4>
                       </div>
                       <div className="flex gap-1.5">
                         {[1, 2, 3].map(step => (
@@ -578,7 +677,7 @@ export const CustomerView: React.FC = () => {
                       <div className="space-y-3 relative z-10">
                         <p className="text-[10px] text-brand-gold-dark font-black uppercase tracking-[0.3em] flex items-center gap-2">
                           <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold flex items-center justify-center text-[10px] font-black shadow-inner">1</span>
-                          ワインの色を選ぶ
+                          {t[language].chooseColor}
                         </p>
                         <div className="flex flex-wrap gap-2">
                           {['赤', '白', '泡'].map(color => (
@@ -597,7 +696,7 @@ export const CustomerView: React.FC = () => {
                                   : 'bg-white border-brand-gold/10 text-brand-wine/60'
                               }`}
                             >
-                              {color === '泡' ? 'スパークリング' : color}
+                              {color === '赤' ? t[language].red : color === '白' ? t[language].white : t[language].sparkling}
                             </button>
                           ))}
                         </div>
@@ -615,7 +714,7 @@ export const CustomerView: React.FC = () => {
                           >
                             <p className="text-[10px] text-brand-gold-dark font-black uppercase tracking-[0.3em] flex items-center gap-2">
                               <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold flex items-center justify-center text-[10px] font-black shadow-inner">2</span>
-                              スタイルを選ぶ
+                              {t[language].chooseStyle}
                             </p>
                             <div className="flex flex-wrap gap-2">
                               {getDynamicStyles(step1Color).map(style => (
@@ -651,7 +750,7 @@ export const CustomerView: React.FC = () => {
                           >
                             <p className="text-[10px] text-brand-gold-dark font-black uppercase tracking-[0.3em] flex items-center gap-2">
                               <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold flex items-center justify-center text-[10px] font-black shadow-inner">3</span>
-                              予算から絞り込む
+                              {t[language].narrowBudget}
                             </p>
                             <div className="grid grid-cols-2 gap-2">
                               {conciergeBudgets.map(budget => (
@@ -686,10 +785,10 @@ export const CustomerView: React.FC = () => {
                   className="mx-4 p-6 bg-brand-wine/5 border border-brand-gold/20 rounded-[2rem] text-center"
                 >
                   <p className="text-[14px] text-brand-wine font-bold leading-relaxed mb-1">
-                    ご希望の条件に近い、<br/>ソムリエおすすめのワインを表示しています
+                    {t[language].noResults}
                   </p>
                   <p className="text-[13px] text-brand-gold-dark font-bold uppercase tracking-widest opacity-60">
-                    Showing Recommended Selections
+                    {t[language].showingRecommended}
                   </p>
                 </motion.div>
               )}
@@ -701,7 +800,7 @@ export const CustomerView: React.FC = () => {
                     <div className="space-y-6">
                       <div className="flex items-center gap-3 px-2">
                         <Sparkles className="w-5 h-5 text-brand-gold-dark" />
-                        <h3 className="serif text-[13px] text-brand-gold-dark uppercase tracking-[0.4em] font-bold">Sommelier's Selection</h3>
+                        <h3 className="serif text-[13px] text-brand-gold-dark uppercase tracking-[0.4em] font-bold">{t[language].sommelierSelection}</h3>
                         <div className="flex-1 h-px bg-brand-gold-dark/20" />
                       </div>
                       <div className="grid gap-8">
@@ -760,7 +859,7 @@ export const CustomerView: React.FC = () => {
                                       wine.color === '白' ? 'bg-[#D4AF37] text-white' : 
                                       wine.color === '泡' || wine.color === 'スパークリング' ? 'bg-[#717D7E] text-white' : 'bg-slate-500 text-white'
                                     }`}>
-                                      {wine.color}
+                                      {wine.color === '赤' ? t[language].red : wine.color === '白' ? t[language].white : t[language].sparkling}
                                     </div>
                                   )}
                                   <div className="text-[12px] uppercase font-bold text-brand-gold-dark tracking-[0.2em] opacity-80 ml-1">
@@ -776,7 +875,9 @@ export const CustomerView: React.FC = () => {
                                       </div>
                                     </div>
                                   )}
-                                  <h3 className="serif text-2xl text-brand-wine leading-tight tracking-tight group-hover:text-brand-gold transition-colors">{wine.name_jp}</h3>
+                                  <h3 className="serif text-2xl text-brand-wine leading-tight tracking-tight group-hover:text-brand-gold transition-colors">
+                                    {language === 'en' ? (wine.name_en || wine.name_jp) : wine.name_jp}
+                                  </h3>
                                   
                                   <div className="flex flex-wrap gap-1 mt-2">
                                     <div className="flex items-center gap-1 px-2 py-1 bg-slate-100 rounded-lg text-[12px] text-slate-500 font-bold uppercase tracking-wider">
@@ -784,7 +885,7 @@ export const CustomerView: React.FC = () => {
                                       {wine.country} / {wine.region}
                                     </div>
                                     <div className="flex items-center gap-1 px-2 py-1 bg-brand-wine/10 rounded-lg text-[13px] text-brand-wine font-black uppercase tracking-wider">
-                                      品種: {wine.grape}
+                                      {t[language].grape}: {wine.grape}
                                     </div>
                                     {wine.tags?.split('、').slice(0, 3).map(tag => (
                                       <div key={tag} className="px-2 py-1 bg-brand-wine/5 rounded-lg text-[13px] text-brand-wine/60 font-bold tracking-wider flex items-center gap-1">
@@ -796,7 +897,7 @@ export const CustomerView: React.FC = () => {
 
                                   <div className="flex items-center justify-between mt-4">
                                     <div className="flex flex-col">
-                                       <span className="serif text-2xl text-brand-wine font-medium tracking-tighter">¥{wine.price_bottle?.toLocaleString()}</span>
+                               <span className="serif text-2xl text-brand-wine font-medium tracking-tighter">¥{wine.price_bottle?.toLocaleString()}</span>
                                     </div>
                                     <div className="w-10 h-10 rounded-full border border-brand-gold/30 flex items-center justify-center text-brand-gold group-hover:bg-brand-gold group-hover:text-white transition-all">
                                       <ChevronRight className="w-6 h-6" />
@@ -815,7 +916,7 @@ export const CustomerView: React.FC = () => {
                 {/* Regular Menu Section */}
                 <div className="space-y-6">
                       <div className="px-2 pb-2">
-                         <h3 className="text-[10px] text-brand-wine/40 uppercase tracking-[0.4em] font-bold">Standard Collection</h3>
+                         <h3 className="text-[10px] text-brand-wine/40 uppercase tracking-[0.4em] font-bold">{t[language].standardCollection}</h3>
                       </div>
                   <div className="grid gap-6">
                     {displayedInventory.filter(w => !w.isFeatured).map((wine) => (
@@ -853,7 +954,7 @@ export const CustomerView: React.FC = () => {
                           wine.color === '白' ? 'bg-[#D4AF37] text-white' : 
                           wine.color === '泡' || wine.color === 'スパークリング' ? 'bg-[#717D7E] text-white' : 'bg-slate-500 text-white'
                         }`}>
-                          {wine.color}
+                          {wine.color === '赤' ? t[language].red : wine.color === '白' ? t[language].white : t[language].sparkling}
                         </div>
                         <div className="text-[13px] uppercase font-bold text-brand-gold-dark tracking-[0.2em]">
                           {wine.country}
@@ -870,12 +971,14 @@ export const CustomerView: React.FC = () => {
                               </span>
                             </div>
                           )}
-                          <h3 className="serif text-xl text-brand-wine leading-tight group-hover:text-brand-gold transition-colors">{wine.name_jp}</h3>
+                          <h3 className="serif text-xl text-brand-wine leading-tight group-hover:text-brand-gold transition-colors">
+                            {language === 'en' ? (wine.name_en || wine.name_jp) : wine.name_jp}
+                          </h3>
                           
                           <div className="flex flex-wrap gap-1 mt-1.5">
                             <div className="flex items-center gap-1 text-[13px] text-slate-400 font-bold uppercase tracking-widest">
                               <MapPin className="w-2.5 h-2.5" />
-                              {wine.country} / <span className="text-brand-wine font-black">品種: {wine.grape}</span>
+                              {wine.country} / <span className="text-brand-wine font-black">{t[language].grape}: {wine.grape}</span>
                             </div>
                             {wine.tags?.split('、').slice(0, 2).map(tag => (
                               <div key={tag} className="px-1.5 py-0.5 bg-brand-wine/5 rounded text-[11px] text-brand-wine/40 font-bold tracking-wider">
@@ -913,7 +1016,7 @@ export const CustomerView: React.FC = () => {
             >
               <div className="flex items-center gap-0 group-hover:gap-2 transition-all px-2">
                 <span className="text-[12px] font-bold tracking-tighter whitespace-nowrap overflow-hidden max-w-0 group-hover:max-w-[120px] transition-all duration-500">
-                  コンシェルジュに相談
+                  {t[language].wineConcierge}
                 </span>
                 <div className="w-10 h-10 rounded-full bg-brand-ivory text-brand-gold-dark flex items-center justify-center shadow-inner shrink-0 scale-100 group-hover:scale-90 transition-transform">
                   <Sparkles className="w-5 h-5" />
@@ -959,7 +1062,7 @@ export const CustomerView: React.FC = () => {
                   <div className="space-y-4">
                     <p className="text-[10px] text-brand-gold-dark font-black uppercase tracking-[0.3em] flex items-center gap-2">
                       <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold flex items-center justify-center text-[10px] font-black shadow-inner">1</span>
-                      ワインの色を選ぶ
+                      {t[language].chooseColor}
                     </p>
                     <div className="flex flex-wrap gap-2">
                         {['赤', '白', '泡'].map(color => (
@@ -977,7 +1080,7 @@ export const CustomerView: React.FC = () => {
                                 : 'bg-white border-brand-gold/10 text-brand-wine/60'
                             }`}
                           >
-                            {color === '泡' ? 'スパークリング' : color}
+                            {color === '赤' ? t[language].red : color === '白' ? t[language].white : t[language].sparkling}
                           </button>
                         ))}
                     </div>
@@ -990,7 +1093,7 @@ export const CustomerView: React.FC = () => {
                     >
                       <p className="text-[10px] text-brand-gold-dark font-black uppercase tracking-[0.3em] flex items-center gap-2">
                         <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold flex items-center justify-center text-[10px] font-black shadow-inner">2</span>
-                        スタイルを選ぶ
+                        {t[language].chooseStyle}
                       </p>
                       <div className="flex flex-wrap gap-2">
                         {getDynamicStyles(step1Color).map(style => (
@@ -1020,7 +1123,7 @@ export const CustomerView: React.FC = () => {
                     >
                       <p className="text-[10px] text-brand-gold-dark font-black uppercase tracking-[0.3em] flex items-center gap-2">
                         <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold flex items-center justify-center text-[10px] font-black shadow-inner">3</span>
-                        予算から絞り込む
+                        {t[language].narrowBudget}
                       </p>
                       <div className="grid grid-cols-2 gap-2">
                         {conciergeBudgets.map(budget => (
@@ -1045,7 +1148,7 @@ export const CustomerView: React.FC = () => {
                       onClick={() => setIsConciergeOpen(false)}
                       className="w-full py-4 bg-brand-wine text-brand-gold rounded-full font-black uppercase tracking-[0.4em] shadow-xl active:scale-95 transition-all"
                     >
-                      結果を表示する
+                      {t[language].showResults}
                     </button>
                   </div>
                 </div>
@@ -1058,7 +1161,7 @@ export const CustomerView: React.FC = () => {
         <div className="fixed bottom-6 inset-x-6 z-40 flex justify-center pointer-events-none">
           <div className="bg-black/90 backdrop-blur-xl border border-brand-gold/30 px-8 py-3 rounded-full shadow-2xl animate-in slide-in-from-bottom duration-1000 pointer-events-auto">
             <p className="text-[10px] md:text-xs text-brand-gold font-bold uppercase tracking-[0.15em] text-center">
-              条件に合うワインが見つからない場合は<br className="md:hidden" />スタッフにお尋ねください
+              {t[language].consultStaff}
             </p>
           </div>
         </div>
@@ -1079,7 +1182,7 @@ export const CustomerView: React.FC = () => {
               className="fixed inset-0 z-[130] bg-black/98 backdrop-blur-3xl overflow-hidden flex flex-col h-[100dvh] md:h-auto md:bottom-0 md:top-12 md:rounded-t-[2.5rem] border-t border-brand-gold/30 shadow-[0_-20px_500px_rgba(0,0,0,1)]"
             >
               <div className="sticky top-0 z-[140] bg-black/95 backdrop-blur-md p-8 pb-4 flex justify-between items-center border-b border-white/5">
-                <span className="text-sm text-brand-gold font-bold uppercase tracking-[0.2em] opacity-60">Vintage {selectedWine.vintage}</span>
+                <span className="text-sm text-brand-gold font-bold uppercase tracking-[0.2em] opacity-60">{t[language].vintage} {selectedWine.vintage}</span>
                 <button 
                   onClick={() => setSelectedWine(null)} 
                   className="w-10 h-10 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-brand-gold text-xl hover:bg-white/20 transition-all font-light"
@@ -1098,29 +1201,44 @@ export const CustomerView: React.FC = () => {
                         className="h-full object-contain relative z-10 transition-transform duration-2000 group-hover:scale-105" 
                       />
                     </div>
-                    <h2 className="serif text-3xl md:text-5xl text-brand-gold mb-3 tracking-tight leading-tight">{selectedWine.name_jp}</h2>
-                    <p className="text-[13px] md:text-sm text-gray-400 tracking-[0.3em] uppercase font-bold mb-2">{selectedWine.name_en}</p>
-                    <p className="text-sm text-brand-gold-dark font-bold uppercase tracking-widest border-t border-brand-gold/20 pt-2 inline-block">主要品種: {selectedWine.grape}</p>
+                    <h2 className="serif text-3xl md:text-5xl text-brand-gold mb-3 tracking-tight leading-tight">
+                      {language === 'en' ? (selectedWine.name_en || selectedWine.name_jp) : selectedWine.name_jp}
+                    </h2>
+                    <p className="text-[13px] md:text-sm text-gray-400 tracking-[0.3em] uppercase font-bold mb-2">
+                      {language === 'en' ? (selectedWine.name_jp) : selectedWine.name_en}
+                    </p>
+                    <p className="text-sm text-brand-gold-dark font-bold uppercase tracking-widest border-t border-brand-gold/20 pt-2 inline-block">
+                      {t[language].grape}: {selectedWine.grape}
+                    </p>
                   </div>
 
                 <div className="space-y-6 pt-8 border-t border-white/10">
                   <div className="flex items-center gap-3 text-brand-gold">
                     <Award className="w-6 h-6 opacity-70" />
-                    <h4 className="text-sm font-bold uppercase tracking-[0.3em]">味わいのプロファイル</h4>
+                    <h4 className="text-sm font-bold uppercase tracking-[0.3em]">{t[language].flavorProfile}</h4>
                   </div>
-                  <WineProfile wine={selectedWine} />
+                  <WineProfile wine={selectedWine} language={language} />
                 </div>
 
                 <div className="space-y-6">
                   <div className="flex items-center gap-3 text-brand-gold">
                     <Info className="w-6 h-6 opacity-70" />
-                    <h4 className="text-sm font-bold uppercase tracking-[0.3em]">ソムリエによる解説</h4>
+                    <h4 className="text-sm font-bold uppercase tracking-[0.3em]">{t[language].sommelierExplanation}</h4>
                   </div>
                   <div className="relative">
                     <div className="absolute top-4 left-4 text-brand-gold/20"><Sparkles className="w-8 h-8" /></div>
                     <div className="bg-brand-gold/5 p-6 pt-10 rounded-2xl border border-brand-gold/10 shadow-inner space-y-6">
                       <p className="text-xl md:text-2xl leading-relaxed text-brand-gold-dark font-serif first-letter:text-5xl first-letter:float-left first-letter:mr-3 first-letter:mt-1 first-letter:text-brand-gold-dark font-medium italic">
-                        {selectedWine.ai_explanation || selectedWine.aroma_features}
+                        {language === 'en' ? (
+                          <>
+                            {selectedWine.ai_explanation_en || selectedWine.ai_explanation || selectedWine.aroma_features}
+                            {(!selectedWine.ai_explanation_en && selectedWine.ai_explanation) && (
+                              <span className="block mt-4 text-xs font-sans not-italic opacity-50">* Japanese description</span>
+                            )}
+                          </>
+                        ) : (
+                          selectedWine.ai_explanation || selectedWine.aroma_features
+                        )}
                       </p>
                       
                       {selectedWine.aroma_features && (
@@ -1145,7 +1263,7 @@ export const CustomerView: React.FC = () => {
                   <div className="space-y-6">
                     <div className="flex items-center gap-3 text-brand-gold">
                       <Utensils className="w-6 h-6 opacity-70" />
-                      <h4 className="text-sm font-bold uppercase tracking-[0.3em]">最高のマリアージュ</h4>
+                      <h4 className="text-sm font-bold uppercase tracking-[0.3em]">{t[language].bestMarriage}</h4>
                     </div>
                     <div className="flex flex-wrap gap-2 md:gap-3">
                       {selectedWine.pairing.split('、').map(p => (
@@ -1161,17 +1279,17 @@ export const CustomerView: React.FC = () => {
               <div className="sticky bottom-0 z-[140] p-6 md:p-8 pt-4 pb-[env(safe-area-inset-bottom,24px)] bg-black/95 backdrop-blur-2xl border-t border-brand-gold/20 flex flex-col gap-6 safe-bottom">
                  <div className="flex justify-between items-center px-2">
                    <div className="flex flex-col">
-                     <span className="text-sm text-gray-500 uppercase font-bold tracking-widest mb-1">Bottle</span>
+                     <span className="text-sm text-gray-500 uppercase font-bold tracking-widest mb-1">{t[language].bottle}</span>
                      <span className="serif text-2xl md:text-3xl text-brand-gold tracking-tighter">¥{selectedWine.price_bottle?.toLocaleString()}</span>
                    </div>
                    <div className="h-10 w-px bg-brand-gold/20" />
                    <div className="flex flex-col text-right">
-                     <span className="text-sm text-gray-500 uppercase font-bold tracking-widest mb-1">Glass</span>
+                     <span className="text-sm text-gray-500 uppercase font-bold tracking-widest mb-1">{t[language].glass}</span>
                      <span className="serif text-2xl md:text-3xl text-brand-gold tracking-tighter">¥{selectedWine.price_glass?.toLocaleString()}</span>
                    </div>
                  </div>
                  <div className="text-center">
-                   <p className="text-sm text-brand-gold font-bold uppercase tracking-[0.3em] opacity-40">飲酒は20歳になってから正しく適切に。</p>
+                   <p className="text-sm text-brand-gold font-bold uppercase tracking-[0.3em] opacity-40">{t[language].underTwenty}</p>
                  </div>
               </div>
             </motion.div>
