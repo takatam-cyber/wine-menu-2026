@@ -402,7 +402,7 @@ export const CustomerView: React.FC = () => {
 
       <div className={`flex-1 mt-0 md:mt-8 flex flex-col overflow-hidden ${isDataFetching ? 'hidden' : ''}`}>
           {/* Header */}
-          <header className={`p-6 pb-4 grid grid-cols-3 items-center border-b transition-all duration-500 shrink-0 z-50 ${
+          <header className={`p-6 pb-4 grid grid-cols-3 items-center border-b transition-all duration-500 shrink-0 z-40 ${
             isScrolled ? 'bg-black/95 backdrop-blur-2xl border-brand-gold/20' : 'bg-black/80 backdrop-blur-md border-brand-gold/30'
           } sticky top-0`}>
             <div className="justify-self-start">
@@ -434,110 +434,111 @@ export const CustomerView: React.FC = () => {
             </div>
           </header>
 
-          {/* Quick Filters - Sticky Sort Bar */}
-          <div className={`transition-all duration-500 border-b z-40 sticky top-0 ${
-            isScrolled 
-              ? 'bg-brand-ivory/95 backdrop-blur-md border-brand-gold/20 shadow-[0_4px_25px_rgba(0,0,0,0.1)]' 
-              : 'bg-black/90 backdrop-blur-md border-brand-gold/10'
-          }`}>
-            <div className="flex overflow-x-auto no-scrollbar py-3 px-4 gap-2 items-center">
-              <button 
-                onClick={() => {
-                  setActiveColor(null);
-                  setActiveCuisine(null);
-                  setActiveBudget(null);
-                  setSelectedDish(null);
-                  setStep1Color(null);
-                  setStep2Style(null);
-                  setStep3Budget(null);
-                  setSortBy('featured');
-                }}
-                className={`px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all whitespace-nowrap border ${
-                  !activeColor && !activeCuisine && !activeBudget && !step1Color
-                    ? isScrolled ? 'bg-brand-gold-dark text-white border-brand-gold-dark' : 'bg-brand-gold text-brand-wine border-brand-gold' 
-                    : isScrolled ? 'bg-brand-ivory border-brand-gold/20 text-brand-gold-dark/60' : 'bg-white/5 text-brand-gold/60 border-brand-gold/10'
-                }`}
-              >
-                Clear
-              </button>
-              
-              <div className={`w-px h-4 shrink-0 ${isScrolled ? 'bg-brand-gold-dark/20' : 'bg-brand-gold/20'}`} />
-              
-              {/* Color Chips */}
-              {['赤', '白', '泡'].map(color => (
-                <button
-                  key={color}
-                  onClick={() => setActiveColor(activeColor === color ? null : color)}
-                  className={`px-4 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all whitespace-nowrap border ${
-                    activeColor === color 
-                      ? isScrolled ? 'bg-brand-wine text-brand-gold-dark border-brand-gold/40' : 'bg-brand-wine text-brand-gold border-brand-gold shadow-sm' 
-                      : isScrolled ? 'bg-brand-ivory border-brand-gold/20 text-brand-gold-dark/50' : 'bg-white/5 text-brand-gold/40 border-brand-gold/10'
-                  }`}
-                >
-                  {color === '泡' ? 'Sparkling' : color === '赤' ? 'Red' : 'White'}
-                </button>
-              ))}
 
-              <div className={`w-px h-4 shrink-0 ${isScrolled ? 'bg-brand-gold-dark/20' : 'bg-brand-gold/20'}`} />
-              
-              {/* Cuisine Chips */}
-              {!store?.hidePairingFilter && cuisineFilters.map(c => (
-                <button
-                  key={c.id}
-                  onClick={() => setActiveCuisine(activeCuisine === c.id ? null : c.id)}
-                  className={`px-4 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all whitespace-nowrap border ${
-                    activeCuisine === c.id 
-                      ? isScrolled ? 'bg-brand-gold-dark text-white border-brand-gold-dark' : 'bg-brand-gold text-brand-wine border-brand-gold' 
-                      : isScrolled ? 'bg-brand-ivory border-brand-gold/20 text-brand-gold-dark/50' : 'bg-white/5 text-brand-gold/40 border-brand-gold/10'
-                  }`}
-                >
-                  {c.label}
-                </button>
-              ))}
-
-              {!store?.hidePairingFilter && <div className={`w-px h-4 shrink-0 ${isScrolled ? 'bg-brand-gold-dark/20' : 'bg-brand-gold/20'}`} />}
-
-              {/* Budget Chips */}
-              {budgetFilters.map(b => (
-                <button
-                  key={b.id}
-                  onClick={() => setActiveBudget(activeBudget === b.id ? null : b.id)}
-                  className={`px-4 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all whitespace-nowrap border ${
-                    activeBudget === b.id 
-                      ? isScrolled ? 'bg-brand-gold-dark text-white border-brand-gold-dark' : 'bg-brand-gold text-brand-wine border-brand-gold'
-                      : isScrolled ? 'bg-brand-ivory border-brand-gold/20 text-brand-gold-dark/50' : 'bg-white/5 text-brand-gold/40 border-brand-gold/10'
-                  }`}
-                >
-                  {b.label}
-                </button>
-              ))}
-
-              <div className={`w-px h-4 shrink-0 ${isScrolled ? 'bg-brand-gold-dark/20' : 'bg-brand-gold/20'}`} />
-
-              {/* Sort By Dropdown */}
-              <div className="relative shrink-0 ml-auto">
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as any)}
-                  className={`appearance-none pl-4 pr-9 py-1.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all border outline-none ${
-                    isScrolled 
-                      ? 'bg-white/50 border-brand-gold/20 text-brand-gold-dark' 
-                      : 'bg-white/10 border-brand-gold/20 text-brand-gold'
-                  }`}
-                >
-                  <option value="featured">Recommended</option>
-                  <option value="price_desc">Price: High to Low</option>
-                  <option value="price_asc">Price: Low to High</option>
-                </select>
-                <div className={`absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none ${isScrolled ? 'text-brand-gold-dark' : 'text-brand-gold'}`}>
-                  <ChevronDown className="w-3.5 h-3.5" />
-                </div>
-              </div>
-            </div>
-          </div>
 
           {/* Scrollable Content */}
           <div id="scroll-container" className="flex-1 overflow-y-auto p-0 md:p-0 space-y-0 pb-32 scroll-smooth">
+            {/* Quick Filters - Sticky Sort Bar - Moved inside scroll container */}
+            <div className={`sticky top-0 z-30 transition-all duration-500 border-b ${
+              isScrolled 
+                ? 'bg-brand-ivory/95 backdrop-blur-md border-brand-gold/20 shadow-[0_4px_25px_rgba(0,0,0,0.1)]' 
+                : 'bg-black/90 backdrop-blur-md border-brand-gold/10'
+            }`}>
+              <div className="flex overflow-x-auto no-scrollbar py-3 px-4 gap-2 items-center">
+                <button 
+                  onClick={() => {
+                    setActiveColor(null);
+                    setActiveCuisine(null);
+                    setActiveBudget(null);
+                    setSelectedDish(null);
+                    setStep1Color(null);
+                    setStep2Style(null);
+                    setStep3Budget(null);
+                    setSortBy('featured');
+                  }}
+                  className={`px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all whitespace-nowrap border ${
+                    !activeColor && !activeCuisine && !activeBudget && !step1Color
+                      ? isScrolled ? 'bg-brand-gold-dark text-white border-brand-gold-dark' : 'bg-brand-gold text-brand-wine border-brand-gold' 
+                      : isScrolled ? 'bg-brand-ivory border-brand-gold/20 text-brand-gold-dark/60' : 'bg-white/5 text-brand-gold/60 border-brand-gold/10'
+                  }`}
+                >
+                  Clear
+                </button>
+                
+                <div className={`w-px h-4 shrink-0 ${isScrolled ? 'bg-brand-gold-dark/20' : 'bg-brand-gold/20'}`} />
+                
+                {/* Color Chips */}
+                {['赤', '白', '泡'].map(color => (
+                  <button
+                    key={color}
+                    onClick={() => setActiveColor(activeColor === color ? null : color)}
+                    className={`px-4 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all whitespace-nowrap border ${
+                      activeColor === color 
+                        ? isScrolled ? 'bg-brand-wine text-brand-gold-dark border-brand-gold/40' : 'bg-brand-wine text-brand-gold border-brand-gold shadow-sm' 
+                        : isScrolled ? 'bg-brand-ivory border-brand-gold/20 text-brand-gold-dark/50' : 'bg-white/5 text-brand-gold/40 border-brand-gold/10'
+                    }`}
+                  >
+                    {color === '泡' ? 'Sparkling' : color === '赤' ? 'Red' : 'White'}
+                  </button>
+                ))}
+
+                <div className={`w-px h-4 shrink-0 ${isScrolled ? 'bg-brand-gold-dark/20' : 'bg-brand-gold/20'}`} />
+                
+                {/* Cuisine Chips */}
+                {!store?.hidePairingFilter && cuisineFilters.map(c => (
+                  <button
+                    key={c.id}
+                    onClick={() => setActiveCuisine(activeCuisine === c.id ? null : c.id)}
+                    className={`px-4 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all whitespace-nowrap border ${
+                      activeCuisine === c.id 
+                        ? isScrolled ? 'bg-brand-gold-dark text-white border-brand-gold-dark' : 'bg-brand-gold text-brand-wine border-brand-gold' 
+                        : isScrolled ? 'bg-brand-ivory border-brand-gold/20 text-brand-gold-dark/50' : 'bg-white/5 text-brand-gold/40 border-brand-gold/10'
+                    }`}
+                  >
+                    {c.label}
+                  </button>
+                ))}
+
+                {!store?.hidePairingFilter && <div className={`w-px h-4 shrink-0 ${isScrolled ? 'bg-brand-gold-dark/20' : 'bg-brand-gold/20'}`} />}
+
+                {/* Budget Chips */}
+                {budgetFilters.map(b => (
+                  <button
+                    key={b.id}
+                    onClick={() => setActiveBudget(activeBudget === b.id ? null : b.id)}
+                    className={`px-4 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all whitespace-nowrap border ${
+                      activeBudget === b.id 
+                        ? isScrolled ? 'bg-brand-gold-dark text-white border-brand-gold-dark' : 'bg-brand-gold text-brand-wine border-brand-gold'
+                        : isScrolled ? 'bg-brand-ivory border-brand-gold/20 text-brand-gold-dark/50' : 'bg-white/5 text-brand-gold/40 border-brand-gold/10'
+                    }`}
+                  >
+                    {b.label}
+                  </button>
+                ))}
+
+                <div className={`w-px h-4 shrink-0 ${isScrolled ? 'bg-brand-gold-dark/20' : 'bg-brand-gold/20'}`} />
+
+                {/* Sort By Dropdown */}
+                <div className="relative shrink-0 ml-auto">
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as any)}
+                    className={`appearance-none pl-4 pr-9 py-1.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all border outline-none ${
+                      isScrolled 
+                        ? 'bg-white/50 border-brand-gold/20 text-brand-gold-dark' 
+                        : 'bg-white/10 border-brand-gold/20 text-brand-gold'
+                    }`}
+                  >
+                    <option value="featured">Recommended</option>
+                    <option value="price_desc">Price: High to Low</option>
+                    <option value="price_asc">Price: Low to High</option>
+                  </select>
+                  <div className={`absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none ${isScrolled ? 'text-brand-gold-dark' : 'text-brand-gold'}`}>
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+              </div>
+            </div>
             {/* Inline Concierge Section (Keep for top of list) */}
             {!isScrolled && (
               <div className="bg-white/40 backdrop-blur-xl border-b border-brand-gold/10 px-4 md:px-8 py-8 space-y-10 shadow-sm animate-in fade-in slide-in-from-top duration-700">
@@ -1200,29 +1201,6 @@ export const CustomerView: React.FC = () => {
         </AnimatePresence>
       </div>
 
-      {/* Concierge Bottom Sheet FAB */}
-      <AnimatePresence>
-        {isScrolled && !isConciergeOpen && (
-          <motion.button
-            initial={{ opacity: 0, scale: 0.5, y: 50 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.5, y: 50 }}
-            onClick={() => setIsConciergeOpen(true)}
-            className="fixed bottom-24 right-6 z-[60] flex items-center bg-brand-gold-dark text-brand-ivory p-1.5 rounded-full shadow-[0_10px_40px_rgba(184,134,11,0.5)] border border-brand-gold/30 hover:scale-105 active:scale-95 transition-all group overflow-hidden"
-          >
-            <div className="flex items-center gap-0 group-hover:gap-2 transition-all px-2">
-              <span className="text-[12px] font-bold tracking-tighter whitespace-nowrap overflow-hidden max-w-0 group-hover:max-w-[120px] transition-all duration-500">
-                コンシェルジュに相談
-              </span>
-              <div className="w-10 h-10 rounded-full bg-brand-ivory text-brand-gold-dark flex items-center justify-center shadow-inner shrink-0 scale-100 group-hover:scale-90 transition-transform">
-                <Sparkles className="w-5 h-5" />
-              </div>
-            </div>
-          </motion.button>
-        )}
-      </AnimatePresence>
-
-      {/* Concierge Bottom Sheet (Drawer) */}
       <AnimatePresence>
         {isConciergeOpen && (
           <>
@@ -1350,6 +1328,28 @@ export const CustomerView: React.FC = () => {
               </div>
             </motion.div>
           </>
+        )}
+      </AnimatePresence>
+
+      {/* Concierge Bottom Sheet FAB */}
+      <AnimatePresence>
+        {isScrolled && !isConciergeOpen && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.5, y: 50 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.5, y: 50 }}
+            onClick={() => setIsConciergeOpen(true)}
+            className="fixed bottom-24 right-6 z-50 flex items-center bg-brand-gold-dark text-brand-ivory p-1.5 rounded-full shadow-[0_10px_40px_rgba(184,134,11,0.5)] border border-brand-gold/30 hover:scale-105 active:scale-95 transition-all group overflow-hidden"
+          >
+            <div className="flex items-center gap-0 group-hover:gap-2 transition-all px-2">
+              <span className="text-[12px] font-bold tracking-tighter whitespace-nowrap overflow-hidden max-w-0 group-hover:max-w-[120px] transition-all duration-500">
+                コンシェルジュに相談
+              </span>
+              <div className="w-10 h-10 rounded-full bg-brand-ivory text-brand-gold-dark flex items-center justify-center shadow-inner shrink-0 scale-100 group-hover:scale-90 transition-transform">
+                <Sparkles className="w-5 h-5" />
+              </div>
+            </div>
+          </motion.button>
         )}
       </AnimatePresence>
     </div>
