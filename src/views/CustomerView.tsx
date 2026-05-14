@@ -8,7 +8,7 @@ import { db, auth } from '../lib/firebase';
 import { signInAnonymously } from 'firebase/auth';
 import { doc, getDoc, collection, getDocs, query, where, setDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
-import { ChevronRight, Info, Wine, Utensils, Award, Loader2, Sparkles, CheckCircle2, Search, AlertCircle, Edit2, Beef, Fish, ChefHat, MapPin, Tag } from 'lucide-react';
+import { ChevronRight, ChevronDown, Info, Wine, Utensils, Award, Loader2, Sparkles, CheckCircle2, Search, AlertCircle, Edit2, Beef, Fish, ChefHat, MapPin, Tag } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 import { usePublicMenuQuery } from '../hooks/usePublicMenuQuery';
@@ -401,8 +401,10 @@ export const CustomerView: React.FC = () => {
           </header>
 
           {/* Quick Filters - Sticky Sort Bar */}
-          <div className={`transition-all duration-500 border-b z-40 sticky top-[72px] md:top-[88px] ${
-            isScrolled ? 'bg-white/70 backdrop-blur-md border-brand-gold/20 shadow-[0_10px_30px_rgba(0,0,0,0.1)]' : 'bg-black/90 backdrop-blur-md border-brand-gold/10'
+          <div className={`transition-all duration-500 border-b z-40 sticky top-[80px] ${
+            isScrolled 
+              ? 'bg-white/85 backdrop-blur-md border-brand-gold/20 shadow-[0_4px_20px_rgba(0,0,0,0.08)]' 
+              : 'bg-black/90 backdrop-blur-md border-brand-gold/10'
           }`}>
             <div className="flex overflow-x-auto no-scrollbar py-3 px-4 gap-2 items-center">
               <button 
@@ -416,13 +418,13 @@ export const CustomerView: React.FC = () => {
                   setStep3Budget(null);
                   setSortBy('featured');
                 }}
-                className={`px-4 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all whitespace-nowrap border ${
+                className={`px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all whitespace-nowrap border ${
                   !activeColor && !activeCuisine && !activeBudget && !step1Color
                     ? isScrolled ? 'bg-brand-gold-dark text-white border-brand-gold-dark' : 'bg-brand-gold text-brand-wine border-brand-gold' 
-                    : isScrolled ? 'bg-white border-brand-gold/10 text-brand-gold-dark/40' : 'bg-white/5 text-brand-gold/60 border-brand-gold/10'
+                    : isScrolled ? 'bg-brand-gold/5 border-brand-gold/10 text-brand-gold-dark/60' : 'bg-white/5 text-brand-gold/60 border-brand-gold/10'
                 }`}
               >
-                ALL
+                Clear
               </button>
               
               <div className={`w-px h-4 shrink-0 ${isScrolled ? 'bg-brand-gold-dark/20' : 'bg-brand-gold/20'}`} />
@@ -479,22 +481,22 @@ export const CustomerView: React.FC = () => {
               <div className={`w-px h-4 shrink-0 ${isScrolled ? 'bg-brand-gold-dark/20' : 'bg-brand-gold/20'}`} />
 
               {/* Sort By Dropdown */}
-              <div className="relative shrink-0">
+              <div className="relative shrink-0 ml-auto">
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as any)}
-                  className={`appearance-none pl-4 pr-8 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all border outline-none ${
+                  className={`appearance-none pl-4 pr-9 py-1.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all border outline-none ${
                     isScrolled 
-                      ? 'bg-white border-brand-gold/20 text-brand-gold-dark' 
+                      ? 'bg-white/50 border-brand-gold/20 text-brand-gold-dark' 
                       : 'bg-white/10 border-brand-gold/20 text-brand-gold'
                   }`}
                 >
-                  <option value="featured">おすすめ順</option>
-                  <option value="price_desc">価格が高い順</option>
-                  <option value="price_asc">価格が安い順</option>
+                  <option value="featured">Recommended</option>
+                  <option value="price_desc">Price: High to Low</option>
+                  <option value="price_asc">Price: Low to High</option>
                 </select>
                 <div className={`absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none ${isScrolled ? 'text-brand-gold-dark' : 'text-brand-gold'}`}>
-                  <ChevronRight className="w-3 h-3 rotate-90" />
+                  <ChevronDown className="w-3.5 h-3.5" />
                 </div>
               </div>
             </div>
@@ -892,11 +894,15 @@ export const CustomerView: React.FC = () => {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.5, y: 50 }}
               onClick={() => setIsConciergeOpen(true)}
-              className="fixed bottom-24 right-6 z-[60] flex items-center gap-3 bg-brand-gold-dark text-brand-ivory pl-4 pr-1.5 py-1.5 rounded-full shadow-[0_10px_30px_rgba(184,134,11,0.4)] border border-brand-gold/30 hover:scale-105 active:scale-95 transition-all group"
+              className="fixed bottom-24 right-6 z-[60] flex items-center bg-brand-gold-dark text-brand-ivory p-1.5 rounded-full shadow-[0_10px_40px_rgba(184,134,11,0.5)] border border-brand-gold/30 hover:scale-105 active:scale-95 transition-all group overflow-hidden"
             >
-              <span className="text-[11px] font-black uppercase tracking-[0.2em] hidden sm:block">Concierge</span>
-              <div className="w-10 h-10 rounded-full bg-brand-ivory text-brand-gold-dark flex items-center justify-center shadow-inner">
-                <ChefHat className="w-5 h-5" />
+              <div className="flex items-center gap-0 group-hover:gap-2 transition-all px-2">
+                <span className="text-[12px] font-bold tracking-tighter whitespace-nowrap overflow-hidden max-w-0 group-hover:max-w-[120px] transition-all duration-500">
+                  コンシェルジュに相談
+                </span>
+                <div className="w-10 h-10 rounded-full bg-brand-ivory text-brand-gold-dark flex items-center justify-center shadow-inner shrink-0 scale-100 group-hover:scale-90 transition-transform">
+                  <Sparkles className="w-5 h-5" />
+                </div>
               </div>
             </motion.button>
           )}
