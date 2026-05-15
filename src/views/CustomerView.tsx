@@ -62,7 +62,21 @@ export const CustomerView: React.FC = () => {
       noResultsTitle: 'ご希望の条件に近い、ソムリエおすすめのワインを表示しています',
       noResultsSubtitle: 'おすすめのセレクションを表示中',
       tasteProfile: '味わいのプロファイル',
-      sommelierComment: 'ソムリエによる解説'
+      sommelierComment: 'ソムリエによる解説',
+      red: '赤',
+      white: '白',
+      rose: 'ロゼ',
+      budgetUpTo: '〜',
+      budgetRange: '',
+      budgetFrom: '',
+      budgetMoreThan: '',
+      yen: '円',
+      fullBody: 'フルボディ',
+      mediumBody: 'ミディアムボディ',
+      lightBody: 'ライトボディ',
+      dry: '辛口',
+      mediumDry: '中辛口',
+      sweet: '甘口'
     },
     en: {
       clear: 'Clear',
@@ -102,7 +116,21 @@ export const CustomerView: React.FC = () => {
       noResultsTitle: 'Showing sommelier\'s top picks close to your preferences',
       noResultsSubtitle: 'Displaying recommended selection',
       tasteProfile: 'Taste Profile',
-      sommelierComment: 'Sommelier Commentary'
+      sommelierComment: 'Sommelier Commentary',
+      red: 'Red',
+      white: 'White',
+      rose: 'Rosé',
+      budgetUpTo: 'Up to ¥',
+      budgetRange: '¥',
+      budgetFrom: '¥',
+      budgetMoreThan: 'Over ¥',
+      yen: '',
+      fullBody: 'Full Body',
+      mediumBody: 'Medium Body',
+      lightBody: 'Light Body',
+      dry: 'Dry',
+      mediumDry: 'Medium Dry',
+      sweet: 'Sweet'
     }
   };
 
@@ -164,29 +192,29 @@ export const CustomerView: React.FC = () => {
 
   const budgetFilters: FilterOption[] = store?.budgetTiers && store.budgetTiers.length > 0 
     ? (store.budgetTiers.map((tier, idx, arr) => {
-        if (idx === 0) return { id: `b${idx}`, label: `〜¥${tier.toLocaleString()}`, max: tier };
-        return { id: `b${idx}`, label: `¥${arr[idx-1].toLocaleString()}〜¥${tier.toLocaleString()}`, min: arr[idx-1], max: tier };
-      }) as FilterOption[]).concat([{ id: 'blast', label: `¥${store.budgetTiers[store.budgetTiers.length - 1].toLocaleString()}〜`, min: store.budgetTiers[store.budgetTiers.length - 1] }])
+        if (idx === 0) return { id: `b${idx}`, label: `${t.budgetUpTo}${tier.toLocaleString()}${t.yen}`, max: tier };
+        return { id: `b${idx}`, label: `${t.budgetRange}${arr[idx-1].toLocaleString()}〜${t.budgetRange}${tier.toLocaleString()}${t.yen}`, min: arr[idx-1], max: tier };
+      }) as FilterOption[]).concat([{ id: 'blast', label: `${t.budgetRange}${store.budgetTiers[store.budgetTiers.length - 1].toLocaleString()}〜${t.yen}`, min: store.budgetTiers[store.budgetTiers.length - 1] }])
     : [
-        { id: 'b1', label: '〜¥5,000', max: 5000 },
-        { id: 'b2', label: '〜¥10,000', max: 10000 },
-        { id: 'b3', label: '¥10,000〜', min: 10000 }
+        { id: 'b1', label: `${t.budgetUpTo}5,000${t.yen}`, max: 5000 },
+        { id: 'b2', label: `${t.budgetUpTo}10,000${t.yen}`, max: 10000 },
+        { id: 'b3', label: `${t.budgetRange}10,000〜${t.yen}`, min: 10000 }
       ];
 
   const conciergeBudgets: ConciergeOption[] = store?.budgetTiers && store.budgetTiers.length > 0
-    ? (store.budgetTiers.map(tier => ({ id: tier, label: `〜${tier.toLocaleString()}円`, max: tier })) as ConciergeOption[])
-        .concat([{ id: 999999, label: `${store.budgetTiers[store.budgetTiers.length - 1].toLocaleString()}円以上`, min: store.budgetTiers[store.budgetTiers.length - 1] }])
+    ? (store.budgetTiers.map(tier => ({ id: tier, label: `${t.budgetUpTo}${tier.toLocaleString()}${t.yen}`, max: tier })) as ConciergeOption[])
+        .concat([{ id: 999999, label: `${t.budgetMoreThan}${store.budgetTiers[store.budgetTiers.length - 1].toLocaleString()}${t.yen}`, min: store.budgetTiers[store.budgetTiers.length - 1] }])
     : [
-        { id: 5000, label: `〜5,000円`, max: 5000 },
-        { id: 10000, label: `〜10,000円`, max: 10000 },
-        { id: 20000, label: `〜20,000円`, max: 20000 },
-        { id: 999999, label: `20,000円以上`, min: 20000 }
+        { id: 5000, label: `${t.budgetUpTo}5,000${t.yen}`, max: 5000 },
+        { id: 10000, label: `${t.budgetUpTo}10,000${t.yen}`, max: 10000 },
+        { id: 20000, label: `${t.budgetUpTo}20,000${t.yen}`, max: 20000 },
+        { id: 999999, label: `${t.budgetMoreThan}20,000${t.yen}`, min: 20000 }
       ];
 
   const cuisineFilters = [
-    { id: 'meat', label: 'お肉料理', match: /肉|ステーキ|ラム|牛|豚/i },
-    { id: 'fish', label: 'お魚料理', match: /魚|シーフード|刺身|カルパッチョ/i },
-    { id: 'appetizer', label: '前菜・サラダ', match: /前菜|サラダ|カルパッチョ|小皿/i }
+    { id: 'meat', label: t.meat, match: /肉|ステーキ|ラム|牛|豚/i },
+    { id: 'fish', label: t.fish, match: /魚|シーフード|刺身|カルパッチョ/i },
+    { id: 'appetizer', label: t.appetizer, match: /前菜|サラダ|カルパッチョ|小皿/i }
   ];
 
   const getDynamicStyles = (color: string) => {
@@ -199,11 +227,11 @@ export const CustomerView: React.FC = () => {
     if (stylesInInventory.length > 0) return stylesInInventory;
 
     // Fallbacks if no types found in current inventory
-    if (color === '赤') return ['フルボディ', 'ミディアムボディ', 'ライトボディ'];
-    if (color === '白') return ['辛口', '中辛口', '甘口'];
+    if (color === '赤') return [t.fullBody, t.mediumBody, t.lightBody];
+    if (color === '白') return [t.dry, t.mediumDry, t.sweet];
     if (color === '泡' || color === 'スパークリング') return ['Brut', 'Extra Dry', 'Demi-Sec'];
     
-    return ['辛口', '甘口'];
+    return [t.dry, t.sweet];
   };
 
   // Auto-refresh and Auth Handling
@@ -564,11 +592,11 @@ export const CustomerView: React.FC = () => {
                     onClick={() => setActiveColor(activeColor === color ? null : color)}
                     className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap border ${
                       activeColor === color 
-                        ? 'bg-brand-wine text-brand-gold-dark border-brand-gold shadow-sm' 
+                        ? 'bg-brand-gold-dark text-white border-brand-gold' 
                         : 'bg-white border-brand-gold/20 text-brand-gold-dark'
                     }`}
                   >
-                    {color === '赤' ? '赤' : color === '白' ? '白' : t.sparkling}
+                    {color === '赤' ? t.red : color === '白' ? t.white : t.sparkling}
                   </button>
                 ))}
 
@@ -584,7 +612,7 @@ export const CustomerView: React.FC = () => {
                         : 'bg-white border-brand-gold/20 text-brand-gold-dark'
                     }`}
                   >
-                    {currentLang === 'ja' ? c.label : t[c.id as keyof typeof t]}
+                    {c.label}
                   </button>
                 ))}
 
@@ -880,7 +908,7 @@ export const CustomerView: React.FC = () => {
                 >
                   <div className="flex items-center gap-0 group-hover:gap-2 transition-all px-2">
                     <span className="text-xs font-bold tracking-tighter whitespace-nowrap overflow-hidden max-w-0 group-hover:max-w-[120px] transition-all duration-500">
-                      ワイン・コンシェルジュ
+                      {t.concierge}
                     </span>
                     <div className="w-10 h-10 rounded-full bg-brand-ivory text-brand-gold-dark flex items-center justify-center shadow-inner shrink-0 scale-100 group-hover:scale-90 transition-transform">
                       <Sparkles className="w-5 h-5" />
@@ -944,7 +972,7 @@ export const CustomerView: React.FC = () => {
                                 : 'bg-white border-brand-gold/10 text-brand-wine/60'
                             }`}
                           >
-                            {color === '赤' ? '赤' : color === '白' ? '白' : t.sparkling}
+                            {color === '赤' ? t.red : color === '白' ? t.white : t.sparkling}
                           </button>
                         ))}
                     </div>
