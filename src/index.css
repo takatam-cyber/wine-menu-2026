@@ -118,30 +118,27 @@
   @apply mb-1;
 }
 
-/* Google 翻訳ウィジェットのカスタマイズ */
-.google-translate-container, #google_translate_element {
+/* Google 翻訳ウィジェットのカスタマイズ (完全非表示) */
+.google-translate-container, #google_translate_element, .goog-te-banner-frame, #goog-gt-tt {
   display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  width: 0 !important;
 }
-/* 不要なロゴや「提供元」テキスト、ツールバーを非表示 */
-.goog-logo-link, .goog-te-gadget span, .goog-te-banner-frame, #goog-gt-tt {
+/* 不要なロゴや「提供元」テキストを非表示 */
+.goog-logo-link, .goog-te-gadget span {
   display: none !important;
 }
 .goog-te-gadget {
   color: transparent !important;
   font-size: 0 !important;
 }
-/* セレクトボックス（言語選択）の装飾 */
+/* セレクトボックス（言語選択）は背景で動かすため非表示 */
 .goog-te-combo {
-  background-color: rgba(255, 255, 255, 0.1) !important;
-  border: 1px solid #B8860B !important; /* brand-gold-dark */
-  color: #B8860B !important;
-  border-radius: 9999px !important;
-  padding: 4px 12px !important;
-  font-size: 11px !important;
-  font-weight: bold !important;
-  outline: none !important;
-  cursor: pointer !important;
-  font-family: inherit !important;
+  display: block;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
 }
 /* 翻訳適用時の上部余白の強制リセット */
 body {

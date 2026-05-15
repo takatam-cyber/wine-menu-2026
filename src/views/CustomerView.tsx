@@ -400,37 +400,26 @@ export const CustomerView: React.FC = () => {
             <h1 className="font-serif text-brand-gold-dark font-light text-xl md:text-2xl tracking-[0.4em] uppercase leading-tight">
               {store.name}
             </h1>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              {/* Google 翻訳エンジン（CSSで隠します） */}
               <div id="google_translate_element" className="hidden" />
+              
+              {/* 見た目上の JP / EN 切り替えボタン */}
               <div className="flex items-center bg-white/5 rounded-full p-1 border border-brand-gold/20 shadow-inner">
                 <button 
                   onClick={() => handleLanguageChange('ja')} 
-                  className={`relative px-3 py-1 rounded-full text-[10px] font-black transition-all duration-300 z-10 ${
-                    currentLang === 'ja' ? 'text-brand-wine' : 'text-brand-gold/40 hover:text-brand-gold/70'
+                  className={`px-3 py-1 rounded-full text-[10px] font-black transition-all ${
+                    currentLang === 'ja' ? 'bg-brand-gold-dark text-white' : 'text-brand-gold/40 hover:text-brand-gold/70'
                   }`}
                 >
-                  {currentLang === 'ja' && (
-                    <motion.div 
-                      layoutId="activeLang"
-                      className="absolute inset-0 bg-brand-gold-dark rounded-full -z-10 shadow-sm"
-                      transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                    />
-                  )}
                   JP
                 </button>
                 <button 
                   onClick={() => handleLanguageChange('en')} 
-                  className={`relative px-3 py-1 rounded-full text-[10px] font-black transition-all duration-300 z-10 ${
-                    currentLang === 'en' ? 'text-brand-wine' : 'text-brand-gold/40 hover:text-brand-gold/70'
+                  className={`px-3 py-1 rounded-full text-[10px] font-black transition-all ${
+                    currentLang === 'en' ? 'bg-brand-gold-dark text-white' : 'text-brand-gold/40 hover:text-brand-gold/70'
                   }`}
                 >
-                  {currentLang === 'en' && (
-                    <motion.div 
-                      layoutId="activeLang"
-                      className="absolute inset-0 bg-brand-gold-dark rounded-full -z-10 shadow-sm"
-                      transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                    />
-                  )}
                   EN
                 </button>
               </div>
