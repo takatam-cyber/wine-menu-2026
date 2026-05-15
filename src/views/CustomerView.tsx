@@ -56,11 +56,6 @@ export const CustomerView: React.FC = () => {
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'featured' | 'price_desc' | 'price_asc'>('featured');
 
-  const formatPrice = (price: number | undefined) => {
-    if (price === undefined || price === null) return '-';
-    return `¥${price.toLocaleString()}`;
-  };
-
   const finalStoreId = routeStoreId || new URLSearchParams(window.location.search).get('storeId') || user?.storeId;
   const { data: menuData, isLoading: isDataFetching, refetch: fetchStoreData } = usePublicMenuQuery(finalStoreId || null);
   
@@ -257,7 +252,7 @@ export const CustomerView: React.FC = () => {
               </h2>
               <div className="flex items-center justify-center gap-4">
                 <div className="h-px w-8 bg-brand-gold/30" />
-                <span className="italic opacity-60 serif text-[11px] tracking-[0.3em] uppercase">Under Selection</span>
+                <span className="italic opacity-60 serif text-[11px] tracking-[0.3em] uppercase">準備中</span>
                 <div className="h-px w-8 bg-brand-gold/30" />
               </div>
             </div>
@@ -539,7 +534,7 @@ export const CustomerView: React.FC = () => {
                     ご希望の条件に近い、ソムリエおすすめのワインを表示しています
                   </p>
                   <p className="text-[13px] text-brand-gold-dark font-bold uppercase tracking-widest opacity-60">
-                    Showing Recommended Selections
+                    おすすめのセレクションを表示中
                   </p>
                 </motion.div>
               )}
@@ -551,7 +546,7 @@ export const CustomerView: React.FC = () => {
                     <div className="space-y-6">
                       <div className="flex items-center gap-3 px-2">
                         <Sparkles className="w-5 h-5 text-brand-gold-dark" />
-                        <h3 className="serif text-[13px] text-brand-gold-dark uppercase tracking-[0.4em] font-bold">Sommelier's Selection</h3>
+                        <h3 className="serif text-[13px] text-brand-gold-dark uppercase tracking-[0.4em] font-bold">ソムリエのおすすめ</h3>
                         <div className="flex-1 h-px bg-brand-gold-dark/20" />
                       </div>
                       <div className="grid gap-8">
@@ -649,7 +644,7 @@ export const CustomerView: React.FC = () => {
                                   <div className="flex items-center justify-between mt-4">
                                     <div className="flex flex-col">
                                       <span className="serif text-2xl text-brand-wine font-medium tracking-tighter">
-                                        {formatPrice(wine.price_bottle)}
+                                        {wine.price_bottle ? `¥${wine.price_bottle.toLocaleString()}` : '-'}
                                       </span>
                                     </div>
                                     <div className="w-10 h-10 rounded-full border border-brand-gold/30 flex items-center justify-center text-brand-gold-dark group-hover:bg-brand-gold-dark group-hover:text-white transition-all">
@@ -669,7 +664,7 @@ export const CustomerView: React.FC = () => {
                 {/* Regular Menu Section */}
                 <div className="space-y-6">
                       <div className="px-2 pb-2">
-                         <h3 className="text-[10px] text-brand-wine/40 uppercase tracking-[0.4em] font-bold">Standard Collection</h3>
+                         <h3 className="text-[10px] text-brand-wine/40 uppercase tracking-[0.4em] font-bold">スタンダード・セレクション</h3>
                       </div>
                   <div className="grid gap-6">
                     {displayedInventory.filter(w => !w.isFeatured).map((wine) => (
@@ -742,7 +737,7 @@ export const CustomerView: React.FC = () => {
 
                           <div className="flex items-center justify-between mt-2">
                              <span className="serif text-xl text-brand-wine font-medium">
-                               {formatPrice(wine.price_bottle)}
+                               {wine.price_bottle ? `¥${wine.price_bottle.toLocaleString()}` : '-'}
                              </span>
                              <ChevronRight className="w-5 h-5 text-brand-gold-dark transition-all" />
                           </div>
@@ -804,7 +799,7 @@ export const CustomerView: React.FC = () => {
                 <div className="flex items-center justify-between mb-8">
                   <div className="flex items-center gap-3">
                     <ChefHat className="w-6 h-6 text-brand-gold-dark" />
-                    <h3 className="serif text-xl text-brand-wine font-light tracking-widest uppercase">Wine Concierge</h3>
+                    <h3 className="serif text-xl text-brand-wine font-light tracking-widest uppercase">ワイン・コンシェルジュ</h3>
                   </div>
                   <button 
                     onClick={() => setIsConciergeOpen(false)}
@@ -1027,14 +1022,14 @@ export const CustomerView: React.FC = () => {
                     <div className="flex flex-col">
                       <span className="text-sm text-gray-500 uppercase font-bold tracking-widest mb-1">ボトル</span>
                       <span className="serif text-2xl md:text-3xl text-brand-gold-dark tracking-tighter">
-                        {formatPrice(selectedWine.price_bottle)}
+                        {selectedWine.price_bottle ? `¥${selectedWine.price_bottle.toLocaleString()}` : '-'}
                       </span>
                     </div>
                     <div className="h-10 w-px bg-brand-gold/20" />
                     <div className="flex flex-col text-right">
                       <span className="text-sm text-gray-500 uppercase font-bold tracking-widest mb-1">グラス</span>
                       <span className="serif text-2xl md:text-3xl text-brand-gold-dark tracking-tighter">
-                        {formatPrice(selectedWine.price_glass)}
+                        {selectedWine.price_glass ? `¥${selectedWine.price_glass.toLocaleString()}` : '-'}
                       </span>
                     </div>
                   </div>

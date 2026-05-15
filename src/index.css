@@ -123,8 +123,8 @@
   display: inline-block;
   vertical-align: middle;
 }
-/* 不要なロゴや「提供元」テキストを非表示 */
-.goog-logo-link, .goog-te-gadget span, .goog-te-banner-frame {
+/* 不要なロゴや「提供元」テキスト、ツールバーを非表示 */
+.goog-logo-link, .goog-te-gadget span, .goog-te-banner-frame, #goog-gt-tt {
   display: none !important;
 }
 .goog-te-gadget {
@@ -142,8 +142,10 @@
   font-weight: bold !important;
   outline: none !important;
   cursor: pointer !important;
+  font-family: inherit !important;
 }
-/* 翻訳後のフォント崩れ防止 */
+/* 翻訳適用時の上部余白の強制リセット */
 body {
   top: 0 !important;
+  position: static !important;
 }
