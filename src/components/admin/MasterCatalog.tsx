@@ -59,9 +59,9 @@ export const MasterCatalog: React.FC<MasterCatalogProps> = ({
               />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-[9px] font-bold text-brand-gold-dark uppercase tracking-widest">{wine.country} • {wine.vintage}</div>
+              <div className="text-xs font-bold text-brand-gold-dark uppercase tracking-widest">{wine.country} • {wine.vintage}</div>
               <h4 className="font-bold text-slate-900 text-sm mb-1 truncate">{wine.name_jp}</h4>
-              <p className="text-[10px] text-slate-500 font-mono italic mb-2">{wine.grape}</p>
+              <p className="text-xs text-slate-500 font-mono italic mb-2">{wine.grape}</p>
               <div className="flex items-center justify-between mt-auto">
                 <span className="text-xs font-bold text-slate-700">Code: {wine.id}</span>
                 <div className="flex items-center gap-2">
@@ -108,8 +108,8 @@ export const MasterCatalog: React.FC<MasterCatalogProps> = ({
 
               <div className="p-8 space-y-6 overflow-y-auto">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="md:col-span-2">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">ワイン名称 (日本語)</label>
+                  <div className="md:col-span-1">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">ワイン名称 (日本語)</label>
                     <input 
                       type="text"
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
@@ -117,17 +117,35 @@ export const MasterCatalog: React.FC<MasterCatalogProps> = ({
                       onChange={e => setEditMasterData({...editMasterData, name_jp: e.target.value})}
                     />
                   </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">参考価格 (ボトル)</label>
+                  <div className="md:col-span-1">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">Wine Name (English)</label>
                     <input 
-                      type="number"
+                      type="text"
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
-                      value={editMasterData.price_bottle || 0}
-                      onChange={e => setEditMasterData({...editMasterData, price_bottle: parseInt(e.target.value) || 0})}
+                      value={editMasterData.name_en || ''}
+                      onChange={e => setEditMasterData({...editMasterData, name_en: e.target.value})}
                     />
                   </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">主要品種</label>
+                  <div className="md:col-span-1">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">国 (日本語)</label>
+                    <input 
+                      type="text"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
+                      value={editMasterData.country || ''}
+                      onChange={e => setEditMasterData({...editMasterData, country: e.target.value})}
+                    />
+                  </div>
+                  <div className="md:col-span-1">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">Country (English)</label>
+                    <input 
+                      type="text"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
+                      value={editMasterData.country_en || ''}
+                      onChange={e => setEditMasterData({...editMasterData, country_en: e.target.value})}
+                    />
+                  </div>
+                  <div className="md:col-span-1">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">主要品種 (日本語)</label>
                     <input 
                       type="text"
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
@@ -135,16 +153,41 @@ export const MasterCatalog: React.FC<MasterCatalogProps> = ({
                       onChange={e => setEditMasterData({...editMasterData, grape: e.target.value})}
                     />
                   </div>
+                  <div className="md:col-span-1">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">Grape (English)</label>
+                    <input 
+                      type="text"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
+                      value={editMasterData.grape_en || ''}
+                      onChange={e => setEditMasterData({...editMasterData, grape_en: e.target.value})}
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">参考価格 (ボトル)</label>
+                    <input 
+                      type="number"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
+                      value={editMasterData.price_bottle || 0}
+                      onChange={e => setEditMasterData({...editMasterData, price_bottle: parseInt(e.target.value) || 0})}
+                    />
+                  </div>
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">AIソムリエ解説文</label>
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">AIソムリエ解説文 (日本語)</label>
                   <textarea 
-                    rows={4}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine resize-none"
+                    rows={3}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine resize-none mb-4"
                     value={editMasterData.ai_explanation || ''}
                     onChange={e => setEditMasterData({...editMasterData, ai_explanation: e.target.value})}
                   />
-                  <p className="text-[9px] text-slate-400 mt-2 font-medium italic">※この説明は全店舗のメニューに共通して反映されます。</p>
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">AI Sommelier Explanation (English)</label>
+                  <textarea 
+                    rows={3}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine resize-none"
+                    value={editMasterData.ai_explanation_en || ''}
+                    onChange={e => setEditMasterData({...editMasterData, ai_explanation_en: e.target.value})}
+                  />
+                  <p className="text-xs text-slate-400 mt-2 font-medium italic">※この説明は全店舗のメニューに共通して反映されます。</p>
                 </div>
               </div>
 

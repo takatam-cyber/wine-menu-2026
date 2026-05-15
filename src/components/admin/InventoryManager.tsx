@@ -134,9 +134,9 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                       <div>
                         <div className="font-bold text-slate-800 text-sm mb-1 flex items-center gap-2">
                           {wine.name_jp}
-                          {wine.isFeatured && <span className="bg-amber-100 text-amber-600 text-[8px] px-2 py-0.5 rounded-full font-bold uppercase tracking-widest">Featured</span>}
+                          {wine.isFeatured && <span className="bg-amber-100 text-amber-600 text-xs px-2 py-0.5 rounded-full font-bold uppercase tracking-widest">Featured</span>}
                         </div>
-                        <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">ID: {wine.id} • {wine.region}</div>
+                        <div className="text-xs text-slate-400 font-bold uppercase tracking-widest">ID: {wine.id} • {wine.region}</div>
                       </div>
                     </div>
                   </td>
@@ -188,11 +188,11 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                         />
                         <div className="flex flex-col">
                           <span className="font-bold text-brand-wine font-mono text-xs">¥{glassStats.profit.toLocaleString()}</span>
-                          <span className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">原価率 {Math.round(glassStats.costRatio)}%</span>
+                          <span className="text-xs text-slate-400 font-bold uppercase tracking-tighter">原価率 {Math.round(glassStats.costRatio)}%</span>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-[9px] font-bold text-slate-400 w-8">取数</span>
+                        <span className="text-xs font-bold text-slate-400 w-8">取数</span>
                         <input
                           type="number"
                           value={wine.glasses_per_bottle || 6}
@@ -203,7 +203,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                           }}
                           className="w-20 bg-slate-50 border border-slate-300 rounded px-2 py-1 text-xs font-mono text-slate-600 text-center"
                         />
-                        <span className="text-[9px] font-bold text-slate-400 tracking-widest">杯/BTL</span>
+                        <span className="text-xs font-bold text-slate-400 tracking-widest">杯/BTL</span>
                       </div>
                     </div>
                   </td>
@@ -215,7 +215,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                           newWines[idx].visible = !newWines[idx].visible;
                           setSelectedWines(newWines);
                         }}
-                        className={`px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest border transition-all ${
+                        className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest border transition-all ${
                           wine.visible 
                             ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100' 
                             : 'bg-slate-100 border-slate-200 text-slate-400 hover:bg-slate-200'
@@ -224,10 +224,10 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                         {wine.visible ? '● 表示中' : '○ 非表示'}
                       </button>
                       <div className="flex items-center gap-2">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase">ラベル:</span>
+                        <span className="text-xs font-bold text-slate-400 uppercase">ラベル:</span>
                         <input 
                            placeholder="おすすめラベル..."
-                           className="text-[9px] bg-slate-50 border border-slate-200 rounded px-2 py-1 outline-none focus:border-brand-wine w-24"
+                           className="text-xs bg-slate-50 border border-slate-200 rounded px-2 py-1 outline-none focus:border-brand-wine w-24"
                            value={wine.promoLabel || ''}
                            onChange={(e) => {
                              const newWines = [...selectedWines];

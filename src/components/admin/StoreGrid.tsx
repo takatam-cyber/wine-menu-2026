@@ -35,7 +35,7 @@ export const StoreGrid: React.FC<StoreGridProps> = ({
                 <Wine className="w-7 h-7" />
               </div>
               <div className="flex flex-col items-end gap-2 relative z-[60]">
-                <span className={`text-[9px] font-bold uppercase tracking-widest px-3 py-1 rounded-full ${store.isActive ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-red-50 text-red-600 border border-red-100'}`}>
+                <span className={`text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full ${store.isActive ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-red-50 text-red-600 border border-red-100'}`}>
                   {store.isActive ? '稼働中' : '停止中'}
                 </span>
                 <button 
@@ -53,11 +53,11 @@ export const StoreGrid: React.FC<StoreGridProps> = ({
               </div>
             </div>
             <h3 className="serif text-xl text-slate-900 group-hover:text-brand-wine transition-colors">{store.name}</h3>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1">{store.cuisine_type}</p>
+            <p className="text-xs text-slate-400 font-bold uppercase tracking-[0.2em] mt-1">{store.cuisine_type}</p>
           </div>
           <div className="flex items-center justify-between mt-6 pt-6 border-t border-slate-50">
             <div className="flex flex-col">
-              <span className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">稼働状況</span>
+              <span className="text-xs text-slate-400 font-bold uppercase tracking-tighter">稼働状況</span>
               <span className="text-xs font-bold text-slate-700">{store.isActive ? '営業中' : '停止中'}</span>
             </div>
           </div>

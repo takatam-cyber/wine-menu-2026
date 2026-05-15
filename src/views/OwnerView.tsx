@@ -448,7 +448,7 @@ export const OwnerView: React.FC = () => {
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="font-bold text-brand-ivory text-sm md:text-base leading-tight truncate">{wine.name_jp}</div>
-                        <div className="text-[9px] text-brand-gold/60 font-mono tracking-widest uppercase mt-0.5 truncate">
+                        <div className="text-xs text-brand-gold/60 font-mono tracking-widest uppercase mt-0.5 truncate">
                           {wine.grape} • {wine.vintage}
                         </div>
                       </div>
@@ -460,7 +460,7 @@ export const OwnerView: React.FC = () => {
                           <div className="w-20 md:w-24">
                             <input 
                               type="number"
-                              className="w-full bg-white/5 border border-brand-gold/30 rounded px-2 py-1 text-[10px] text-brand-ivory outline-none focus:border-brand-gold"
+                              className="w-full bg-white/5 border border-brand-gold/30 rounded px-2 py-1 text-xs text-brand-ivory outline-none focus:border-brand-gold"
                               value={editWineData.price_bottle}
                               onChange={e => setEditWineData({...editWineData, price_bottle: parseInt(e.target.value) || 0}) }
                             />
@@ -468,7 +468,7 @@ export const OwnerView: React.FC = () => {
                           <div className="w-20 md:w-24">
                             <input 
                               type="number"
-                              className="w-full bg-white/5 border border-brand-gold/30 rounded px-2 py-1 text-[10px] text-brand-ivory outline-none focus:border-brand-gold"
+                              className="w-full bg-white/5 border border-brand-gold/30 rounded px-2 py-1 text-xs text-brand-ivory outline-none focus:border-brand-gold"
                               value={editWineData.price_glass}
                               onChange={e => setEditWineData({...editWineData, price_glass: parseInt(e.target.value) || 0}) }
                             />
@@ -476,7 +476,7 @@ export const OwnerView: React.FC = () => {
                           <div className="w-16">
                             <input 
                               type="number"
-                              className="w-full bg-white/5 border border-brand-gold/30 rounded px-2 py-1 text-[10px] text-brand-ivory outline-none focus:border-brand-gold"
+                              className="w-full bg-white/5 border border-brand-gold/30 rounded px-2 py-1 text-xs text-brand-ivory outline-none focus:border-brand-gold"
                               value={editWineData.stock}
                               onChange={e => setEditWineData({...editWineData, stock: parseInt(e.target.value) || 0}) }
                             />
@@ -485,29 +485,29 @@ export const OwnerView: React.FC = () => {
                              <div className={`text-xs font-bold ${isLowMargin ? 'text-rose-500' : 'text-emerald-500'}`}>
                                {margin}%
                              </div>
-                             {isLowMargin && <div className="text-[6px] text-rose-500/60 font-bold uppercase">Low Margin</div>}
+                             {isLowMargin && <div className="text-[10px] text-rose-500/60 font-bold uppercase">Low Margin</div>}
                           </div>
                         </div>
                       ) : (
                         <div className="flex items-center w-full md:w-auto gap-2 md:gap-0">
                           <div className="w-24 text-center">
-                            <div className="text-[8px] text-brand-gold/40 md:hidden uppercase tracking-widest mb-0.5">ボトル</div>
+                            <div className="text-xs text-brand-gold/40 md:hidden uppercase tracking-widest mb-0.5">ボトル</div>
                             <div className="text-xs text-brand-ivory font-bold">¥{wine.price_bottle?.toLocaleString()}</div>
                           </div>
                           <div className="w-24 text-center">
-                            <div className="text-[8px] text-brand-gold/40 md:hidden uppercase tracking-widest mb-0.5">グラス</div>
+                            <div className="text-xs text-brand-gold/40 md:hidden uppercase tracking-widest mb-0.5">グラス</div>
                             <div className="text-xs text-brand-ivory font-bold">¥{wine.price_glass?.toLocaleString()}</div>
                           </div>
                           <div className="w-16 text-center">
-                            <div className="text-[8px] text-brand-gold/40 md:hidden uppercase tracking-widest mb-0.5">在庫</div>
+                            <div className="text-xs text-brand-gold/40 md:hidden uppercase tracking-widest mb-0.5">在庫</div>
                             <div className={`text-xs font-bold ${wine.stock === 0 ? 'text-rose-500' : 'text-brand-gold'}`}>{wine.stock}</div>
                           </div>
                           <div className="w-24 text-center flex flex-col items-center">
-                            <div className="text-[8px] text-brand-gold/40 md:hidden uppercase tracking-widest mb-0.5">粗利</div>
+                            <div className="text-xs text-brand-gold/40 md:hidden uppercase tracking-widest mb-0.5">粗利</div>
                             <div className={`text-xs font-black ${isLowMargin ? 'text-rose-500' : 'text-emerald-500'}`}>
                               {margin}%
                             </div>
-                            {isLowMargin && <div className="text-[6px] text-rose-500 uppercase font-black tracking-widest bg-rose-500/10 px-1 rounded">Alert</div>}
+                            {isLowMargin && <div className="text-[10px] text-rose-500 uppercase font-black tracking-widest bg-rose-500/10 px-1 rounded">Alert</div>}
                           </div>
                         </div>
                       )}
@@ -516,7 +516,7 @@ export const OwnerView: React.FC = () => {
                         {editingWineId === wine.id ? (
                           <button 
                             onClick={() => setEditingWineId(null)}
-                            className="bg-brand-gold text-brand-wine px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:brightness-110 shadow-lg"
+                            className="bg-brand-gold text-brand-wine px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest hover:brightness-110 shadow-lg"
                           >
                             終了
                           </button>
@@ -572,7 +572,7 @@ export const OwnerView: React.FC = () => {
               <div className="p-6 md:p-8 border-b border-brand-gold/20 flex items-center justify-between bg-black/40">
                 <div>
                   <h2 className="serif text-2xl text-brand-gold">マスターから選択</h2>
-                  <p className="text-[10px] text-gray-400 uppercase tracking-widest mt-1">Pieroth Master Wine List</p>
+                  <p className="text-xs text-gray-400 uppercase tracking-widest mt-1">Pieroth Master Wine List</p>
                 </div>
                 <button onClick={() => setShowAddModal(false)} className="p-2 text-brand-gold/40 hover:text-brand-gold transition-colors">
                   <X className="w-6 h-6" />
@@ -611,14 +611,14 @@ export const OwnerView: React.FC = () => {
                         </div>
                         <div className="min-w-0">
                           <div className="text-brand-ivory font-bold text-sm truncate">{w.name_jp}</div>
-                          <div className="text-[10px] text-brand-gold/60 uppercase font-mono mt-1">
+                          <div className="text-xs text-brand-gold/60 uppercase font-mono mt-1">
                             {w.country} • {w.vintage} • Code: {w.id}
                           </div>
                         </div>
                       </div>
                       <button 
                         onClick={() => handleAddWine(w)}
-                        className="ml-4 p-3 bg-brand-gold text-brand-wine rounded-xl hover:scale-110 active:scale-95 transition-all shadow-md flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest"
+                        className="ml-4 p-3 bg-brand-gold text-brand-wine rounded-xl hover:scale-110 active:scale-95 transition-all shadow-md flex items-center gap-2 text-xs font-bold uppercase tracking-widest"
                       >
                         <Plus className="w-4 h-4" />
                         追加

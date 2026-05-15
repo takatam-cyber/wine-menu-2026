@@ -106,13 +106,13 @@ export const CatalogSelector: React.FC<CatalogSelectorProps> = ({
                     </div>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-[9px] font-bold text-brand-gold uppercase tracking-widest">{wine.country} • {wine.vintage}</div>
-                    <h4 className="font-bold text-slate-900 text-xs mb-1 line-clamp-2">{wine.name_jp}</h4>
-                    <p className="text-[10px] text-slate-500 font-mono italic mb-2">{wine.grape}</p>
+                    <div className="text-xs font-bold text-brand-gold uppercase tracking-widest">{wine.country} • {wine.vintage}</div>
+                    <h4 className="font-bold text-slate-900 text-sm mb-1 line-clamp-2">{wine.name_jp}</h4>
+                    <p className="text-xs text-slate-500 font-mono italic mb-2">{wine.grape}</p>
                     <div className="flex items-center justify-between mt-auto">
-                      <span className="text-[10px] font-bold text-slate-400">¥{wine.price_bottle?.toLocaleString()}</span>
+                      <span className="text-xs font-bold text-slate-400">¥{wine.price_bottle?.toLocaleString()}</span>
                       {isAlreadySelected && (
-                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">追加済み</span>
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-tighter">追加済み</span>
                       )}
                     </div>
                   </div>

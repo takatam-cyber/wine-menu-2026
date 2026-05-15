@@ -38,7 +38,7 @@ export const OwnerAccountForm: React.FC<OwnerAccountFormProps> = ({
         </div>
         <button 
           onClick={onToggleEditMode}
-          className="text-[10px] font-bold uppercase tracking-widest text-brand-wine hover:underline"
+          className="text-xs font-bold uppercase tracking-widest text-brand-wine hover:underline"
         >
           {showOwnerForm ? 'キャンセル' : (selectedStore?.ownerId ? '編集' : '新規登録')}
         </button>
@@ -51,17 +51,17 @@ export const OwnerAccountForm: React.FC<OwnerAccountFormProps> = ({
               <Shield className="w-5 h-5 text-brand-wine" />
             </div>
             <div>
-              <p className="text-[10px] text-brand-wine font-bold uppercase tracking-widest">Active Store Admin</p>
+              <p className="text-xs text-brand-wine font-bold uppercase tracking-widest">Active Store Admin</p>
               <p className="text-sm text-slate-700 font-bold">{selectedStore.owner_email}</p>
             </div>
           </div>
-          <p className="text-[10px] text-slate-400 italic font-medium leading-relaxed">このアカウントは店舗側のメニュー管理と在庫更新にのみアクセスが可能です。</p>
+          <p className="text-xs text-slate-400 italic font-medium leading-relaxed">このアカウントは店舗側のメニュー管理と在庫更新にのみアクセスが可能です。</p>
         </div>
       ) : showOwnerForm ? (
         <div className="space-y-6 animate-in slide-in-from-top duration-300">
           <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 space-y-4">
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">ログイン ID / メール</label>
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-1">ログイン ID / メール</label>
               <input 
                 type="text"
                 placeholder="store_manager_id"
@@ -71,7 +71,7 @@ export const OwnerAccountForm: React.FC<OwnerAccountFormProps> = ({
               />
             </div>
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-1">
                 {isEditingOwner ? '新パスワード (変更時のみ)' : '初期パスワード'}
               </label>
               <input 
@@ -85,7 +85,7 @@ export const OwnerAccountForm: React.FC<OwnerAccountFormProps> = ({
             <button 
               onClick={onHandleCreateOwner}
               disabled={isCreatingOwner}
-              className="w-full bg-brand-wine text-white py-3.5 rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:brightness-110 active:scale-95 transition-all shadow-lg"
+              className="w-full bg-brand-wine text-white py-3.5 rounded-xl text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:brightness-110 active:scale-95 transition-all shadow-lg"
             >
               {isCreatingOwner ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               {isEditingOwner ? '情報を更新' : 'アカウントを発行'}
@@ -94,10 +94,10 @@ export const OwnerAccountForm: React.FC<OwnerAccountFormProps> = ({
         </div>
       ) : (
         <div className="py-12 text-center border-2 border-dashed border-slate-200 rounded-3xl bg-slate-50/50">
-          <p className="text-[11px] text-slate-400 uppercase tracking-widest mb-6 font-bold">オーナーアカウント未設定</p>
+          <p className="text-xs text-slate-400 uppercase tracking-widest mb-6 font-bold">オーナーアカウント未設定</p>
           <button 
             onClick={() => setShowOwnerForm(true)}
-            className="mx-auto flex items-center gap-3 px-6 py-3 bg-white border-2 border-brand-wine text-brand-wine rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-brand-wine hover:text-white transition-all shadow-sm"
+            className="mx-auto flex items-center gap-3 px-6 py-3 bg-white border-2 border-brand-wine text-brand-wine rounded-full text-xs font-bold uppercase tracking-widest hover:bg-brand-wine hover:text-white transition-all shadow-sm"
           >
             <UserPlus className="w-4 h-4" />
             発行画面へ

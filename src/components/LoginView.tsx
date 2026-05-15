@@ -83,18 +83,18 @@ export const LoginView: React.FC = () => {
         </div>
 
         <h1 className="serif text-2xl text-brand-ivory mb-1 tracking-[0.2em] uppercase text-center">Wine Menu <span className="text-brand-gold">System</span></h1>
-        <p className="text-[9px] text-brand-gold/60 uppercase tracking-[0.4em] mb-10 font-bold text-center">Smart Digital Wine Selection & AI Sommelier</p>
+        <p className="text-xs text-brand-gold/60 uppercase tracking-[0.4em] mb-10 font-bold text-center">Smart Digital Wine Selection & AI Sommelier</p>
 
         <div className="flex bg-white/5 rounded-full p-1 mb-8">
           <button 
             onClick={() => { setLoginMethod('google'); setError(''); }}
-            className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-widest rounded-full transition-all ${loginMethod === 'google' ? 'bg-brand-gold text-brand-wine' : 'text-gray-500 hover:text-brand-gold'}`}
+            className={`flex-1 py-2 text-xs font-bold uppercase tracking-widest rounded-full transition-all ${loginMethod === 'google' ? 'bg-brand-gold text-brand-wine' : 'text-gray-500 hover:text-brand-gold'}`}
           >
             Google (営業担当)
           </button>
           <button 
             onClick={() => { setLoginMethod('id'); setError(''); }}
-            className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-widest rounded-full transition-all ${loginMethod === 'id' ? 'bg-brand-gold text-brand-wine' : 'text-gray-500 hover:text-brand-gold'}`}
+            className={`flex-1 py-2 text-xs font-bold uppercase tracking-widest rounded-full transition-all ${loginMethod === 'id' ? 'bg-brand-gold text-brand-wine' : 'text-gray-500 hover:text-brand-gold'}`}
           >
             店舗アカウント
           </button>
@@ -116,7 +116,7 @@ export const LoginView: React.FC = () => {
                 {isLoading ? <Sparkles className="w-4 h-4 animate-spin" /> : 'Googleアカウントでログイン'}
                 <Sparkles className="w-4 h-4" />
               </button>
-              <p className="mt-4 text-[9px] text-gray-500 leading-tight text-center">
+              <p className="mt-4 text-xs text-gray-500 leading-tight text-center">
                 ※ 指定された管理ドメインのアカウントが必要です。
               </p>
             </motion.div>
@@ -130,7 +130,7 @@ export const LoginView: React.FC = () => {
               className="space-y-4"
             >
               <div>
-                <label className="text-[9px] font-bold text-brand-gold/60 uppercase tracking-widest block mb-2">ログイン ID</label>
+                <label className="text-xs font-bold text-brand-gold/60 uppercase tracking-widest block mb-2">ログイン ID</label>
                 <div className="relative">
                   <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-gold opacity-50" />
                   <input 
@@ -143,7 +143,7 @@ export const LoginView: React.FC = () => {
                 </div>
               </div>
               <div>
-                <label className="text-[9px] font-bold text-brand-gold/60 uppercase tracking-widest block mb-2">パスワード</label>
+                <label className="text-xs font-bold text-brand-gold/60 uppercase tracking-widest block mb-2">パスワード</label>
                 <div className="relative">
                   <Key className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-gold opacity-50" />
                   <input 
@@ -157,7 +157,7 @@ export const LoginView: React.FC = () => {
               </div>
 
               {error && (
-                <div className="flex items-center gap-2 text-red-400 text-[10px] p-2 bg-red-500/10 rounded-lg border border-red-500/20">
+                <div className="flex items-center gap-2 text-red-400 text-xs p-2 bg-red-500/10 rounded-lg border border-red-500/20">
                   <AlertCircle className="w-3 h-3" />
                   {error}
                 </div>
@@ -178,19 +178,19 @@ export const LoginView: React.FC = () => {
         <div className="mt-8 pt-8 border-t border-white/5 grid grid-cols-3 gap-4 opacity-40">
            <div className="flex flex-col items-center gap-2">
               <Shield className="w-4 h-4 text-brand-gold" />
-              <span className="text-[8px] text-brand-ivory uppercase">Sales Rep</span>
+              <span className="text-xs text-brand-ivory uppercase">Sales Rep</span>
            </div>
            <div className="flex flex-col items-center gap-2">
               <Wine className="w-4 h-4 text-brand-gold" />
-              <span className="text-[8px] text-brand-ivory uppercase">Owner</span>
+              <span className="text-xs text-brand-ivory uppercase">Owner</span>
            </div>
            <div className="flex flex-col items-center gap-2">
               <User className="w-4 h-4 text-brand-gold" />
-              <span className="text-[8px] text-brand-ivory uppercase">Guest</span>
+              <span className="text-xs text-brand-ivory uppercase">Guest</span>
            </div>
         </div>
 
-        <div className="mt-8 text-[9px] text-gray-500 uppercase tracking-widest font-bold text-center">
+        <div className="mt-8 text-xs text-gray-500 uppercase tracking-widest font-bold text-center">
            Secure Single Sign-On • Sommelier Cloud
         </div>
       </motion.div>

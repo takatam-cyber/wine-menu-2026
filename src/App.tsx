@@ -35,15 +35,15 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
           {(user.role === 'admin' || user.role === 'rep') && (
             <button
               onClick={() => isOwnerView ? window.location.href = '/admin' : window.location.href = '/owner'}
-              className="hidden lg:flex items-center gap-2 px-4 py-1.5 bg-brand-gold/10 text-brand-gold border border-brand-gold/30 rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-brand-gold hover:text-brand-wine transition-all"
+              className="hidden lg:flex items-center gap-2 px-4 py-1.5 bg-brand-gold/10 text-brand-gold border border-brand-gold/30 rounded-full text-xs font-bold uppercase tracking-widest hover:bg-brand-gold hover:text-brand-wine transition-all"
             >
               <Eye className="w-3.5 h-3.5" />
               {isOwnerView ? '管理者ダッシュボードに戻る' : '店舗管理画面を試用 (Owner Mode)'}
             </button>
           )}
-          <div className="hidden sm:flex flex-col text-[10px] uppercase tracking-tighter text-right text-slate-500">
+          <div className="hidden sm:flex flex-col text-xs uppercase tracking-tighter text-right text-slate-500">
             <span className="opacity-60 truncate max-w-[100px]">{user.email}</span>
-            <span className="text-brand-gold font-bold uppercase tracking-widest text-[8px]">権限: {user.role === 'admin' ? '管理者' : user.role === 'owner' ? '店舗オーナー' : '営業担当'}</span>
+            <span className="text-brand-gold font-bold uppercase tracking-widest text-xs">権限: {user.role === 'admin' ? '管理者' : user.role === 'owner' ? '店舗オーナー' : '営業担当'}</span>
           </div>
           <button
             onClick={() => {
@@ -62,11 +62,11 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
 
       <footer className="hidden sm:flex h-10 border-t items-center px-8 justify-between shrink-0 bg-white border-slate-100">
         <div className="flex items-center space-x-4">
-          <span className="text-[9px] text-slate-400 uppercase font-bold tracking-widest opacity-60">ADMINISTRATION CONSOLE</span>
+          <span className="text-xs text-slate-400 uppercase font-bold tracking-widest opacity-60">ADMINISTRATION CONSOLE</span>
         </div>
         <div className="flex items-center space-x-1.5">
           <div className="w-1.5 h-1.5 rounded-full bg-brand-gold animate-pulse text-xs"></div>
-          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Secure Channel</span>
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Secure Channel</span>
         </div>
       </footer>
     </div>

@@ -99,9 +99,14 @@ export const AdminView: React.FC = () => {
     setEditingMasterWine(wine);
     setEditMasterData({
       name_jp: wine.name_jp,
+      name_en: wine.name_en,
+      country: wine.country,
+      country_en: wine.country_en,
+      grape: wine.grape,
+      grape_en: wine.grape_en,
       ai_explanation: wine.ai_explanation,
+      ai_explanation_en: wine.ai_explanation_en,
       price_bottle: wine.price_bottle,
-      grape: wine.grape
     });
     setIsEditingMaster(true);
   };
@@ -477,18 +482,18 @@ export const AdminView: React.FC = () => {
                 </h1>
                 <button 
                   onClick={() => setShowMasterCatalog(!showMasterCatalog)}
-                  className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest border transition-all flex items-center gap-2 ${showMasterCatalog ? 'bg-brand-wine text-white border-brand-wine' : 'bg-white text-slate-600 border-slate-200 hover:border-brand-wine hover:text-brand-wine'}`}
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest border transition-all flex items-center gap-2 ${showMasterCatalog ? 'bg-brand-wine text-white border-brand-wine' : 'bg-white text-slate-600 border-slate-200 hover:border-brand-wine hover:text-brand-wine'}`}
                 >
                   <Database className="w-3.5 h-3.5" />
                   {showMasterCatalog ? 'ダッシュボードへ' : 'マスターを表示'}
                 </button>
               </div>
-              <p className="text-slate-400 text-[9px] md:text-[10px] uppercase tracking-[0.4em] font-bold text-center md:text-left">Sales Representative: {user?.name} • Total Stores: {stores.length}</p>
+              <p className="text-slate-400 text-xs uppercase tracking-[0.4em] font-bold text-center md:text-left">Sales Representative: {user?.name} • Total Stores: {stores.length}</p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 md:gap-4 px-4 md:px-0">
               <button
                  onClick={handleCreateStore}
-                 className="flex items-center justify-center gap-2 px-6 md:px-8 py-3 bg-brand-wine text-white rounded-full text-[10px] md:text-[11px] font-bold uppercase tracking-widest hover:scale-105 transition-all shadow-md active:scale-95 w-full sm:w-auto"
+                 className="flex items-center justify-center gap-2 px-6 md:px-8 py-3 bg-brand-wine text-white rounded-full text-xs font-bold uppercase tracking-widest hover:scale-105 transition-all shadow-md active:scale-95 w-full sm:w-auto"
               >
                 <Plus className="w-5 h-5" />
                 新規店舗を開拓
@@ -502,7 +507,7 @@ export const AdminView: React.FC = () => {
               />
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="flex items-center justify-center gap-2 px-6 md:px-8 py-3 bg-white border-2 border-slate-200 rounded-full text-[10px] md:text-[11px] text-slate-600 font-bold uppercase tracking-widest hover:border-brand-wine hover:text-brand-wine transition-all shadow-sm w-full sm:w-auto"
+                className="flex items-center justify-center gap-2 px-6 md:px-8 py-3 bg-white border-2 border-slate-200 rounded-full text-xs text-slate-600 font-bold uppercase tracking-widest hover:border-brand-wine hover:text-brand-wine transition-all shadow-sm w-full sm:w-auto"
               >
                 <Upload className="w-5 h-5" />
                 マスター更新
@@ -547,14 +552,14 @@ export const AdminView: React.FC = () => {
           <div className="flex flex-col gap-1">
             <button 
               onClick={() => setSelectedStoreId(null)}
-              className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest hover:text-brand-wine transition-colors flex items-center gap-1 mb-1 md:mb-2"
+              className="text-xs font-bold text-slate-400 uppercase tracking-widest hover:text-brand-wine transition-colors flex items-center gap-1 mb-1 md:mb-2"
             >
               ← ダッシュボードに戻る
             </button>
             {isEditingStore ? (
               <div className="space-y-4 bg-slate-50 p-4 md:p-6 rounded-2xl border border-slate-200 w-full max-w-md animate-in slide-in-from-left duration-300">
                 <div>
-                  <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">店名</label>
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-1">店名</label>
                   <input 
                     type="text"
                     value={editStoreData.name}
@@ -564,7 +569,7 @@ export const AdminView: React.FC = () => {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">ジャンル</label>
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-1">ジャンル</label>
                     <select 
                       value={editStoreData.cuisine_type}
                       onChange={e => setEditStoreData({...editStoreData, cuisine_type: e.target.value})}
@@ -585,10 +590,10 @@ export const AdminView: React.FC = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">ステータス</label>
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-1">ステータス</label>
                     <button 
                       onClick={() => setEditStoreData({...editStoreData, isActive: !editStoreData.isActive})}
-                      className={`w-full py-2 rounded text-[10px] font-bold uppercase tracking-widest border transition-all ${editStoreData.isActive ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}
+                      className={`w-full py-2 rounded text-xs font-bold uppercase tracking-widest border transition-all ${editStoreData.isActive ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}
                     >
                       {editStoreData.isActive ? '● 公開中' : '○ 停止中'}
                     </button>
@@ -599,8 +604,8 @@ export const AdminView: React.FC = () => {
                 <div className="space-y-4 pt-4 border-t border-slate-200">
                   <div className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl">
                     <div className="flex flex-col">
-                      <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">ペアリングフィルターを非表示</span>
-                      <span className="text-[8px] text-slate-400 uppercase">「お料理から選ぶ」を隠す</span>
+                      <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">ペアリングフィルターを非表示</span>
+                      <span className="text-xs text-slate-400 uppercase">「お料理から選ぶ」を隠す</span>
                     </div>
                     <button 
                       onClick={() => setEditStoreData({...editStoreData, hidePairingFilter: !editStoreData.hidePairingFilter})}
@@ -612,8 +617,8 @@ export const AdminView: React.FC = () => {
 
                   <div className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl">
                     <div className="flex flex-col">
-                      <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">マリアージュ詳細を非表示</span>
-                      <span className="text-[8px] text-slate-400 uppercase">「最高のマリアージュ」を隠す</span>
+                      <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">マリアージュ詳細を非表示</span>
+                      <span className="text-xs text-slate-400 uppercase">「最高のマリアージュ」を隠す</span>
                     </div>
                     <button 
                       onClick={() => setEditStoreData({...editStoreData, hideWinePairing: !editStoreData.hideWinePairing})}
@@ -624,7 +629,7 @@ export const AdminView: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">予算設定 (カンマ区切り)</label>
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-1">予算設定 (カンマ区切り)</label>
                     <input 
                       type="text"
                       placeholder="5000, 10000, 20000"
@@ -635,11 +640,11 @@ export const AdminView: React.FC = () => {
                       }}
                       className="w-full bg-white border border-slate-300 rounded px-3 py-2 text-sm text-slate-900 focus:border-brand-wine outline-none transition-all"
                     />
-                    <p className="text-[8px] text-slate-400 mt-1 uppercase tracking-tighter">例: 5000, 10000, 20000 (数値のみ入力してください)</p>
+                    <p className="text-xs text-slate-400 mt-1 uppercase tracking-tighter">例: 5000, 10000, 20000 (数値のみ入力してください)</p>
                   </div>
                 </div>
                 <div className="flex flex-col items-center justify-center bg-white p-6 rounded-2xl border border-slate-200 shadow-inner">
-                  <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">モバイル用QRコード</div>
+                  <div className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">モバイル用QRコード</div>
                   <div className="p-3 bg-white border border-slate-100 rounded-xl shadow-lg mb-4">
                     <img 
                       src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(getBaseUrl() + '/menu/' + selectedStoreId)}`}
@@ -651,14 +656,14 @@ export const AdminView: React.FC = () => {
                   <div className="flex flex-col gap-2 w-full">
                     <button 
                       onClick={() => window.location.href = `/owner?storeId=${selectedStoreId}`}
-                      className="w-full py-3 bg-brand-wine text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:brightness-125 flex items-center justify-center gap-2 shadow-luxury border border-brand-gold/30"
+                      className="w-full py-3 bg-brand-wine text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:brightness-125 flex items-center justify-center gap-2 shadow-luxury border border-brand-gold/30"
                     >
                       <Settings className="w-3.5 h-3.5" />
                       店舗オーナーとして管理
                     </button>
                     <button 
                       onClick={() => window.open(`${getBaseUrl()}/menu/${selectedStoreId}`, '_blank')}
-                      className="w-full py-3 bg-brand-gold text-brand-wine rounded-xl text-[10px] font-bold uppercase tracking-widest hover:brightness-110 flex items-center justify-center gap-2 shadow-sm"
+                      className="w-full py-3 bg-brand-gold text-brand-wine rounded-xl text-xs font-bold uppercase tracking-widest hover:brightness-110 flex items-center justify-center gap-2 shadow-sm"
                     >
                       <Eye className="w-3.5 h-3.5" />
                       お客様メニューを表示
@@ -669,14 +674,14 @@ export const AdminView: React.FC = () => {
                         navigator.clipboard.writeText(url);
                         alert('URLをコピーしました');
                       }}
-                      className="w-full py-2 bg-slate-100 text-slate-600 rounded-lg text-[9px] font-bold uppercase tracking-widest hover:bg-slate-200 transition-all border border-slate-200"
+                      className="w-full py-2 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-slate-200 transition-all border border-slate-200"
                     >
                       URLをコピー
                     </button>
                     <div className="h-px bg-slate-200 my-2" />
                     <button 
                       onClick={() => handleDeleteStore(selectedStoreId!)}
-                      className="w-full py-3 bg-white text-red-500 border border-red-200 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-red-50 transition-all flex items-center justify-center gap-2"
+                      className="w-full py-3 bg-white text-red-500 border border-red-200 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-red-50 transition-all flex items-center justify-center gap-2"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                       この店舗を削除する
@@ -684,7 +689,7 @@ export const AdminView: React.FC = () => {
                   </div>
                 </div>
                 <div>
-                  <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">住所</label>
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-1">住所</label>
                   <input 
                     type="text"
                     value={editStoreData.address}
@@ -695,13 +700,13 @@ export const AdminView: React.FC = () => {
                 <div className="flex gap-2">
                   <button 
                     onClick={handleUpdateStore}
-                    className="flex-1 py-2 bg-brand-wine text-white text-[10px] font-bold uppercase tracking-widest rounded flex items-center justify-center gap-2 hover:bg-opacity-90 transition-all font-bold"
+                    className="flex-1 py-2 bg-brand-wine text-white text-xs font-bold uppercase tracking-widest rounded flex items-center justify-center gap-2 hover:bg-opacity-90 transition-all font-bold"
                   >
                     <Save className="w-4 h-4" /> 保存
                   </button>
                   <button 
                     onClick={() => setIsEditingStore(false)}
-                    className="px-4 py-2 bg-slate-200 text-slate-700 text-[10px] font-bold uppercase tracking-widest rounded hover:bg-slate-300 transition-all"
+                    className="px-4 py-2 bg-slate-200 text-slate-700 text-xs font-bold uppercase tracking-widest rounded hover:bg-slate-300 transition-all"
                   >
                     キャンセル
                   </button>
@@ -726,11 +731,11 @@ export const AdminView: React.FC = () => {
                     <Edit2 className="w-4 h-4" />
                   </button>
                 </div>
-                <p className="text-slate-500 text-[10px] md:text-xs uppercase tracking-[0.3em] font-bold flex items-center gap-2 mt-1 md:mt-0">
+                <p className="text-slate-500 text-xs uppercase tracking-[0.3em] font-bold flex items-center gap-2 mt-1 md:mt-0">
                   Menu Strategy • {selectedStore?.cuisine_type} 
                   <span className={`w-2.5 h-2.5 rounded-full ${selectedStore?.isActive ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.3)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.3)]'}`}></span>
                 </p>
-                <p className="text-slate-400 text-[10px] md:text-xs mt-1 font-medium italic truncate max-w-xs">{selectedStore?.address}</p>
+                <p className="text-slate-400 text-xs mt-1 font-medium italic truncate max-w-xs">{selectedStore?.address}</p>
               </>
             )}
           </div>
@@ -746,14 +751,14 @@ export const AdminView: React.FC = () => {
                   setShowOwnerForm(true);
                 }
               }}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 md:px-5 py-2 md:py-2.5 bg-white border border-slate-200 text-slate-700 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-widest hover:border-brand-wine hover:text-brand-wine transition-all shadow-sm"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 md:px-5 py-2 md:py-2.5 bg-white border border-slate-200 text-slate-700 rounded-full text-xs font-bold uppercase tracking-widest hover:border-brand-wine hover:text-brand-wine transition-all shadow-sm"
             >
               <Shield className="w-4 h-4 text-brand-gold shrink-0" />
               <span className="truncate">{selectedStore?.ownerId ? 'オーナー編集' : 'オーナー作成'}</span>
             </button>
             <button
               onClick={() => window.open(`/menu/${selectedStoreId}`, '_blank')}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 md:px-5 py-2 md:py-2.5 bg-brand-wine text-white rounded-full text-[10px] md:text-xs font-bold uppercase tracking-widest hover:scale-105 transition-all shadow-md"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 md:px-5 py-2 md:py-2.5 bg-brand-wine text-white rounded-full text-xs font-bold uppercase tracking-widest hover:scale-105 transition-all shadow-md"
             >
               <Wine className="w-4 h-4 shrink-0" />
               <span className="truncate">お客様メニュー</span>
