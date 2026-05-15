@@ -117,3 +117,33 @@
 .markdown-body li {
   @apply mb-1;
 }
+
+/* Google 翻訳ウィジェットのカスタマイズ */
+.google-translate-container {
+  display: inline-block;
+  vertical-align: middle;
+}
+/* 不要なロゴや「提供元」テキストを非表示 */
+.goog-logo-link, .goog-te-gadget span, .goog-te-banner-frame {
+  display: none !important;
+}
+.goog-te-gadget {
+  color: transparent !important;
+  font-size: 0 !important;
+}
+/* セレクトボックス（言語選択）の装飾 */
+.goog-te-combo {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid #B8860B !important; /* brand-gold-dark */
+  color: #B8860B !important;
+  border-radius: 9999px !important;
+  padding: 4px 12px !important;
+  font-size: 11px !important;
+  font-weight: bold !important;
+  outline: none !important;
+  cursor: pointer !important;
+}
+/* 翻訳後のフォント崩れ防止 */
+body {
+  top: 0 !important;
+}
