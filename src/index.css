@@ -119,9 +119,8 @@
 }
 
 /* Google 翻訳ウィジェットのカスタマイズ */
-.google-translate-container {
-  display: inline-block;
-  vertical-align: middle;
+.google-translate-container, #google_translate_element {
+  display: none !important;
 }
 /* 不要なロゴや「提供元」テキスト、ツールバーを非表示 */
 .goog-logo-link, .goog-te-gadget span, .goog-te-banner-frame, #goog-gt-tt {
