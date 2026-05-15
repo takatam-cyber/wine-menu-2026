@@ -152,6 +152,48 @@ export const CustomerView: React.FC = () => {
     }
   };
 
+  const formatPrice = (price: number | undefined) => {
+    if (price === undefined || price === null) return '-';
+    const formatted = price.toLocaleString();
+    return language === 'en' ? `¥${formatted} (JPY)` : `¥${formatted}`;
+  };
+
+  const translateStyle = (style: string) => {
+    if (language === 'jp') return style;
+    const styleMap: Record<string, string> = {
+      'フルボディ': 'Full-bodied',
+      'ミディアムボディ': 'Medium-bodied',
+      'ライトボディ': 'Light-bodied',
+      '辛口': 'Dry',
+      '中辛口': 'Medium Dry',
+      '甘口': 'Sweet',
+      '辛口 (Brut)': 'Dry (Brut)',
+      '極辛口': 'Extra Brut',
+      '中甘口': 'Demi-Sec',
+      '赤': 'Red',
+      '白': 'White',
+      '泡': 'Sparkling'
+    };
+    return styleMap[style] || style;
+  };
+
+  const translatePairing = (pairing: string) => {
+    if (language === 'jp') return pairing;
+    const pairingMap: Record<string, string> = {
+      '肉': 'Meat',
+      '魚': 'Fish',
+      '前菜': 'Appetizer',
+      'サラダ': 'Salad',
+      '牛': 'Beef',
+      '羊': 'Lamb',
+      '豚': 'Pork',
+      '鶏': 'Chicken',
+      '刺身': 'Sashimi',
+      '天ぷら': 'Tempura'
+    };
+    return pairing.split('、').map(p => pairingMap[p.trim()] || p.trim()).join(', ');
+  };
+
   const finalStoreId = routeStoreId || new URLSearchParams(window.location.search).get('storeId') || user?.storeId;
   const { data: menuData, isLoading: isDataFetching, refetch: fetchStoreData } = usePublicMenuQuery(finalStoreId || null);
   
@@ -304,7 +346,7 @@ export const CustomerView: React.FC = () => {
     return (
       <div className="min-h-screen bg-brand-wine flex flex-col items-center justify-center p-8 text-center">
         <Wine className="w-16 h-16 text-brand-gold/20 mb-6" />
-        <h2 className="serif text-2xl text-brand-gold mb-4">{t[language].notFound}</h2>
+        <h2 className="serif text-2xl text-brand-gold-dark mb-4">{t[language].notFound}</h2>
         <p className="text-sm text-brand-ivory/60 leading-relaxed max-w-xs">{t[language].qrRetry}</p>
       </div>
     );
@@ -312,7 +354,7 @@ export const CustomerView: React.FC = () => {
 
   if (inventory.length === 0) {
     return (
-      <div className="min-h-screen bg-brand-wine flex flex-col items-center justify-center p-8 text-center text-brand-gold overflow-hidden">
+      <div className="min-h-screen bg-brand-wine flex flex-col items-center justify-center p-8 text-center text-brand-gold-dark overflow-hidden">
         {/* Animated background elements for premium feel */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -top-24 -left-24 w-96 h-96 bg-brand-gold/5 rounded-full blur-3xl animate-pulse" />
@@ -343,7 +385,7 @@ export const CustomerView: React.FC = () => {
 
           <div className="space-y-8">
             <div>
-              <h2 className="serif text-3xl md:text-4xl text-brand-gold mb-2 tracking-[0.25em] font-light leading-snug uppercase">
+              <h2 className="serif text-3xl md:text-4xl text-brand-gold-dark mb-2 tracking-[0.25em] font-light leading-snug uppercase">
                 THE CELLAR
               </h2>
               <div className="flex items-center justify-center gap-4">
@@ -372,14 +414,14 @@ export const CustomerView: React.FC = () => {
                 onClick={() => {
                   fetchStoreData();
                 }}
-                className="px-14 py-4 bg-transparent border border-brand-gold/30 text-brand-gold text-[10px] uppercase tracking-[0.4em] rounded-full hover:bg-brand-gold/10 hover:border-brand-gold/60 active:scale-95 transition-all font-bold backdrop-blur-md shadow-lg"
+                className="px-14 py-4 bg-transparent border border-brand-gold/30 text-brand-gold-dark text-[10px] uppercase tracking-[0.4em] rounded-full hover:bg-brand-gold/10 hover:border-brand-gold/60 active:scale-95 transition-all font-bold backdrop-blur-md shadow-lg"
               >
                 {t[language].refresh}
               </button>
               
               <div className="flex items-center gap-3 opacity-30">
                 <div className="w-1 h-1 rounded-full bg-brand-gold" />
-                <p className="text-[11px] text-brand-gold uppercase tracking-[0.5em] font-mono">
+                <p className="text-[11px] text-brand-gold-dark uppercase tracking-[0.5em] font-mono">
                   {store.name}
                 </p>
                 <div className="w-1 h-1 rounded-full bg-brand-gold" />
@@ -476,14 +518,14 @@ export const CustomerView: React.FC = () => {
                     window.location.href = `/owner?storeId=${store.id}`;
                   }
                 }}
-                className="w-10 h-10 rounded-full bg-brand-gold/10 flex items-center justify-center border border-brand-gold/20 text-brand-gold hover:bg-brand-gold hover:text-brand-wine transition-all"
+                className="w-10 h-10 rounded-full bg-brand-gold/10 flex items-center justify-center border border-brand-gold/20 text-brand-gold-dark hover:bg-brand-gold-dark hover:text-brand-wine transition-all"
               >
                 <Edit2 className="w-5 h-5" />
               </button>
             )}
           </div>
           <div className="flex-none text-center flex items-center gap-4">
-            <h1 className="font-serif text-brand-gold font-light text-xl md:text-2xl tracking-[0.4em] uppercase leading-tight">
+            <h1 className="font-serif text-brand-gold-dark font-light text-xl md:text-2xl tracking-[0.4em] uppercase leading-tight">
               {store.name}
             </h1>
             <div className="flex items-center bg-white/5 rounded-full p-1 border border-brand-gold/20 shadow-inner">
@@ -496,7 +538,7 @@ export const CustomerView: React.FC = () => {
                 {language === 'jp' && (
                   <motion.div 
                     layoutId="activeLang"
-                    className="absolute inset-0 bg-brand-gold rounded-full -z-10 shadow-sm"
+                    className="absolute inset-0 bg-brand-gold-dark rounded-full -z-10 shadow-sm"
                     transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
                   />
                 )}
@@ -511,7 +553,7 @@ export const CustomerView: React.FC = () => {
                 {language === 'en' && (
                   <motion.div 
                     layoutId="activeLang"
-                    className="absolute inset-0 bg-brand-gold rounded-full -z-10 shadow-sm"
+                    className="absolute inset-0 bg-brand-gold-dark rounded-full -z-10 shadow-sm"
                     transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
                   />
                 )}
@@ -585,7 +627,7 @@ export const CustomerView: React.FC = () => {
                     onClick={() => setActiveColor(activeColor === color ? null : color)}
                     className={`px-4 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all whitespace-nowrap border ${
                       activeColor === color 
-                        ? 'bg-brand-wine text-brand-gold border-brand-gold shadow-sm' 
+                        ? 'bg-brand-wine text-brand-gold-dark border-brand-gold shadow-sm' 
                         : 'bg-white border-brand-gold/20 text-brand-gold-dark'
                     }`}
                   >
@@ -722,14 +764,14 @@ export const CustomerView: React.FC = () => {
                               </div>
                               <div className="flex-1 flex flex-col justify-center gap-1">
                                 <div className="flex flex-wrap items-center gap-2 mb-1">
-                                  <div className="px-2 py-1 bg-brand-wine text-brand-gold text-[13px] font-black rounded-full uppercase tracking-widest shrink-0 shadow-sm flex items-center gap-1">
+                                  <div className="px-2 py-1 bg-brand-wine text-brand-gold-dark text-[13px] font-black rounded-full uppercase tracking-widest shrink-0 shadow-sm flex items-center gap-1">
                                     <ChefHat className="w-2.5 h-2.5" />
                                     Specialité
                                   </div>
                                   {wine.color && (
                                     <div className={`px-2 py-1 text-[13px] font-black rounded-full uppercase tracking-widest shrink-0 ${
                                       wine.color === '赤' ? 'bg-[#641E16] text-white' : 
-                                      wine.color === '白' ? 'bg-[#D4AF37] text-white' : 
+                                      wine.color === '白' ? 'bg-brand-gold-dark text-white' : 
                                       wine.color === '泡' || wine.color === 'スパークリング' ? 'bg-[#717D7E] text-white' : 'bg-slate-500 text-white'
                                     }`}>
                                       {wine.color === '赤' ? t[language].red : wine.color === '白' ? t[language].white : t[language].sparkling}
@@ -748,7 +790,7 @@ export const CustomerView: React.FC = () => {
                                       </div>
                                     </div>
                                   )}
-                                  <h3 className="serif text-2xl text-brand-wine leading-tight tracking-tight group-hover:text-brand-gold transition-colors">
+                                  <h3 className="serif text-2xl text-brand-wine leading-tight tracking-tight group-hover:text-brand-gold-dark transition-colors">
                                     {language === 'en' ? (wine.name_en || wine.name_jp) : wine.name_jp}
                                   </h3>
                                   
@@ -757,22 +799,24 @@ export const CustomerView: React.FC = () => {
                                       <MapPin className="w-3 h-3" />
                                       {wine.country} / {wine.region}
                                     </div>
-                                    <div className="flex items-center gap-1 px-2 py-1 bg-brand-wine/10 rounded-lg text-[13px] text-brand-wine font-black uppercase tracking-wider">
-                                      {t[language].grape}: {wine.grape}
-                                    </div>
-                                    {wine.tags?.split('、').slice(0, 3).map(tag => (
-                                      <div key={tag} className="px-2 py-1 bg-brand-wine/5 rounded-lg text-[13px] text-brand-wine/60 font-bold tracking-wider flex items-center gap-1">
-                                        <Tag className="w-2.5 h-2.5" />
-                                        {tag}
-                                      </div>
-                                    ))}
+                                <div className={`flex items-center gap-1 px-2 py-1 bg-brand-wine/10 rounded-lg text-[13px] text-brand-wine font-black uppercase tracking-wider ${language === 'en' ? 'font-sans' : ''}`}>
+                                  {t[language].grape}: {wine.grape}
+                                </div>
+                                {wine.tags?.split('、').slice(0, 3).map(tag => (
+                                  <div key={tag} className="px-2 py-1 bg-brand-wine/5 rounded-lg text-[13px] text-brand-wine/60 font-bold tracking-wider flex items-center gap-1">
+                                    <Tag className="w-2.5 h-2.5" />
+                                    {translatePairing(tag)}
+                                  </div>
+                                ))}
                                   </div>
 
                                   <div className="flex items-center justify-between mt-4">
                                     <div className="flex flex-col">
-                               <span className="serif text-2xl text-brand-wine font-medium tracking-tighter">¥{wine.price_bottle?.toLocaleString()}</span>
+                                      <span className={`serif text-2xl text-brand-wine font-medium tracking-tighter ${language === 'en' ? 'font-serif' : ''}`}>
+                                        {formatPrice(wine.price_bottle)}
+                                      </span>
                                     </div>
-                                    <div className="w-10 h-10 rounded-full border border-brand-gold/30 flex items-center justify-center text-brand-gold group-hover:bg-brand-gold group-hover:text-white transition-all">
+                                    <div className="w-10 h-10 rounded-full border border-brand-gold/30 flex items-center justify-center text-brand-gold-dark group-hover:bg-brand-gold-dark group-hover:text-white transition-all">
                                       <ChevronRight className="w-6 h-6" />
                                     </div>
                                   </div>
@@ -824,7 +868,7 @@ export const CustomerView: React.FC = () => {
                       <div className="flex items-center gap-1.5 mb-1">
                         <div className={`px-2 py-1 text-[11px] font-black rounded-full uppercase tracking-widest shrink-0 ${
                           wine.color === '赤' ? 'bg-[#641E16] text-white' : 
-                          wine.color === '白' ? 'bg-[#D4AF37] text-white' : 
+                          wine.color === '白' ? 'bg-brand-gold-dark text-white' : 
                           wine.color === '泡' || wine.color === 'スパークリング' ? 'bg-[#717D7E] text-white' : 'bg-slate-500 text-white'
                         }`}>
                           {wine.color === '赤' ? t[language].red : wine.color === '白' ? t[language].white : t[language].sparkling}
@@ -844,25 +888,27 @@ export const CustomerView: React.FC = () => {
                               </span>
                             </div>
                           )}
-                          <h3 className="serif text-xl text-brand-wine leading-tight group-hover:text-brand-gold transition-colors">
+                          <h3 className="serif text-xl text-brand-wine leading-tight group-hover:text-brand-gold-dark transition-colors">
                             {language === 'en' ? (wine.name_en || wine.name_jp) : wine.name_jp}
                           </h3>
                           
-                          <div className="flex flex-wrap gap-1 mt-1.5">
-                            <div className="flex items-center gap-1 text-[13px] text-slate-400 font-bold uppercase tracking-widest">
-                              <MapPin className="w-2.5 h-2.5" />
-                              {wine.country} / <span className="text-brand-wine font-black">{t[language].grape}: {wine.grape}</span>
-                            </div>
-                            {wine.tags?.split('、').slice(0, 2).map(tag => (
-                              <div key={tag} className="px-1.5 py-0.5 bg-brand-wine/5 rounded text-[11px] text-brand-wine/40 font-bold tracking-wider">
-                                #{tag}
+                            <div className="flex flex-wrap gap-1 mt-1.5">
+                              <div className="flex items-center gap-1 text-[13px] text-slate-400 font-bold uppercase tracking-widest">
+                                <MapPin className="w-2.5 h-2.5" />
+                                {wine.country} / <span className="text-brand-wine font-black">{t[language].grape}: {wine.grape}</span>
                               </div>
-                            ))}
-                          </div>
+                              {wine.tags?.split('、').slice(0, 2).map(tag => (
+                                <div key={tag} className="px-1.5 py-0.5 bg-brand-wine/5 rounded text-[11px] text-brand-wine/40 font-bold tracking-wider">
+                                  #{translatePairing(tag)}
+                                </div>
+                              ))}
+                            </div>
 
                           <div className="flex items-center justify-between mt-2">
-                             <span className="serif text-xl text-brand-wine font-medium">¥{wine.price_bottle?.toLocaleString()}</span>
-                             <ChevronRight className="w-5 h-5 text-brand-gold transition-all" />
+                             <span className={`serif text-xl text-brand-wine font-medium ${language === 'en' ? 'font-serif' : ''}`}>
+                               {formatPrice(wine.price_bottle)}
+                             </span>
+                             <ChevronRight className="w-5 h-5 text-brand-gold-dark transition-all" />
                           </div>
                         </div>
                       </motion.div>
@@ -934,7 +980,7 @@ export const CustomerView: React.FC = () => {
                   {/* Reuse Concierge UI Components */}
                   <div className="space-y-4">
                     <p className="text-[10px] text-brand-gold-dark font-black uppercase tracking-[0.3em] flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold flex items-center justify-center text-[10px] font-black shadow-inner">1</span>
+                      <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold-dark flex items-center justify-center text-[10px] font-black shadow-inner">1</span>
                       {t[language].chooseColor}
                     </p>
                     <div className="flex flex-wrap gap-2">
@@ -949,7 +995,7 @@ export const CustomerView: React.FC = () => {
                             }}
                             className={`px-8 py-3 rounded-full text-[14px] font-bold transition-all border ${
                               step1Color === color 
-                                ? 'bg-brand-wine text-brand-gold border-brand-gold shadow-lg font-black' 
+                                ? 'bg-brand-wine text-brand-gold-dark border-brand-gold shadow-lg font-black' 
                                 : 'bg-white border-brand-gold/10 text-brand-wine/60'
                             }`}
                           >
@@ -965,7 +1011,7 @@ export const CustomerView: React.FC = () => {
                       className="space-y-4 pt-6 border-t border-brand-gold/10"
                     >
                       <p className="text-[10px] text-brand-gold-dark font-black uppercase tracking-[0.3em] flex items-center gap-2">
-                        <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold flex items-center justify-center text-[10px] font-black shadow-inner">2</span>
+                        <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold-dark flex items-center justify-center text-[10px] font-black shadow-inner">2</span>
                         {t[language].chooseStyle}
                       </p>
                       <div className="flex flex-wrap gap-2">
@@ -978,11 +1024,11 @@ export const CustomerView: React.FC = () => {
                             }}
                             className={`px-5 py-3 rounded-2xl text-[13px] font-bold transition-all border ${
                               step2Style === style 
-                                ? 'bg-brand-gold text-brand-wine border-brand-gold shadow-md font-black' 
+                                ? 'bg-brand-gold-dark text-white border-brand-gold-dark shadow-md font-black' 
                                 : 'bg-white border-brand-gold/10 text-brand-wine/60'
                             }`}
                           >
-                            {style}
+                            {translateStyle(style)}
                           </button>
                         ))}
                       </div>
@@ -995,7 +1041,7 @@ export const CustomerView: React.FC = () => {
                       className="space-y-4 pt-6 border-t border-brand-gold/10"
                     >
                       <p className="text-[10px] text-brand-gold-dark font-black uppercase tracking-[0.3em] flex items-center gap-2">
-                        <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold flex items-center justify-center text-[10px] font-black shadow-inner">3</span>
+                        <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold-dark flex items-center justify-center text-[10px] font-black shadow-inner">3</span>
                         {t[language].narrowBudget}
                       </p>
                       <div className="grid grid-cols-2 gap-2">
@@ -1005,7 +1051,7 @@ export const CustomerView: React.FC = () => {
                             onClick={() => setStep3Budget(budget.id)}
                             className={`px-4 py-3 rounded-2xl text-[12px] font-bold transition-all border ${
                               step3Budget === budget.id 
-                                ? 'bg-brand-wine text-brand-gold border-brand-gold shadow-md' 
+                                ? 'bg-brand-wine text-brand-gold-dark border-brand-gold shadow-md' 
                                 : 'bg-white border-brand-gold/10 text-brand-wine/50'
                             }`}
                           >
@@ -1019,7 +1065,7 @@ export const CustomerView: React.FC = () => {
                   <div className="pt-6">
                     <button
                       onClick={() => setIsConciergeOpen(false)}
-                      className="w-full py-4 bg-brand-wine text-brand-gold rounded-full font-black uppercase tracking-[0.4em] shadow-xl active:scale-95 transition-all"
+                      className="w-full py-4 bg-brand-wine text-brand-gold-dark rounded-full font-black uppercase tracking-[0.4em] shadow-xl active:scale-95 transition-all"
                     >
                       {t[language].showResults}
                     </button>
@@ -1033,7 +1079,7 @@ export const CustomerView: React.FC = () => {
         {/* Global Footer */}
         <div className="fixed bottom-6 inset-x-6 z-40 flex justify-center pointer-events-none">
           <div className="bg-black/90 backdrop-blur-xl border border-brand-gold/30 px-8 py-3 rounded-full shadow-2xl animate-in slide-in-from-bottom duration-1000 pointer-events-auto">
-            <p className="text-[10px] md:text-xs text-brand-gold font-bold uppercase tracking-[0.15em] text-center">
+            <p className="text-[10px] md:text-xs text-brand-gold-dark font-bold uppercase tracking-[0.15em] text-center">
               {t[language].consultStaff}
             </p>
           </div>
@@ -1055,10 +1101,10 @@ export const CustomerView: React.FC = () => {
               className="fixed inset-0 z-[130] bg-black/98 backdrop-blur-3xl overflow-hidden flex flex-col h-[100dvh] md:h-auto md:bottom-0 md:top-12 md:rounded-t-[2.5rem] border-t border-brand-gold/30 shadow-[0_-20px_500px_rgba(0,0,0,1)]"
             >
               <div className="sticky top-0 z-[140] bg-black/95 backdrop-blur-md p-8 pb-4 flex justify-between items-center border-b border-white/5">
-                <span className="text-sm text-brand-gold font-bold uppercase tracking-[0.2em] opacity-60">{t[language].vintage} {selectedWine.vintage}</span>
+                <span className="text-sm text-brand-gold-dark font-bold uppercase tracking-[0.2em] opacity-60">{t[language].vintage} {selectedWine.vintage}</span>
                 <button 
                   onClick={() => setSelectedWine(null)} 
-                  className="w-10 h-10 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-brand-gold text-xl hover:bg-white/20 transition-all font-light"
+                  className="w-10 h-10 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-brand-gold-dark text-xl hover:bg-white/20 transition-all font-light"
                 >✕</button>
               </div>
               
@@ -1074,7 +1120,7 @@ export const CustomerView: React.FC = () => {
                         className="h-full object-contain relative z-10 transition-transform duration-2000 group-hover:scale-105" 
                       />
                     </div>
-                    <h2 className="serif text-3xl md:text-5xl text-brand-gold mb-3 tracking-tight leading-tight">
+                    <h2 className="serif text-3xl md:text-5xl text-brand-gold-dark mb-3 tracking-tight leading-tight">
                       {language === 'en' ? (selectedWine.name_en || selectedWine.name_jp) : selectedWine.name_jp}
                     </h2>
                     <p className="text-[13px] md:text-sm text-gray-400 tracking-[0.3em] uppercase font-bold mb-2">
@@ -1086,7 +1132,7 @@ export const CustomerView: React.FC = () => {
                   </div>
 
                 <div className="space-y-6 pt-8 border-t border-white/10">
-                  <div className="flex items-center gap-3 text-brand-gold">
+                  <div className="flex items-center gap-3 text-brand-gold-dark">
                     <Award className="w-6 h-6 opacity-70" />
                     <h4 className="text-sm font-bold uppercase tracking-[0.3em]">{t[language].flavorProfile}</h4>
                   </div>
@@ -1094,19 +1140,28 @@ export const CustomerView: React.FC = () => {
                 </div>
 
                 <div className="space-y-6">
-                  <div className="flex items-center gap-3 text-brand-gold">
+                  <div className="flex items-center gap-3 text-brand-gold-dark">
                     <Info className="w-6 h-6 opacity-70" />
                     <h4 className="text-sm font-bold uppercase tracking-[0.3em]">{t[language].sommelierExplanation}</h4>
                   </div>
                   <div className="relative">
                     <div className="absolute top-4 left-4 text-brand-gold/20"><Sparkles className="w-8 h-8" /></div>
                     <div className="bg-brand-gold/5 p-6 pt-10 rounded-2xl border border-brand-gold/10 shadow-inner space-y-6">
-                      <p className="text-xl md:text-2xl leading-relaxed text-brand-gold-dark font-serif first-letter:text-5xl first-letter:float-left first-letter:mr-3 first-letter:mt-1 first-letter:text-brand-gold-dark font-medium italic">
+                      <p className={`text-xl md:text-2xl leading-relaxed text-brand-gold-dark font-serif first-letter:text-5xl first-letter:float-left first-letter:mr-3 first-letter:mt-1 first-letter:text-brand-gold-dark font-medium italic ${language === 'en' ? 'font-serif italic' : ''}`}>
                         {language === 'en' ? (
                           <>
-                            {selectedWine.ai_explanation_en || selectedWine.ai_explanation || selectedWine.aroma_features}
-                            {(!selectedWine.ai_explanation_en && selectedWine.ai_explanation) && (
-                              <span className="block mt-4 text-xs font-sans not-italic opacity-50">* Japanese description</span>
+                            {selectedWine.ai_explanation_en || (
+                              <div className="space-y-4">
+                                <span className="text-[10px] uppercase tracking-[0.2em] font-sans block opacity-60 not-italic">
+                                  Translation in progress...
+                                </span>
+                                <span className="block opacity-80 decoration-brand-gold/30 underline underline-offset-4 mb-2">
+                                  {selectedWine.ai_explanation || selectedWine.aroma_features}
+                                </span>
+                                <span className="block text-[9px] font-sans not-italic opacity-40 uppercase tracking-widest pt-2 border-t border-brand-gold/10">
+                                  * Japanese original description
+                                </span>
+                              </div>
                             )}
                           </>
                         ) : (
@@ -1121,27 +1176,27 @@ export const CustomerView: React.FC = () => {
                         </div>
                       )}
 
-                      <div className="flex flex-wrap gap-2 pt-4 border-t border-brand-gold/10">
-                        {selectedWine.tags?.split('、').map(tag => (
-                          <span key={tag} className="px-3 py-1 bg-brand-gold/10 rounded-full text-xs text-brand-gold-dark font-bold tracking-widest whitespace-nowrap border border-brand-gold/20">
-                            #{tag}
-                          </span>
-                        ))}
-                      </div>
+                    <div className="flex flex-wrap gap-2 pt-4 border-t border-brand-gold/10">
+                      {selectedWine.tags?.split('、').map(tag => (
+                        <span key={tag} className="px-3 py-1 bg-brand-gold/10 rounded-full text-xs text-brand-gold-dark font-bold tracking-widest whitespace-nowrap border border-brand-gold/20">
+                          #{translatePairing(tag)}
+                        </span>
+                      ))}
+                    </div>
                     </div>
                   </div>
                 </div>
 
                 {!store?.hideWinePairing && (
                   <div className="space-y-6">
-                    <div className="flex items-center gap-3 text-brand-gold">
+                    <div className="flex items-center gap-3 text-brand-gold-dark">
                       <Utensils className="w-6 h-6 opacity-70" />
                       <h4 className="text-sm font-bold uppercase tracking-[0.3em]">{t[language].bestMarriage}</h4>
                     </div>
                     <div className="flex flex-wrap gap-2 md:gap-3">
                       {selectedWine.pairing.split('、').map(p => (
-                        <span key={p} className="bg-brand-gold/10 border border-brand-gold/30 px-5 py-3 rounded-full text-sm text-brand-gold font-bold tracking-wider">
-                          {p}
+                        <span key={p} className="bg-brand-gold/10 border border-brand-gold/30 px-5 py-3 rounded-full text-sm text-brand-gold-dark font-bold tracking-wider">
+                          {translatePairing(p)}
                         </span>
                       ))}
                     </div>
@@ -1150,19 +1205,23 @@ export const CustomerView: React.FC = () => {
               </div>
 
               <div className="sticky bottom-0 z-[140] p-6 md:p-8 pt-4 pb-[env(safe-area-inset-bottom,24px)] bg-black/95 backdrop-blur-2xl border-t border-brand-gold/20 flex flex-col gap-6 safe-bottom">
-                 <div className="flex justify-between items-center px-2">
-                   <div className="flex flex-col">
-                     <span className="text-sm text-gray-500 uppercase font-bold tracking-widest mb-1">{t[language].bottle}</span>
-                     <span className="serif text-2xl md:text-3xl text-brand-gold tracking-tighter">¥{selectedWine.price_bottle?.toLocaleString()}</span>
-                   </div>
-                   <div className="h-10 w-px bg-brand-gold/20" />
-                   <div className="flex flex-col text-right">
-                     <span className="text-sm text-gray-500 uppercase font-bold tracking-widest mb-1">{t[language].glass}</span>
-                     <span className="serif text-2xl md:text-3xl text-brand-gold tracking-tighter">¥{selectedWine.price_glass?.toLocaleString()}</span>
-                   </div>
-                 </div>
+                  <div className="flex justify-between items-center px-2">
+                    <div className="flex flex-col">
+                      <span className="text-sm text-gray-500 uppercase font-bold tracking-widest mb-1">{t[language].bottle}</span>
+                      <span className={`serif text-2xl md:text-3xl text-brand-gold-dark tracking-tighter ${language === 'en' ? 'font-serif' : ''}`}>
+                        {formatPrice(selectedWine.price_bottle)}
+                      </span>
+                    </div>
+                    <div className="h-10 w-px bg-brand-gold/20" />
+                    <div className="flex flex-col text-right">
+                      <span className="text-sm text-gray-500 uppercase font-bold tracking-widest mb-1">{t[language].glass}</span>
+                      <span className={`serif text-2xl md:text-3xl text-brand-gold-dark tracking-tighter ${language === 'en' ? 'font-serif' : ''}`}>
+                        {formatPrice(selectedWine.price_glass)}
+                      </span>
+                    </div>
+                  </div>
                  <div className="text-center">
-                   <p className="text-sm text-brand-gold font-bold uppercase tracking-[0.3em] opacity-40">{t[language].underTwenty}</p>
+                   <p className="text-sm text-brand-gold-dark font-bold uppercase tracking-[0.3em] opacity-40">{t[language].underTwenty}</p>
                  </div>
               </div>
             </motion.div>
