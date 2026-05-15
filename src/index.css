@@ -118,8 +118,8 @@
   @apply mb-1;
 }
 
-/* Google 翻訳ウィジェットのカスタマイズ (完全非表示) */
-.google-translate-container, .goog-te-banner-frame, #goog-gt-tt, .goog-te-balloon-frame, .goog-tooltip, .goog-tooltip:hover {
+/* Google 翻訳によるレイアウト崩れの防止 */
+.google-translate-container, .goog-te-banner-frame, #goog-gt-tt, .goog-te-balloon-frame, .google-te-menu-frame {
   display: none !important;
   visibility: hidden !important;
 }
