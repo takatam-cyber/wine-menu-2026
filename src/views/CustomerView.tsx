@@ -435,9 +435,9 @@ export const CustomerView: React.FC = () => {
       
       if (step2Style) {
         if (step1Color === '赤') {
-          if (step2Style === 'フルボディ') matches = matches && (w.body || 0) >= 4;
-          else if (step2Style === 'ミディアムボディ') matches = matches && (w.body || 0) === 3;
-          else if (step2Style === 'ライトボディ') matches = matches && (w.body || 0) <= 2;
+          if (step2Style === translations.ja.fullBody || step2Style === translations.en.fullBody) matches = matches && (w.body || 0) >= 4;
+          else if (step2Style === translations.ja.mediumBody || step2Style === translations.en.mediumBody) matches = matches && (w.body || 0) === 3;
+          else if (step2Style === translations.ja.lightBody || step2Style === translations.en.lightBody) matches = matches && (w.body || 0) <= 2;
         } else {
           matches = matches && w.type === step2Style;
         }
@@ -987,23 +987,29 @@ export const CustomerView: React.FC = () => {
                         <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold-dark flex items-center justify-center text-xs font-black shadow-inner">2</span>
                         {t.conciergeStep2}
                       </p>
-                      <div className="flex flex-wrap gap-2">
-                        {getDynamicStyles(step1Color).map(style => (
-                          <button
-                            key={style}
-                            onClick={() => {
-                              setStep2Style(style);
-                              setStep3Budget(null);
-                            }}
-                            className={`px-5 py-3 rounded-2xl text-sm font-bold transition-all border ${
-                              step2Style === style 
-                                ? 'bg-brand-gold-dark text-white border-brand-gold-dark shadow-md font-black' 
-                                : 'bg-white border-brand-gold/10 text-brand-wine/60'
-                            }`}
-                          >
-                            {style}
-                          </button>
-                        ))}
+                    <div className="flex flex-wrap gap-2">
+                        {getDynamicStyles(step1Color).map(style => {
+                          // For matching in the filter logic, we need to know if this is the Japanese value or English
+                          // But getDynamicStyles already returns t.fullBody etc.
+                          // It's better to use localized display but keep step2Style as a reliable key or the localized string.
+                          // In our filter logic above (lines 437-442), it checks for hardcoded Japanese strings.
+                          return (
+                            <button
+                              key={style}
+                              onClick={() => {
+                                setStep2Style(style);
+                                setStep3Budget(null);
+                              }}
+                              className={`px-5 py-3 rounded-2xl text-sm font-bold transition-all border ${
+                                step2Style === style 
+                                  ? 'bg-brand-gold-dark text-white border-brand-gold-dark shadow-md font-black' 
+                                  : 'bg-white border-brand-gold/10 text-brand-wine/60'
+                              }`}
+                            >
+                              {style}
+                            </button>
+                          );
+                        })}
                       </div>
                     </motion.div>
                   )}
