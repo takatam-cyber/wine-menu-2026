@@ -119,20 +119,21 @@
 }
 
 /* Google 翻訳ウィジェットのカスタマイズ (完全非表示) */
-.google-translate-container, #google_translate_element, .goog-te-banner-frame, #goog-gt-tt {
+.google-translate-container, #google_translate_element, .goog-te-banner-frame, #goog-gt-tt, .goog-te-balloon-frame, .goog-tooltip, .goog-tooltip:hover {
   display: none !important;
   visibility: hidden !important;
-  height: 0 !important;
-  width: 0 !important;
 }
+
 /* 不要なロゴや「提供元」テキストを非表示 */
 .goog-logo-link, .goog-te-gadget span {
   display: none !important;
 }
+
 .goog-te-gadget {
   color: transparent !important;
   font-size: 0 !important;
 }
+
 /* セレクトボックス（言語選択）は背景で動かすため非表示 */
 .goog-te-combo {
   display: block;
@@ -140,6 +141,7 @@
   pointer-events: none;
   position: absolute;
 }
+
 /* 翻訳適用時の上部余白の強制リセット */
 body {
   top: 0 !important;

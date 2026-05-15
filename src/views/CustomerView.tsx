@@ -23,12 +23,14 @@ export const CustomerView: React.FC = () => {
   const [currentLang, setCurrentLang] = useState<'ja' | 'en'>('ja');
   const queryClient = useQueryClient();
 
-  const handleLanguageChange = (lang: 'ja' | 'en') => {
+  const handleLanguageChange = (lang: string) => {
     const combo = document.querySelector('.goog-te-combo') as HTMLSelectElement;
     if (combo) {
       combo.value = lang;
       combo.dispatchEvent(new Event('change'));
-      setCurrentLang(lang);
+      setCurrentLang(lang as 'ja' | 'en');
+    } else {
+      console.warn('Google Translate widget not ready yet.');
     }
   };
 
@@ -401,8 +403,8 @@ export const CustomerView: React.FC = () => {
               {store.name}
             </h1>
             <div className="flex items-center gap-2">
-              {/* Google 翻訳エンジン（CSSで隠します） */}
-              <div id="google_translate_element" className="hidden" />
+              {/* Google 翻訳エンジン（隠しつつもスクリプトからは見えるように配置） */}
+              <div id="google_translate_element" style={{ position: 'fixed', visibility: 'hidden', top: -100, left: -100 }} />
               
               {/* 見た目上の JP / EN 切り替えボタン */}
               <div className="flex items-center bg-white/5 rounded-full p-1 border border-brand-gold/20 shadow-inner">
