@@ -44,7 +44,7 @@ export const CatalogSelector: React.FC<CatalogSelectorProps> = ({
         <div className="p-8 border-b border-slate-100 flex items-center justify-between">
           <div>
             <h2 className="serif text-2xl text-slate-900">マスターからワインを選択</h2>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">選択中の店舗: {selectedStore?.name}</p>
+            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">選択中の店舗: {selectedStore?.name}</p>
           </div>
           <button 
             onClick={onClose}
@@ -125,7 +125,7 @@ export const CatalogSelector: React.FC<CatalogSelectorProps> = ({
             <div className="py-10 flex justify-center">
               <button 
                 onClick={onLoadMoreWines}
-                className="px-10 py-4 bg-slate-50 border border-slate-200 rounded-full text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:border-brand-wine hover:text-brand-wine transition-all shadow-sm"
+                className="px-10 py-4 bg-slate-50 border border-slate-200 rounded-full text-xs font-bold uppercase tracking-widest text-slate-500 hover:border-brand-wine hover:text-brand-wine transition-all shadow-sm"
               >
                 さらにマスターデータを読み込む
               </button>
@@ -144,14 +144,14 @@ export const CatalogSelector: React.FC<CatalogSelectorProps> = ({
               onClick={() => {
                  onClose();
               }}
-              className="px-8 py-3 bg-slate-100 text-slate-600 rounded-full text-[11px] font-bold uppercase tracking-widest hover:bg-slate-200 transition-all"
+              className="px-8 py-3 bg-slate-100 text-slate-600 rounded-full text-xs font-bold uppercase tracking-widest hover:bg-slate-200 transition-all"
             >
               キャンセル
             </button>
             <button 
               onClick={handleBulkAddWines}
               disabled={selectedMasterIds.length === 0}
-              className="px-8 py-3 bg-brand-wine text-white rounded-full text-[11px] font-bold uppercase tracking-widest hover:scale-105 transition-all shadow-lg active:scale-95 disabled:opacity-30 disabled:scale-100"
+              className="px-8 py-3 bg-brand-wine text-white rounded-full text-xs font-bold uppercase tracking-widest hover:scale-105 transition-all shadow-lg active:scale-95 disabled:opacity-30 disabled:scale-100"
             >
               選択したワインを追加
             </button>

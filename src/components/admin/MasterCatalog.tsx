@@ -41,7 +41,7 @@ export const MasterCatalog: React.FC<MasterCatalogProps> = ({
             onChange={e => onSearchMaster(e.target.value)}
           />
         </div>
-        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+        <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">
           全 {wines.length} 銘柄登録済み
         </div>
       </div>
@@ -99,7 +99,7 @@ export const MasterCatalog: React.FC<MasterCatalogProps> = ({
               <div className="p-8 border-b border-slate-100 flex items-center justify-between">
                 <div>
                   <h3 className="serif text-2xl text-slate-900">マスター銘柄編集</h3>
-                  <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mt-1">Editing Master Registry Item: {editingMasterWine.id}</p>
+                  <p className="text-xs text-slate-400 uppercase tracking-widest font-bold mt-1">Editing Master Registry Item: {editingMasterWine.id}</p>
                 </div>
                 <button onClick={onCancelEditMaster} className="p-2 text-slate-300 hover:text-slate-600 transition-colors">
                   <X className="w-6 h-6" />
@@ -194,13 +194,13 @@ export const MasterCatalog: React.FC<MasterCatalogProps> = ({
               <div className="p-8 border-t border-slate-100 flex justify-end gap-3 bg-slate-50/50">
                 <button 
                   onClick={onCancelEditMaster}
-                  className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-all"
+                  className="px-6 py-3 text-xs font-bold uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-all"
                 >
                   キャンセル
                 </button>
                 <button 
                   onClick={onUpdateMaster}
-                  className="px-10 py-3 bg-brand-wine text-white rounded-full text-[11px] font-bold uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-lg"
+                  className="px-10 py-3 bg-brand-wine text-white rounded-full text-xs font-bold uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-lg"
                 >
                   マスターを更新
                 </button>

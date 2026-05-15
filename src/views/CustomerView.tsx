@@ -344,7 +344,7 @@ export const CustomerView: React.FC = () => {
             </div>
             
             <div className="space-y-4">
-              <p className="text-[12px] text-brand-ivory/80 leading-relaxed max-w-[320px] mx-auto serif italic tracking-[0.15em] uppercase">
+              <p className="text-xs text-brand-ivory/80 leading-relaxed max-w-[320px] mx-auto serif italic tracking-[0.15em] uppercase">
                 {t.preparingDesc1}
               </p>
               <p className="text-xs text-brand-gold/60 leading-relaxed max-w-[280px] mx-auto serif tracking-[0.1em]">
@@ -369,7 +369,7 @@ export const CustomerView: React.FC = () => {
               
               <div className="flex items-center gap-3 opacity-30">
                 <div className="w-1 h-1 rounded-full bg-brand-gold" />
-                <p className="text-[11px] text-brand-gold-dark uppercase tracking-[0.5em] font-mono">
+                <p className="text-xs text-brand-gold-dark uppercase tracking-[0.5em] font-mono">
                   {store.name}
                 </p>
                 <div className="w-1 h-1 rounded-full bg-brand-gold" />
@@ -636,10 +636,10 @@ export const CustomerView: React.FC = () => {
                   animate={{ opacity: 1, y: 0 }}
                   className="mx-4 p-6 bg-brand-wine/5 border border-brand-gold/20 rounded-[2rem] text-center"
                 >
-                  <p className="text-[14px] text-brand-wine font-bold leading-relaxed mb-1">
+                  <p className="text-sm text-brand-wine font-bold leading-relaxed mb-1">
                     {t.noResultsTitle}
                   </p>
-                  <p className="text-[13px] text-brand-gold-dark font-bold uppercase tracking-widest opacity-60">
+                  <p className="text-sm text-brand-gold-dark font-bold uppercase tracking-widest opacity-60">
                     {t.noResultsSubtitle}
                   </p>
                 </motion.div>
@@ -879,7 +879,7 @@ export const CustomerView: React.FC = () => {
                   className="fixed bottom-24 right-6 z-[110] flex items-center bg-brand-gold-dark text-brand-ivory p-1.5 rounded-full shadow-[0_10px_40px_rgba(184,134,11,0.5)] border border-brand-gold/30 hover:scale-105 active:scale-95 transition-all group overflow-hidden"
                 >
                   <div className="flex items-center gap-0 group-hover:gap-2 transition-all px-2">
-                    <span className="text-[12px] font-bold tracking-tighter whitespace-nowrap overflow-hidden max-w-0 group-hover:max-w-[120px] transition-all duration-500">
+                    <span className="text-xs font-bold tracking-tighter whitespace-nowrap overflow-hidden max-w-0 group-hover:max-w-[120px] transition-all duration-500">
                       ワイン・コンシェルジュ
                     </span>
                     <div className="w-10 h-10 rounded-full bg-brand-ivory text-brand-gold-dark flex items-center justify-center shadow-inner shrink-0 scale-100 group-hover:scale-90 transition-transform">
@@ -938,7 +938,7 @@ export const CustomerView: React.FC = () => {
                               setStep3Budget(null);
                               setSelectedDish(null);
                             }}
-                            className={`px-8 py-3 rounded-full text-[14px] font-bold transition-all border ${
+                            className={`px-8 py-3 rounded-full text-sm font-bold transition-all border ${
                               step1Color === color 
                                 ? 'bg-brand-wine text-brand-gold-dark border-brand-gold shadow-lg font-black' 
                                 : 'bg-white border-brand-gold/10 text-brand-wine/60'
@@ -967,7 +967,7 @@ export const CustomerView: React.FC = () => {
                               setStep2Style(style);
                               setStep3Budget(null);
                             }}
-                            className={`px-5 py-3 rounded-2xl text-[13px] font-bold transition-all border ${
+                            className={`px-5 py-3 rounded-2xl text-sm font-bold transition-all border ${
                               step2Style === style 
                                 ? 'bg-brand-gold-dark text-white border-brand-gold-dark shadow-md font-black' 
                                 : 'bg-white border-brand-gold/10 text-brand-wine/60'
@@ -994,7 +994,7 @@ export const CustomerView: React.FC = () => {
                           <button
                             key={budget.id}
                             onClick={() => setStep3Budget(budget.id)}
-                            className={`px-4 py-3 rounded-2xl text-[12px] font-bold transition-all border ${
+                            className={`px-4 py-3 rounded-2xl text-xs font-bold transition-all border ${
                               step3Budget === budget.id 
                                 ? 'bg-brand-wine text-brand-gold-dark border-brand-gold shadow-md' 
                                 : 'bg-white border-brand-gold/10 text-brand-wine/50'
@@ -1069,7 +1069,7 @@ export const CustomerView: React.FC = () => {
                       {currentLang === 'ja' ? selectedWine.name_jp : (selectedWine.name_en || selectedWine.name_jp)}
                     </h2>
                     {currentLang === 'ja' && selectedWine.name_en && (
-                      <p className="text-[13px] md:text-sm text-gray-400 tracking-[0.3em] uppercase font-bold mb-2">
+                      <p className="text-xs md:text-sm text-gray-400 tracking-[0.3em] uppercase font-bold mb-2">
                         {selectedWine.name_en}
                       </p>
                     )}

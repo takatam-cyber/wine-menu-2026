@@ -24,7 +24,7 @@ export const StoreAnalytics: React.FC<StoreAnalyticsProps> = ({ selectedWines })
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8">
         <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-          <p className="text-[10px] md:text-xs uppercase text-slate-400 font-bold mb-2 tracking-widest">登録銘柄数</p>
+          <p className="text-xs md:text-sm uppercase text-slate-400 font-bold mb-2 tracking-widest">登録銘柄数</p>
           <h3 className="text-3xl md:text-4xl font-serif text-slate-900">{selectedWines.length.toLocaleString()} <span className="text-base md:text-lg text-slate-400">銘柄</span></h3>
           <div className="mt-6 h-1.5 md:h-2 w-full bg-slate-100 rounded-full overflow-hidden">
             <div 
@@ -34,7 +34,7 @@ export const StoreAnalytics: React.FC<StoreAnalyticsProps> = ({ selectedWines })
           </div>
         </div>
         <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-          <p className="text-[10px] md:text-xs uppercase text-slate-400 font-bold mb-2 tracking-widest">平均原価率</p>
+          <p className="text-xs md:text-sm uppercase text-slate-400 font-bold mb-2 tracking-widest">平均原価率</p>
           <h3 className="text-3xl md:text-4xl font-serif text-slate-900">
             {selectedWines.length > 0 
               ? `${(selectedWines.reduce((acc, w) => acc + (w.price_bottle > 0 ? (w.cost / w.price_bottle) * 100 : 0), 0) / selectedWines.length).toFixed(1)}%`
@@ -46,7 +46,7 @@ export const StoreAnalytics: React.FC<StoreAnalyticsProps> = ({ selectedWines })
           </div>
         </div>
         <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-          <p className="text-[10px] md:text-xs uppercase text-slate-400 font-bold mb-2 tracking-widest">高収益アイテム割合</p>
+          <p className="text-xs md:text-sm uppercase text-slate-400 font-bold mb-2 tracking-widest">高収益アイテム割合</p>
           <h3 className="text-3xl md:text-4xl font-serif text-slate-900">
             {selectedWines.length > 0 
               ? `${Math.round((selectedWines.filter(w => w.price_bottle >= w.cost * 3).length / selectedWines.length) * 100)}%`
@@ -86,7 +86,7 @@ export const StoreAnalytics: React.FC<StoreAnalyticsProps> = ({ selectedWines })
               ) : (
                 <div className="text-center">
                   <BarChart3 className="w-8 h-8 text-slate-200 mx-auto mb-2" />
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">分析データ不足</p>
+                  <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">分析データ不足</p>
                 </div>
               )}
             </div>
@@ -97,12 +97,12 @@ export const StoreAnalytics: React.FC<StoreAnalyticsProps> = ({ selectedWines })
               <Shield className="w-32 h-32 text-brand-gold" />
             </div>
             <h3 className="serif text-2xl text-brand-wine mb-3 relative z-10">AIコンサルティング</h3>
-            <p className="text-[10px] text-brand-wine/60 uppercase tracking-widest mb-8 relative z-10 font-bold">RAG Analytics engine v2.0</p>
+            <p className="text-xs text-brand-wine/60 uppercase tracking-widest mb-8 relative z-10 font-bold">RAG Analytics engine v2.0</p>
             <div className="space-y-6 relative z-10">
               <div className="text-[15px] font-medium leading-relaxed border-l-4 border-brand-wine pl-6 text-slate-800 font-serif">
                 "現在のシミュレーション結果により、ワインリストの平均原価率は適正範囲内にあります。プレミアムセグメントの比率をあと12%増やすことで、目標利益への最短ルートが構築可能です。"
               </div>
-              <button className="w-full py-4 rounded-2xl bg-brand-wine text-white text-[11px] font-bold uppercase tracking-[0.2em] hover:scale-[1.02] transition-all shadow-lg active:scale-95">
+              <button className="w-full py-4 rounded-2xl bg-brand-wine text-white text-xs font-bold uppercase tracking-[0.2em] hover:scale-[1.02] transition-all shadow-lg active:scale-95">
                 詳細レポートを出力
               </button>
             </div>

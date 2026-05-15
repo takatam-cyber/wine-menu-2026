@@ -190,7 +190,7 @@ export const OwnerView: React.FC = () => {
             <div className="space-y-4 bg-black/40 p-6 rounded-2xl border border-brand-gold/20 animate-in slide-in-from-top duration-300">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-[9px] font-bold text-brand-gold/60 uppercase tracking-widest block mb-1">店名</label>
+                  <label className="text-xs font-bold text-brand-gold/60 uppercase tracking-widest block mb-1">店名</label>
                   <input 
                     className="w-full bg-white/5 border border-brand-gold/20 rounded-lg px-3 py-2 text-brand-ivory text-sm outline-none focus:border-brand-gold"
                     value={editStoreData.name || ''}
@@ -198,7 +198,7 @@ export const OwnerView: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-[9px] font-bold text-brand-gold/60 uppercase tracking-widest block mb-1">料理カテゴリー</label>
+                  <label className="text-xs font-bold text-brand-gold/60 uppercase tracking-widest block mb-1">料理カテゴリー</label>
                   <input 
                     className="w-full bg-white/5 border border-brand-gold/20 rounded-lg px-3 py-2 text-brand-ivory text-sm outline-none focus:border-brand-gold"
                     value={editStoreData.cuisine_type || ''}
@@ -207,7 +207,7 @@ export const OwnerView: React.FC = () => {
                 </div>
               </div>
                 <div>
-                  <label className="text-[9px] font-bold text-brand-gold/60 uppercase tracking-widest block mb-1">住所</label>
+                  <label className="text-xs font-bold text-brand-gold/60 uppercase tracking-widest block mb-1">住所</label>
                   <input 
                     className="w-full bg-white/5 border border-brand-gold/20 rounded-lg px-3 py-2 text-brand-ivory text-sm outline-none focus:border-brand-gold"
                     value={editStoreData.address || ''}
@@ -219,8 +219,8 @@ export const OwnerView: React.FC = () => {
                 <div className="space-y-4 pt-4 border-t border-brand-gold/20">
                   <div className="flex items-center justify-between p-3 bg-white/5 border border-brand-gold/20 rounded-xl">
                     <div className="flex flex-col">
-                      <span className="text-[10px] font-bold text-brand-gold-dark uppercase tracking-wider">ペアリングフィルターを非表示</span>
-                      <span className="text-[8px] text-gray-500 uppercase">「お料理から選ぶ」を隠す</span>
+                      <span className="text-xs font-bold text-brand-gold-dark uppercase tracking-wider">ペアリングフィルターを非表示</span>
+                      <span className="text-xs text-gray-500 uppercase">「お料理から選ぶ」を隠す</span>
                     </div>
                     <button 
                       onClick={() => setEditStoreData({...editStoreData, hidePairingFilter: !editStoreData.hidePairingFilter})}
@@ -232,8 +232,8 @@ export const OwnerView: React.FC = () => {
 
                   <div className="flex items-center justify-between p-3 bg-white/5 border border-brand-gold/20 rounded-xl">
                     <div className="flex flex-col">
-                      <span className="text-[10px] font-bold text-brand-gold-dark uppercase tracking-wider">マリアージュ詳細を非表示</span>
-                      <span className="text-[8px] text-gray-500 uppercase">「最高のマリアージュ」を隠す</span>
+                      <span className="text-xs font-bold text-brand-gold-dark uppercase tracking-wider">マリアージュ詳細を非表示</span>
+                      <span className="text-xs text-gray-500 uppercase">「最高のマリアージュ」を隠す</span>
                     </div>
                     <button 
                       onClick={() => setEditStoreData({...editStoreData, hideWinePairing: !editStoreData.hideWinePairing})}
@@ -244,7 +244,7 @@ export const OwnerView: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="text-[9px] font-bold text-brand-gold/60 uppercase tracking-widest block mb-1">予算設定 (カンマ区切り)</label>
+                    <label className="text-xs font-bold text-brand-gold/60 uppercase tracking-widest block mb-1">予算設定 (カンマ区切り)</label>
                     <input 
                       type="text"
                       placeholder="5000, 10000, 20000"
@@ -255,16 +255,16 @@ export const OwnerView: React.FC = () => {
                       }}
                       className="w-full bg-white/5 border border-brand-gold/20 rounded-lg px-3 py-2 text-brand-ivory text-sm outline-none focus:border-brand-gold transition-all"
                     />
-                    <p className="text-[8px] text-gray-500 mt-1 uppercase tracking-tighter">例: 5000, 10000, 20000 (数値のみ入力してください)</p>
+                    <p className="text-xs text-gray-500 mt-1 uppercase tracking-tighter">例: 5000, 10000, 20000 (数値のみ入力してください)</p>
                   </div>
                 </div>
 
                 <div className="flex justify-end gap-2 pt-2">
-                  <button onClick={() => setIsEditingStore(false)} className="px-4 py-2 text-[10px] uppercase font-bold text-gray-400 hover:text-white transition-colors">キャンセル</button>
+                  <button onClick={() => setIsEditingStore(false)} className="px-4 py-2 text-xs uppercase font-bold text-gray-400 hover:text-white transition-colors">キャンセル</button>
                   <button 
                     onClick={handleUpdateStore} 
                     disabled={isSaving}
-                    className="bg-brand-gold text-brand-wine px-6 py-2 rounded-lg text-[10px] uppercase font-bold tracking-widest flex items-center gap-2 hover:brightness-110"
+                    className="bg-brand-gold text-brand-wine px-6 py-2 rounded-lg text-xs uppercase font-bold tracking-widest flex items-center gap-2 hover:brightness-110"
                   >
                     {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
                     保存する
@@ -282,7 +282,7 @@ export const OwnerView: React.FC = () => {
                 </div>
                 {(user?.role === 'admin' || user?.role === 'rep') && (
                   <select 
-                    className="bg-brand-gold-dark/10 border border-brand-gold-dark/30 text-brand-gold-dark rounded-full px-4 py-1 text-[10px] font-bold uppercase outline-none"
+                    className="bg-brand-gold-dark/10 border border-brand-gold-dark/30 text-brand-gold-dark rounded-full px-4 py-1 text-xs font-bold uppercase outline-none"
                     value={sid || ''}
                     onChange={(e) => window.location.href = `/owner?storeId=${e.target.value}`}
                   >
@@ -293,7 +293,7 @@ export const OwnerView: React.FC = () => {
                   </select>
                 )}
               </div>
-              <p className="text-gray-400 text-[10px] uppercase tracking-widest font-bold mt-1">
+              <p className="text-gray-400 text-xs uppercase tracking-widest font-bold mt-1">
                 {store?.cuisine_type} • {store?.address}
               </p>
             </div>
@@ -315,7 +315,7 @@ export const OwnerView: React.FC = () => {
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h3 className="text-xs font-bold text-brand-gold-dark uppercase tracking-widest">収益分析：銘柄別利益（ボトル）</h3>
-                <p className="text-[10px] text-gray-500 mt-1 uppercase">利益の高い上位8銘柄を表示</p>
+                <p className="text-xs text-gray-500 mt-1 uppercase">利益の高い上位8銘柄を表示</p>
               </div>
             </div>
             <div className="h-[250px] w-full">
@@ -366,7 +366,7 @@ export const OwnerView: React.FC = () => {
           <div className="glass-panel p-6 rounded-3xl border border-brand-gold/10 flex flex-col justify-between">
             <div>
               <h3 className="text-xs font-bold text-brand-gold-dark uppercase tracking-widest">原価率別・銘柄構成</h3>
-              <p className="text-[10px] text-gray-500 mt-1 uppercase">平均原価率: {inventory.length > 0 ? Math.round(inventory.reduce((acc, w) => acc + (w.cost / w.price_bottle * 100), 0) / inventory.length) : 0}%</p>
+              <p className="text-xs text-gray-500 mt-1 uppercase">平均原価率: {inventory.length > 0 ? Math.round(inventory.reduce((acc, w) => acc + (w.cost / w.price_bottle * 100), 0) / inventory.length) : 0}%</p>
             </div>
             <div className="h-[200px] flex items-center justify-center">
               <ResponsiveContainer width="100%" height="100%">
@@ -393,7 +393,7 @@ export const OwnerView: React.FC = () => {
               </ResponsiveContainer>
             </div>
             <div className="space-y-2">
-              <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-tighter">
+              <div className="flex items-center justify-between text-xs font-bold uppercase tracking-tighter">
                  <span className="text-brand-gold-dark">ポテンシャル：</span>
                  <span className="text-brand-dark/60">{inventory.filter(w => w.price_bottle > w.cost * 3).length}件の高収益アイテムを検知</span>
               </div>
@@ -408,7 +408,7 @@ export const OwnerView: React.FC = () => {
             <Wine className="w-4 h-4 text-brand-gold-dark" />
             稼働中のワインリスト ({inventory.length})
           </h3>
-          <span className="text-[9px] text-gray-500 uppercase font-mono tracking-tighter text-center md:text-right italic">
+          <span className="text-xs text-gray-500 uppercase font-mono tracking-tighter text-center md:text-right italic">
             最新のマスターデータと同期済み
           </span>
         </div>
@@ -417,12 +417,12 @@ export const OwnerView: React.FC = () => {
           <div className="flex flex-col items-center justify-center py-16 text-center border-2 border-dashed border-white/5 rounded-3xl bg-black/20">
             <Wine className="w-12 h-12 text-brand-gold/10 mb-4" />
             <p className="text-gray-500 text-xs uppercase tracking-widest">現在メニューにワインがありません</p>
-            <button onClick={() => setShowAddModal(true)} className="text-brand-gold text-[10px] font-bold uppercase tracking-widest mt-4 hover:underline">最初のワインを追加する</button>
+            <button onClick={() => setShowAddModal(true)} className="text-brand-gold text-xs font-bold uppercase tracking-widest mt-4 hover:underline">最初のワインを追加する</button>
           </div>
         ) : (
           <div className="space-y-4">
             {/* Header row for desktop */}
-            <div className="hidden md:flex items-center px-6 py-2 text-[8px] font-extrabold text-brand-gold/40 uppercase tracking-[0.3em] border-b border-brand-gold/10">
+            <div className="hidden md:flex items-center px-6 py-2 text-xs font-extrabold text-brand-gold/40 uppercase tracking-[0.3em] border-b border-brand-gold/10">
               <div className="flex-1">ワイン情報 / 品種</div>
               <div className="w-24 text-center">ボトル価格</div>
               <div className="w-24 text-center">グラス価格</div>
@@ -485,7 +485,7 @@ export const OwnerView: React.FC = () => {
                              <div className={`text-xs font-bold ${isLowMargin ? 'text-rose-500' : 'text-emerald-500'}`}>
                                {margin}%
                              </div>
-                             {isLowMargin && <div className="text-[10px] text-rose-500/60 font-bold uppercase">Low Margin</div>}
+                             {isLowMargin && <div className="text-xs text-rose-500/60 font-bold uppercase">Low Margin</div>}
                           </div>
                         </div>
                       ) : (
@@ -507,7 +507,7 @@ export const OwnerView: React.FC = () => {
                             <div className={`text-xs font-black ${isLowMargin ? 'text-rose-500' : 'text-emerald-500'}`}>
                               {margin}%
                             </div>
-                            {isLowMargin && <div className="text-[10px] text-rose-500 uppercase font-black tracking-widest bg-rose-500/10 px-1 rounded">Alert</div>}
+                            {isLowMargin && <div className="text-xs text-rose-500 uppercase font-black tracking-widest bg-rose-500/10 px-1 rounded">Alert</div>}
                           </div>
                         </div>
                       )}

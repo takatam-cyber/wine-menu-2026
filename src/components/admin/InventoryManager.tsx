@@ -56,7 +56,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
               value={searchId}
               onChange={(e) => setSearchId(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleAddWine()}
-              className="pl-12 pr-4 py-2 bg-white border border-slate-300 rounded-full text-[10px] md:text-xs w-full md:w-56 lg:w-80 text-slate-900 outline-none focus:ring-2 focus:ring-brand-wine/10 focus:border-brand-wine transition-all"
+              className="pl-12 pr-4 py-2 bg-white border border-slate-300 rounded-full text-xs w-full md:w-56 lg:w-80 text-slate-900 outline-none focus:ring-2 focus:ring-brand-wine/10 focus:border-brand-wine transition-all"
             />
             <datalist id="master-wines-list">
               {masterWines.filter(w => !selectedWines.some(sw => sw.id === w.id)).map(w => (
@@ -84,13 +84,13 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
           <div className="flex gap-2 w-full sm:w-auto mt-2 sm:mt-0">
             <button 
               onClick={() => fileInputRef.current?.click()}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 md:px-4 py-2 bg-slate-800 text-white rounded-xl text-[9px] md:text-xs font-bold uppercase tracking-widest hover:bg-slate-700 transition-all shadow-md"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 md:px-4 py-2 bg-slate-800 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-700 transition-all shadow-md"
             >
               <Upload className="w-4 h-4 shrink-0" /> <span className="truncate">CSV読み込み</span>
             </button>
             <button
               onClick={onSaveInventory}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 md:px-4 py-2 border-2 border-brand-wine text-brand-wine rounded-xl text-[9px] md:text-xs font-bold uppercase tracking-widest hover:bg-brand-wine hover:text-white transition-all shadow-sm"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 md:px-4 py-2 border-2 border-brand-wine text-brand-wine rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-brand-wine hover:text-white transition-all shadow-sm"
             >
               <Save className="w-4 h-4 shrink-0" /> <span className="truncate">保存</span>
             </button>
@@ -101,7 +101,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
       <div className="overflow-x-auto">
         <table className="w-full text-left">
           <thead>
-            <tr className="text-[10px] uppercase text-slate-400 border-b border-slate-100 bg-slate-50/50">
+            <tr className="text-xs uppercase text-slate-400 border-b border-slate-100 bg-slate-50/50">
               <th className="px-8 py-5 font-bold">ワイン銘柄</th>
               <th className="px-4 py-5 font-bold">仕入れ原価(税別)</th>
               <th className="px-4 py-5 font-bold">ボトル設定</th>
@@ -168,14 +168,14 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                        </div>
                       <div className="flex flex-col min-w-[70px]">
                         <span className="font-bold text-brand-wine font-mono text-sm leading-none">¥{bottleStats.profit.toLocaleString()}</span>
-                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter mt-1">原価率 {Math.round(bottleStats.costRatio)}%</span>
+                        <span className="text-xs text-slate-400 font-bold uppercase tracking-tighter mt-1">原価率 {Math.round(bottleStats.costRatio)}%</span>
                       </div>
                     </div>
                   </td>
                   <td className="px-4 py-6">
                     <div className="flex flex-col gap-2">
                       <div className="flex items-center gap-2">
-                        <span className="text-[9px] font-bold text-slate-400 w-8">価格</span>
+                        <span className="text-xs font-bold text-slate-400 w-8">価格</span>
                         <input
                           type="number"
                           value={wine.price_glass}

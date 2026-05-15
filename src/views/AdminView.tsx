@@ -788,7 +788,7 @@ export const AdminView: React.FC = () => {
             importStatus.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
           }`}>
             <span className="text-xs font-bold uppercase tracking-widest">{importStatus.message}</span>
-            <button onClick={() => setImportStatus(null)} className="ml-auto text-[10px] font-bold opacity-60 hover:opacity-100"><X className="w-4 h-4" /></button>
+            <button onClick={() => setImportStatus(null)} className="ml-auto text-xs font-bold opacity-60 hover:opacity-100"><X className="w-4 h-4" /></button>
           </div>
         )}
 
