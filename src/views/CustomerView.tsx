@@ -248,7 +248,7 @@ export const CustomerView: React.FC = () => {
           <div className="space-y-8">
             <div>
               <h2 className="serif text-3xl md:text-4xl text-brand-gold-dark mb-2 tracking-[0.25em] font-light leading-snug uppercase">
-                THE CELLAR
+                ワインセラー
               </h2>
               <div className="flex items-center justify-center gap-4">
                 <div className="h-px w-8 bg-brand-gold/30" />
@@ -267,7 +267,7 @@ export const CustomerView: React.FC = () => {
             </div>
 
             <div className="text-[11px] text-brand-gold/30 tracking-[0.4em] uppercase font-bold pt-4">
-              Est. Preparation Time: Moments
+              推定準備時間: まもなく
             </div>
           </div>
 
@@ -597,7 +597,7 @@ export const CustomerView: React.FC = () => {
                                 <div className="flex flex-wrap items-center gap-2 mb-1">
                                   <div className="px-2 py-1 bg-brand-wine text-brand-gold-dark text-[13px] font-black rounded-full uppercase tracking-widest shrink-0 shadow-sm flex items-center gap-1">
                                     <ChefHat className="w-2.5 h-2.5" />
-                                    Specialité
+                                    スペシャリテ
                                   </div>
                                   {wine.color && (
                                     <div className={`px-2 py-1 text-[13px] font-black rounded-full uppercase tracking-widest shrink-0 ${
@@ -932,7 +932,7 @@ export const CustomerView: React.FC = () => {
               className="fixed inset-0 z-[130] bg-black/98 backdrop-blur-3xl overflow-hidden flex flex-col h-[100dvh] md:h-auto md:bottom-0 md:top-12 md:rounded-t-[2.5rem] border-t border-brand-gold/30 shadow-[0_-20px_500px_rgba(0,0,0,1)]"
             >
               <div className="sticky top-0 z-[140] bg-black/95 backdrop-blur-md p-8 pb-4 flex justify-between items-center border-b border-white/5">
-                <span className="text-sm text-brand-gold-dark font-bold uppercase tracking-[0.2em] opacity-60">VINTAGE {selectedWine.vintage}</span>
+                <span className="text-sm text-brand-gold-dark font-bold uppercase tracking-[0.2em] opacity-60">ヴィンテージ {selectedWine.vintage}</span>
                 <button 
                   onClick={() => setSelectedWine(null)} 
                   className="w-10 h-10 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-brand-gold-dark text-xl hover:bg-white/20 transition-all font-light"
@@ -984,7 +984,7 @@ export const CustomerView: React.FC = () => {
                       
                       {selectedWine.aroma_features && (
                         <div className="pt-4 border-t border-brand-gold/10">
-                          <p className="text-[11px] text-brand-gold-dark/40 font-black uppercase tracking-widest mb-2">Aroma & Features</p>
+                          <p className="text-[11px] text-brand-gold-dark/40 font-black uppercase tracking-widest mb-2">アロマと特徴</p>
                           <p className="text-sm text-gray-700 leading-relaxed font-sans">{selectedWine.aroma_features}</p>
                         </div>
                       )}
