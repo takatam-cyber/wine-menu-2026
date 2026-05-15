@@ -1,5 +1,52 @@
 import { Request, Response } from "express";
 import { dbAdmin, FieldPath, drive } from "../lib/firebase-admin.js";
+import { GoogleGenAI } from "@google/genai";
+
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+
+/**
+ * Translates wine description using Gemini API and updates Firestore
+ */
+export const translateWineDescription = async (id: string, ai_explanation: string) => {
+  if (!ai_explanation) throw new Error("No description provided for translation");
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: `As a high-end wine professional, please translate the following Japanese wine description into elegant and captivating English. Output ONLY the English text.\n\nJapanese Description:\n${ai_explanation}`,
+    });
+
+    const translatedText = response.text;
+    if (!translatedText) throw new Error("Translation output was empty");
+
+    await dbAdmin.collection("winesMaster").doc(id).update({
+      ai_explanation_en: translatedText
+    });
+
+    return translatedText;
+  } catch (error) {
+    console.error(`[TranslationError] Wine ID: ${id}`, error);
+    throw error;
+  }
+};
+
+/**
+ * Endpoint for on-demand translation
+ */
+export const handleTranslateRequest = async (req: Request, res: Response) => {
+  const { id, ai_explanation } = req.body;
+  
+  if (!id || !ai_explanation) {
+    return res.status(400).json({ error: "id and ai_explanation are required" });
+  }
+
+  try {
+    const translatedText = await translateWineDescription(id, ai_explanation);
+    res.json({ success: true, ai_explanation_en: translatedText });
+  } catch (error: any) {
+    res.status(500).json({ error: "Translation failed", details: error.message });
+  }
+};
 
 // SSRF Protection: List of allowed domains
 const ALLOWED_DOMAINS = [

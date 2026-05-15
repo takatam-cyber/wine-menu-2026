@@ -12,6 +12,7 @@ import { ChevronRight, ChevronDown, Info, Wine, Utensils, Award, Loader2, Sparkl
 import { motion, AnimatePresence } from 'motion/react';
 
 import { usePublicMenuQuery } from '../hooks/usePublicMenuQuery';
+import { useQueryClient } from '@tanstack/react-query';
 
 export const CustomerView: React.FC = () => {
   const { storeId: routeStoreId } = useParams();
@@ -20,6 +21,44 @@ export const CustomerView: React.FC = () => {
   const [isConciergeOpen, setIsConciergeOpen] = useState(false);
   const [selectedWine, setSelectedWine] = useState<WineMaster | null>(null);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [isTranslating, setIsTranslating] = useState(false);
+  const queryClient = useQueryClient();
+
+  // On-demand Translation Trigger
+  useEffect(() => {
+    if (language === 'en' && selectedWine && !selectedWine.ai_explanation_en && selectedWine.ai_explanation && !isTranslating) {
+      const triggerTranslation = async () => {
+        setIsTranslating(true);
+        try {
+          const response = await fetch('/api/translate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              id: selectedWine.id, 
+              ai_explanation: selectedWine.ai_explanation 
+            })
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            // Update local state for immediate feedback
+            setSelectedWine(prev => prev && prev.id === selectedWine.id ? {
+              ...prev,
+              ai_explanation_en: data.ai_explanation_en
+            } : prev);
+            // Invalidate query to update the main list
+            queryClient.invalidateQueries({ queryKey: ['publicMenu', routeStoreId] });
+          }
+        } catch (error) {
+          console.error("Translation trigger failed", error);
+        } finally {
+          setIsTranslating(false);
+        }
+      };
+      
+      triggerTranslation();
+    }
+  }, [language, selectedWine?.id, selectedWine?.ai_explanation_en, routeStoreId, queryClient, selectedWine?.ai_explanation, isTranslating]);
 
   // Scroll Lock for Concierge & Modal
   useEffect(() => {
@@ -1150,18 +1189,44 @@ export const CustomerView: React.FC = () => {
                       <p className={`text-xl md:text-2xl leading-relaxed text-brand-gold-dark font-serif first-letter:text-5xl first-letter:float-left first-letter:mr-3 first-letter:mt-1 first-letter:text-brand-gold-dark font-medium italic ${language === 'en' ? 'font-serif italic' : ''}`}>
                         {language === 'en' ? (
                           <>
-                            {selectedWine.ai_explanation_en || (
-                              <div className="space-y-4">
-                                <span className="text-[10px] uppercase tracking-[0.2em] font-sans block opacity-60 not-italic">
-                                  Translation in progress...
-                                </span>
-                                <span className="block opacity-80 decoration-brand-gold/30 underline underline-offset-4 mb-2">
-                                  {selectedWine.ai_explanation || selectedWine.aroma_features}
-                                </span>
-                                <span className="block text-[9px] font-sans not-italic opacity-40 uppercase tracking-widest pt-2 border-t border-brand-gold/10">
-                                  * Japanese original description
-                                </span>
+                            {isTranslating ? (
+                              <div className="space-y-4 py-4 relative overflow-hidden">
+                                {[1, 2, 3].map((i) => (
+                                  <div key={i} className="relative h-6 bg-brand-gold/10 rounded-lg overflow-hidden">
+                                    <motion.div
+                                      initial={{ x: '-100%' }}
+                                      animate={{ x: '200%' }}
+                                      transition={{ 
+                                        duration: 2, 
+                                        repeat: Infinity, 
+                                        ease: "linear",
+                                        delay: i * 0.2
+                                      }}
+                                      className="absolute inset-0 bg-gradient-to-r from-transparent via-brand-gold/20 to-transparent w-1/2"
+                                    />
+                                  </div>
+                                ))}
+                                <div className="flex items-center gap-3 pt-2">
+                                  <Sparkles className="w-4 h-4 text-brand-gold animate-pulse" />
+                                  <span className="text-[10px] uppercase tracking-[0.4em] font-sans block opacity-60 italic">
+                                    Sommelier AI is crafting the perfect description...
+                                  </span>
+                                </div>
                               </div>
+                            ) : (
+                              selectedWine.ai_explanation_en || (
+                                <div className="space-y-4">
+                                  <span className="text-[10px] uppercase tracking-[0.2em] font-sans block opacity-60 not-italic">
+                                    Translation in progress...
+                                  </span>
+                                  <span className="block opacity-80 decoration-brand-gold/30 underline underline-offset-4 mb-2">
+                                    {selectedWine.ai_explanation || selectedWine.aroma_features}
+                                  </span>
+                                  <span className="block text-[9px] font-sans not-italic opacity-40 uppercase tracking-widest pt-2 border-t border-brand-gold/10">
+                                    * Japanese original description
+                                  </span>
+                                </div>
+                              )
                             )}
                           </>
                         ) : (
