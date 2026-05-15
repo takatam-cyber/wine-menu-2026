@@ -101,6 +101,7 @@ export const CustomerView: React.FC = () => {
       dry: "辛口",
       mediumDry: "中辛口",
       sweet: "甘口",
+      yen: "円",
     },
     en: {
       selectFromDishes: 'Select from Dishes',
@@ -147,6 +148,7 @@ export const CustomerView: React.FC = () => {
       dry: "Dry",
       mediumDry: "Med-Dry",
       sweet: "Sweet",
+      yen: "JPY",
     }
   };
 
@@ -182,13 +184,13 @@ export const CustomerView: React.FC = () => {
       ];
 
   const conciergeBudgets: ConciergeOption[] = store?.budgetTiers && store.budgetTiers.length > 0
-    ? (store.budgetTiers.map(tier => ({ id: tier, label: `〜${tier.toLocaleString()}円`, max: tier })) as ConciergeOption[])
-        .concat([{ id: 999999, label: `${store.budgetTiers[store.budgetTiers.length - 1].toLocaleString()}円以上`, min: store.budgetTiers[store.budgetTiers.length - 1] }])
+    ? (store.budgetTiers.map(tier => ({ id: tier, label: `〜${tier.toLocaleString()}${t[language].yen || '円'}`, max: tier })) as ConciergeOption[])
+        .concat([{ id: 999999, label: `${store.budgetTiers[store.budgetTiers.length - 1].toLocaleString()}${t[language].yen || '円'}以上`, min: store.budgetTiers[store.budgetTiers.length - 1] }])
     : [
-        { id: 5000, label: '〜5,000円', max: 5000 },
-        { id: 10000, label: '〜10,000円', max: 10000 },
-        { id: 20000, label: '〜20,000円', max: 20000 },
-        { id: 999999, label: '20,000円以上', min: 20000 }
+        { id: 5000, label: `〜5,000${t[language].yen || '円'}`, max: 5000 },
+        { id: 10000, label: `〜10,000${t[language].yen || '円'}`, max: 10000 },
+        { id: 20000, label: `〜20,000${t[language].yen || '円'}`, max: 20000 },
+        { id: 999999, label: `20,000${t[language].yen || '円'}以上`, min: 20000 }
       ];
 
   const cuisineFilters = [
@@ -480,21 +482,39 @@ export const CustomerView: React.FC = () => {
               </button>
             )}
           </div>
-          <div className="flex-none text-center flex flex-col md:flex-row items-center gap-1 md:gap-4">
+          <div className="flex-none text-center flex items-center gap-4">
             <h1 className="font-serif text-brand-gold font-light text-xl md:text-2xl tracking-[0.4em] uppercase leading-tight">
               {store.name}
             </h1>
-            <div className="flex items-center bg-white/10 rounded-full p-0.5 border border-brand-gold/20">
+            <div className="flex items-center bg-white/5 rounded-full p-1 border border-brand-gold/20 shadow-inner">
               <button 
                 onClick={() => setLanguage('jp')} 
-                className={`px-2.5 py-0.5 rounded-full text-[9px] font-black transition-all ${language === 'jp' ? 'bg-brand-gold text-brand-wine' : 'text-brand-gold/50'}`}
+                className={`relative px-3 py-1 rounded-full text-[10px] font-black transition-all duration-300 z-10 ${
+                  language === 'jp' ? 'text-brand-gold-dark' : 'text-brand-gold/40 hover:text-brand-gold/70'
+                }`}
               >
+                {language === 'jp' && (
+                  <motion.div 
+                    layoutId="activeLang"
+                    className="absolute inset-0 bg-brand-gold rounded-full -z-10 shadow-sm"
+                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                  />
+                )}
                 JP
               </button>
               <button 
                 onClick={() => setLanguage('en')} 
-                className={`px-2.5 py-0.5 rounded-full text-[9px] font-black transition-all ${language === 'en' ? 'bg-brand-gold text-brand-wine' : 'text-brand-gold/50'}`}
+                className={`relative px-3 py-1 rounded-full text-[10px] font-black transition-all duration-300 z-10 ${
+                  language === 'en' ? 'text-brand-gold-dark' : 'text-brand-gold/40 hover:text-brand-gold/70'
+                }`}
               >
+                {language === 'en' && (
+                  <motion.div 
+                    layoutId="activeLang"
+                    className="absolute inset-0 bg-brand-gold rounded-full -z-10 shadow-sm"
+                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                  />
+                )}
                 EN
               </button>
             </div>
@@ -550,11 +570,11 @@ export const CustomerView: React.FC = () => {
                   }}
                   className={`px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all whitespace-nowrap border ${
                     !activeColor && !activeCuisine && !activeBudget && !step1Color
-                      ? 'bg-brand-gold-dark text-white border-brand-gold-dark' 
+                      ? 'bg-brand-gold-dark text-white border-brand-gold-dark shadow-md' 
                       : 'bg-white border-brand-gold/20 text-brand-gold-dark'
                   }`}
                 >
-                  Clear
+                  {t[language].clear}
                 </button>
                 
                 <div className="w-px h-4 shrink-0 bg-brand-gold/20" />
@@ -569,7 +589,7 @@ export const CustomerView: React.FC = () => {
                         : 'bg-white border-brand-gold/20 text-brand-gold-dark'
                     }`}
                   >
-                    {color === '泡' ? 'Sparkling' : color === '赤' ? 'Red' : 'White'}
+                    {color === '赤' ? t[language].red : color === '白' ? t[language].white : t[language].sparkling}
                   </button>
                 ))}
 
@@ -607,18 +627,21 @@ export const CustomerView: React.FC = () => {
 
                 <div className="w-px h-4 shrink-0 ml-auto mr-2" />
 
-                <div className="relative shrink-0">
-                  <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value as any)}
-                    className="appearance-none pl-4 pr-9 py-1.5 rounded-xl text-[11px] font-bold uppercase tracking-wider bg-white border border-brand-gold/20 text-brand-gold-dark outline-none transition-all"
-                  >
-                    <option value="featured">{t[language].recommended}</option>
-                    <option value="price_desc">{t[language].priceDesc}</option>
-                    <option value="price_asc">{t[language].priceAsc}</option>
-                  </select>
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-brand-gold-dark">
-                    <ChevronDown className="w-3.5 h-3.5" />
+                <div className="flex items-center gap-2 relative shrink-0">
+                  <span className="text-[9px] font-black text-brand-wine/30 uppercase tracking-[0.2em]">{t[language].sort}</span>
+                  <div className="relative">
+                    <select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value as any)}
+                      className="appearance-none pl-4 pr-9 py-1.5 rounded-xl text-[11px] font-bold uppercase tracking-wider bg-white border border-brand-gold/20 text-brand-gold-dark outline-none transition-all shadow-sm focus:border-brand-gold"
+                    >
+                      <option value="featured">{t[language].recommended}</option>
+                      <option value="price_desc">{t[language].priceDesc}</option>
+                      <option value="price_asc">{t[language].priceAsc}</option>
+                    </select>
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-brand-gold-dark">
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    </div>
                   </div>
                 </div>
               </div>
