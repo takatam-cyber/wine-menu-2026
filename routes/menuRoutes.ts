@@ -6,6 +6,6 @@ const router = Router();
 
 router.get("/menu/:storeId", getMenu);
 router.get("/proxy-image", authenticateUser, proxyImage);
-router.post("/translate", handleTranslateRequest);
+router.post("/translate", authenticateUser, handleTranslateRequest);
 
 export default router;

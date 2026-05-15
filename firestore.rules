@@ -16,11 +16,7 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isSignedIn() && (
-        request.auth.token.role == 'admin' || 
-        request.auth.token.email.matches('.*@pieroth\\.jp$') || 
-        request.auth.token.email == 'takatam40725@gmail.com'
-      );
+      return isSignedIn() && request.auth.token.role == 'admin';
     }
 
     function isRep() {

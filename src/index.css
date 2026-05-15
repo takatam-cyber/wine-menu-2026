@@ -117,38 +117,3 @@
 .markdown-body li {
   @apply mb-1;
 }
-
-/* Google 翻訳によるレイアウト崩れの防止 */
-.google-translate-container, .goog-te-banner-frame, #goog-gt-tt, .goog-te-balloon-frame, .google-te-menu-frame {
-  display: none !important;
-  visibility: hidden !important;
-}
-
-.goog-text-highlight {
-  background: none !important;
-  box-shadow: none !important;
-}
-
-/* 不要なロゴや「提供元」テキストを非表示 */
-.goog-logo-link, .goog-te-gadget span {
-  display: none !important;
-}
-
-.goog-te-gadget {
-  color: transparent !important;
-  font-size: 0 !important;
-}
-
-/* セレクトボックス（言語選択）は背景で動かすため非表示 */
-.goog-te-combo {
-  display: block;
-  opacity: 0;
-  pointer-events: none;
-  position: absolute;
-}
-
-/* 翻訳適用時の上部余白の強制リセット */
-body {
-  top: 0 !important;
-  position: static !important;
-}

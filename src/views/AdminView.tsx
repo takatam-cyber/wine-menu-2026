@@ -23,7 +23,7 @@ import { StoreAnalytics } from '../components/admin/StoreAnalytics';
 import { OwnerAccountForm } from '../components/admin/OwnerAccountForm';
 import { CatalogSelector } from '../components/admin/CatalogSelector';
 
-const PRODUCTION_DOMAIN = import.meta.env.VITE_APP_DOMAIN || "https://ais-pre-3hdh5bfu2wsxmjvi2wumqd-509939825672.asia-east1.run.app";
+const PRODUCTION_DOMAIN = import.meta.env.VITE_APP_DOMAIN || "";
 
 const getBaseUrl = () => {
   if (typeof window === 'undefined') return '';
