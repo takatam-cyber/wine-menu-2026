@@ -167,14 +167,7 @@ export const OwnerView: React.FC = () => {
 
   // Removed the automatic sync effect to prevent Firestore contention.
   // Sync now happens manually at specific user action points.
-  /*
-  useEffect(() => {
-    if (sid && !inventoryLoading) {
-      syncPublicMenu(inventory);
-    }
-  }, [inventory, sid, inventoryLoading]);
-  */
-
+  
   const handleUpdateStore = async () => {
     if (!sid || !user?.uid) return;
     setIsSaving(true);
@@ -207,10 +200,12 @@ export const OwnerView: React.FC = () => {
       itemId: wineId,
       data: { isActive: !currentStatus }
     }, {
-      onSuccess: async () => {
-        // Trigger manual sync after toggle
-        const updated = await queryClient.fetchQuery({ queryKey: ['inventory', sid] }) as any;
-        if (updated?.inventory) syncPublicMenu(updated.inventory);
+      onSuccess: () => {
+        // ミューテーション成功後、ローカルの配列を先読み更新して即座にパブリックへ同期
+        const updatedInventory = inventory.map(w => 
+          w.id === wineId ? { ...w, isActive: !currentStatus } : w
+        );
+        syncPublicMenu(updatedInventory);
       }
     });
   };
@@ -218,10 +213,10 @@ export const OwnerView: React.FC = () => {
   const handleDeleteWine = async (wineId: string) => {
     if (!window.confirm('このワインをメニューから削除しますか？')) return;
     deleteItemMutation.mutate(wineId, {
-      onSuccess: async () => {
-        // Trigger manual sync after deletion
-        const updated = await queryClient.fetchQuery({ queryKey: ['inventory', sid] }) as any;
-        if (updated?.inventory) syncPublicMenu(updated.inventory);
+      onSuccess: () => {
+        // 削除対象を除外した最新配列をパブリックへ同期
+        const updatedInventory = inventory.filter(w => w.id !== wineId);
+        syncPublicMenu(updatedInventory);
       }
     });
   };
@@ -238,21 +233,28 @@ export const OwnerView: React.FC = () => {
         updatedAt: new Date().toISOString()
       }
     }, {
-      onSuccess: async () => {
+      onSuccess: () => {
         setShowAddModal(false);
-        // Trigger manual sync after addition
-        const updated = await queryClient.fetchQuery({ queryKey: ['inventory', sid] }) as any;
-        if (updated?.inventory) syncPublicMenu(updated.inventory);
+        // 追加されたワインを内包した最新配列をパブリックへ同期
+        const newPublicWine = {
+          ...masterWine,
+          price_bottle: masterWine.price_bottle,
+          price_glass: masterWine.price_glass,
+          visible: true,
+          isActive: true,
+        };
+        syncPublicMenu([...inventory, newPublicWine]);
       }
     });
   };
 
-  const handleFinishEditing = async () => {
+  const handleFinishEditing = async (wineId: string) => {
+    // 編集終了時に、現在の最新エディットデータを反映した配列を確定同期
+    const updatedInventory = inventory.map(w => 
+      w.id === wineId ? { ...w, ...editWineData } : w
+    );
+    await syncPublicMenu(updatedInventory);
     setEditingWineId(null);
-    // Explicitly sync when user finishes editing a row
-    // Use fetchQuery to ensure we have the most recent data including the last auto-save
-    const updated = await queryClient.fetchQuery({ queryKey: ['inventory', sid] }) as any;
-    if (updated?.inventory) syncPublicMenu(updated.inventory);
   };
 
   const startEditingWine = (wine: WineMaster) => {
@@ -617,7 +619,7 @@ export const OwnerView: React.FC = () => {
                       <div className="flex items-center gap-2 shrink-0 md:ml-4">
                         {editingWineId === wine.id ? (
                           <button 
-                            onClick={handleFinishEditing}
+                            onClick={() => handleFinishEditing(wine.id)}
                             className="bg-brand-gold text-brand-wine px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest hover:brightness-110 shadow-lg"
                           >
                             終了
