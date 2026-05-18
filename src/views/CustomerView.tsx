@@ -217,10 +217,11 @@ export const CustomerView: React.FC = () => {
   ];
 
   const getDynamicStyles = (color: string) => {
+    const isEn = currentLang === 'en';
     // Extract unique types from inventory for this color
     const stylesInInventory = Array.from(new Set(inventory
-      .filter(w => w.color === color && w.type)
-      .map(w => w.type as string)
+      .filter(w => w.color === color && (isEn ? w.type_en : w.type))
+      .map(w => (isEn ? w.type_en : w.type) as string)
     )).sort();
     
     if (stylesInInventory.length > 0) return stylesInInventory;
@@ -228,7 +229,7 @@ export const CustomerView: React.FC = () => {
     // Fallbacks if no types found in current inventory
     if (color === '赤') return [t.fullBody, t.mediumBody, t.lightBody];
     if (color === '白') return [t.dry, t.mediumDry, t.sweet];
-    if (color === '泡' || color === 'スパークリング') return ['Brut', 'Extra Dry', 'Demi-Sec'];
+    if (color === '泡' || color === 'スパークリング') return [isEn ? 'Brut' : '辛口', isEn ? 'Extra Dry' : '中辛口', isEn ? 'Demi-Sec' : '甘口'];
     
     return [t.dry, t.sweet];
   };
@@ -438,7 +439,7 @@ export const CustomerView: React.FC = () => {
           else if (step2Style === translations.ja.mediumBody || step2Style === translations.en.mediumBody) matches = matches && (w.body || 0) === 3;
           else if (step2Style === translations.ja.lightBody || step2Style === translations.en.lightBody) matches = matches && (w.body || 0) <= 2;
         } else {
-          matches = matches && w.type === step2Style;
+          matches = matches && (w.type === step2Style || w.type_en === step2Style);
         }
       }
     }
