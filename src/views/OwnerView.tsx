@@ -728,6 +728,3 @@ export const OwnerView: React.FC = () => {
     </div>
   );
 };
-
-}
-}
