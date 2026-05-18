@@ -8,6 +8,7 @@ import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import { calculateProfit } from '../lib/profit-calc';
 import { motion, AnimatePresence } from 'motion/react';
+import { useQueryClient } from '@tanstack/react-query';
 import { wineRepository } from '../lib/repositories/wineRepository';
 import { useStoresQuery } from '../hooks/useStoresQuery';
 import { useInventoryQuery, useInventoryMutations } from '../hooks/useInventoryQuery';
@@ -17,6 +18,7 @@ export const OwnerView: React.FC = () => {
   const { user } = useWines();
   const [selectedStoreId, setSelectedStoreId] = useState(new URLSearchParams(window.location.search).get('storeId') || user?.storeId || '');
   
+  const queryClient = useQueryClient();
   const { data: storesData } = useStoresQuery(user);
   const stores = storesData?.pages.flatMap(p => p.data) || [];
 
@@ -163,12 +165,15 @@ export const OwnerView: React.FC = () => {
     }
   };
 
-  // Sync public menu whenever inventory changes (after mutation refetch)
+  // Removed the automatic sync effect to prevent Firestore contention.
+  // Sync now happens manually at specific user action points.
+  /*
   useEffect(() => {
     if (sid && !inventoryLoading) {
       syncPublicMenu(inventory);
     }
   }, [inventory, sid, inventoryLoading]);
+  */
 
   const handleUpdateStore = async () => {
     if (!sid || !user?.uid) return;
@@ -201,12 +206,24 @@ export const OwnerView: React.FC = () => {
     updateItemMutation.mutate({
       itemId: wineId,
       data: { isActive: !currentStatus }
+    }, {
+      onSuccess: async () => {
+        // Trigger manual sync after toggle
+        const updated = await queryClient.fetchQuery({ queryKey: ['inventory', sid] }) as any;
+        if (updated?.inventory) syncPublicMenu(updated.inventory);
+      }
     });
   };
 
   const handleDeleteWine = async (wineId: string) => {
     if (!window.confirm('このワインをメニューから削除しますか？')) return;
-    deleteItemMutation.mutate(wineId);
+    deleteItemMutation.mutate(wineId, {
+      onSuccess: async () => {
+        // Trigger manual sync after deletion
+        const updated = await queryClient.fetchQuery({ queryKey: ['inventory', sid] }) as any;
+        if (updated?.inventory) syncPublicMenu(updated.inventory);
+      }
+    });
   };
 
   const handleAddWine = async (masterWine: WineMaster) => {
@@ -221,10 +238,21 @@ export const OwnerView: React.FC = () => {
         updatedAt: new Date().toISOString()
       }
     }, {
-      onSuccess: () => {
+      onSuccess: async () => {
         setShowAddModal(false);
+        // Trigger manual sync after addition
+        const updated = await queryClient.fetchQuery({ queryKey: ['inventory', sid] }) as any;
+        if (updated?.inventory) syncPublicMenu(updated.inventory);
       }
     });
+  };
+
+  const handleFinishEditing = async () => {
+    setEditingWineId(null);
+    // Explicitly sync when user finishes editing a row
+    // Use fetchQuery to ensure we have the most recent data including the last auto-save
+    const updated = await queryClient.fetchQuery({ queryKey: ['inventory', sid] }) as any;
+    if (updated?.inventory) syncPublicMenu(updated.inventory);
   };
 
   const startEditingWine = (wine: WineMaster) => {
@@ -589,7 +617,7 @@ export const OwnerView: React.FC = () => {
                       <div className="flex items-center gap-2 shrink-0 md:ml-4">
                         {editingWineId === wine.id ? (
                           <button 
-                            onClick={() => setEditingWineId(null)}
+                            onClick={handleFinishEditing}
                             className="bg-brand-gold text-brand-wine px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest hover:brightness-110 shadow-lg"
                           >
                             終了
