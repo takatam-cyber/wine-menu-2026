@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { WineMaster, Store } from '../types';
-import { AuthImage } from '../components/ui/AuthImage';
+import { Wine, Camera, MessageSquare, Save, Eye, EyeOff, Loader2, X, Trash2, Plus, Search, Edit2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useWines } from '../lib/WineContext';
 import { db } from '../lib/firebase';
 import { collection, getDocs, doc, getDoc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
-import { Wine, Camera, MessageSquare, Save, Eye, EyeOff, Loader2, X, Trash2, Plus, Search, Edit2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import { calculateProfit } from '../lib/profit-calc';
 import { motion, AnimatePresence } from 'motion/react';
@@ -440,9 +439,10 @@ export const OwnerView: React.FC = () => {
                   <div key={wine.id} className={`glass-panel p-3 md:p-4 rounded-xl shadow-luxury flex flex-col md:flex-row items-center group transition-all gap-4 border ${editingWineId === wine.id ? 'border-brand-gold bg-brand-gold/5' : 'border-brand-gold/5 hover:border-brand-gold/30'}`}>
                     <div className="flex items-center gap-4 flex-1 w-full min-w-0">
                       <div className="w-10 h-14 bg-black/40 flex items-center justify-center p-1 rounded-lg relative border border-white/5 shrink-0 overflow-hidden">
-                        <AuthImage 
-                          url={wine.image_url} 
+                        <img 
+                          src={wine.image_url} 
                           alt="" 
+                          loading="lazy"
                           className="w-full h-full object-contain relative z-10 scale-125" 
                         />
                       </div>
@@ -601,11 +601,10 @@ export const OwnerView: React.FC = () => {
                     <div key={w.id} className="bg-white/5 border border-white/5 rounded-2xl p-4 flex items-center justify-between group hover:border-brand-gold/30 hover:bg-white/10 transition-all">
                       <div className="flex items-center gap-4 flex-1">
                         <div className="w-12 h-16 bg-black/40 rounded-lg flex items-center justify-center p-2 border border-white/10 shrink-0">
-                          <AuthImage 
-                            url={w.image_url} 
+                          <img 
+                            src={w.image_url} 
                             alt="" 
-                            crossOrigin="anonymous"
-                            referrerPolicy="no-referrer"
+                            loading="lazy"
                             className="h-full object-contain" 
                           />
                         </div>

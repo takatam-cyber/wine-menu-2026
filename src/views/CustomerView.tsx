@@ -3,7 +3,6 @@ import { useParams } from 'react-router-dom';
 import { WineMaster, Store } from '../types';
 import { useWines } from '../lib/WineContext';
 import { WineProfile } from '../components/WineProfile';
-import { AuthImage } from '../components/ui/AuthImage';
 import { db, auth } from '../lib/firebase';
 import { signInAnonymously } from 'firebase/auth';
 import { doc, getDoc, collection, getDocs, query, where, setDoc } from 'firebase/firestore';
