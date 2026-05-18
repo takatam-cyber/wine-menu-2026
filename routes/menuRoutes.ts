@@ -1,8 +1,9 @@
 import { Router } from "express";
-import { getMenu } from "../controllers/menuController.js";
+import { getMenu, proxyImage } from "../controllers/menuController.js";
 
 const router = Router();
 
 router.get("/menu/:storeId", getMenu);
+router.get("/proxy-image", proxyImage);
 
 export default router;

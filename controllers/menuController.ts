@@ -46,3 +46,42 @@ export const getMenu = async (req: Request, res: Response) => {
     res.status(500).json({ error: "メニューの取得に失敗しました。" });
   }
 };
+
+/**
+ * Proxy image fetcher to bypass Safari ITP and other domain-related blocks.
+ * Implements strong caching to minimize server egress.
+ */
+export const proxyImage = async (req: Request, res: Response) => {
+  try {
+    const imageUrl = req.query.url as string;
+    if (!imageUrl) {
+      return res.status(400).send("URL parameter is required");
+    }
+
+    const url = new URL(imageUrl);
+    const ALLOWED_DOMAINS = ["drive.google.com", "lh3.googleusercontent.com", "googleusercontent.com", "firebasestorage.googleapis.com"];
+    const isAllowed = ALLOWED_DOMAINS.some(domain => url.hostname.endsWith(domain));
+
+    if (!isAllowed) {
+      console.warn(`[Proxy] Blocked unauthorized domain: ${url.hostname}`);
+      return res.status(403).send("Forbidden domain");
+    }
+
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      return res.status(response.status).send(`Failed to fetch image: ${response.statusText}`);
+    }
+
+    const contentType = response.headers.get("content-type") || "image/jpeg";
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // PERSISTENT CACHING: Force 1 year browser cache to minimize egress costs
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    res.send(buffer);
+  } catch (error: any) {
+    console.error("Proxy Image Error:", error);
+    res.status(500).send("External imaging failure");
+  }
+};
