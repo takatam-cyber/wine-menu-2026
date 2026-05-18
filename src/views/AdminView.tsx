@@ -471,7 +471,7 @@ export const AdminView: React.FC = () => {
 
         // --- NEW: Sync publicMenu snapshot for "1 Doc Read" strategy ---
         const richPublicMenu = importedWines
-          .filter(w => w.visible !== false)
+          .filter(w => w.visible !== false && w.isActive !== false)
           .map(projectWineForPublic);
 
         await updateDoc(doc(db, 'stores', selectedStoreId), {
@@ -521,7 +521,7 @@ export const AdminView: React.FC = () => {
       // 2. DENORMALIZATION: Save the entire rich menu to the store document's top level
       // This is the "1 Document Read" strategy (0.1s response, Always Free)
       const richPublicMenu = selectedWines
-        .filter(w => w.visible !== false)
+        .filter(w => w.visible !== false && w.isActive !== false)
         .map(projectWineForPublic);
 
       await updateDoc(doc(db, 'stores', selectedStoreId), {

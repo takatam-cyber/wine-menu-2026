@@ -96,6 +96,80 @@ export const OwnerView: React.FC = () => {
     return () => clearTimeout(timer);
   }, [editWineData, editingWineId, sid, updateItemMutation]);
 
+  const projectWineForPublic = (w: any) => ({
+    // 必須識別・テキスト
+    id: w.id,
+    name_jp: w.name_jp,
+    name_en: w.name_en,
+    menu_short: w.menu_short || '',
+    menu_short_en: w.menu_short_en || '',
+    ai_explanation: w.ai_explanation || '',
+    ai_explanation_en: w.ai_explanation_en || '',
+    
+    // 分類・メタデータ
+    country: w.country,
+    country_en: w.country_en,
+    region: w.region,
+    region_en: w.region_en,
+    grape: w.grape,
+    grape_en: w.grape_en,
+    color: w.color,
+    color_en: w.color_en,
+    type: w.type,
+    type_en: w.type_en,
+    vintage: w.vintage,
+    alcohol: w.alcohol,
+    
+    // 味わいマトリックス（レーダーチャート・コンシェルジュ用）
+    sweetness: w.sweetness || 1,
+    body: w.body || 3,
+    acidity: w.acidity || 3,
+    tannins: w.tannins || 3,
+    aroma_intensity: w.aroma_intensity || 3,
+    complexity: w.complexity || 3,
+    finish: w.finish || 3,
+    oak: w.oak || 1,
+    aroma_features: w.aroma_features || '',
+    aroma_features_en: w.aroma_features_en || '',
+    
+    // タグ・ペアリング（クイックフィルタ用）
+    tags: w.tags || '',
+    tags_en: w.tags_en || '',
+    pairing: w.pairing || '',
+    pairing_en: w.pairing_en || '',
+    
+    // 店舗固有設定・メディア
+    price_bottle: w.price_bottle,
+    price_glass: w.price_glass,
+    image_url: w.image_url,
+    isFeatured: w.isFeatured ?? false,
+    promoLabel: w.promoLabel || '',
+    isActive: true,
+    updatedAt: new Date().toISOString()
+  });
+
+  const syncPublicMenu = async (currentInventory: any[]) => {
+    if (!sid) return;
+    try {
+      const richPublicMenu = currentInventory
+        .filter(w => w.visible !== false && w.isActive !== false)
+        .map(projectWineForPublic);
+
+      await updateDoc(doc(db, 'stores', sid), {
+        publicMenu: richPublicMenu
+      });
+    } catch (error) {
+      console.error('Error syncing public menu:', error);
+    }
+  };
+
+  // Sync public menu whenever inventory changes (after mutation refetch)
+  useEffect(() => {
+    if (sid && !inventoryLoading) {
+      syncPublicMenu(inventory);
+    }
+  }, [inventory, sid, inventoryLoading]);
+
   const handleUpdateStore = async () => {
     if (!sid || !user?.uid) return;
     setIsSaving(true);
