@@ -715,11 +715,10 @@ export const CustomerView: React.FC = () => {
                               <div className="absolute inset-0 opacity-5 bg-[url('https://www.transparenttextures.com/patterns/handmade-paper.png')] rounded-[3rem]" />
                               <div className="w-32 h-40 bg-white flex items-center justify-center p-4 rounded-[2rem] relative border border-brand-gold/20 shadow-xl group-hover:border-brand-gold/50 transition-all overflow-hidden shrink-0">
                                 <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]" />
-                                <AuthImage
-                                  url={wine.image_url}
+                                <img
+                                  src={wine.image_url}
                                   alt=""
-                                  crossOrigin="anonymous"
-                                  referrerPolicy="no-referrer"
+                                  loading="lazy"
                                   className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-1000 ease-out drop-shadow-2xl"
                                 />
                                 <div className="absolute top-2 left-2 flex flex-col gap-1">
@@ -825,11 +824,10 @@ export const CustomerView: React.FC = () => {
                         className="group cursor-pointer flex gap-5 border border-transparent border-b-brand-wine/5 p-4 hover:bg-brand-gold/[0.02] transition-all duration-300 relative overflow-hidden"
                       >
                         <div className="w-24 h-28 bg-white/50 backdrop-blur-sm flex items-center justify-center p-3 rounded-2xl relative border border-brand-gold/10 shadow-sm group-hover:border-brand-gold/30 transition-all shrink-0">
-                        <AuthImage
-                            url={wine.image_url}
+                        <img
+                            src={wine.image_url}
                             alt=""
-                            crossOrigin="anonymous"
-                            referrerPolicy="no-referrer"
+                            loading="lazy"
                             className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-700"
                           />
                         </div>
@@ -1091,11 +1089,10 @@ export const CustomerView: React.FC = () => {
                   <div className="text-center pt-4">
                     <div className="w-full aspect-square md:aspect-[4/5] bg-brand-dark/40 border border-brand-gold/20 rounded-3xl mb-8 flex items-center justify-center p-8 relative shadow-inner group overflow-hidden">
                       <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,rgba(184,134,11,0.25),transparent_70%)]" />
-                      <AuthImage 
-                        url={selectedWine.image_url}
+                      <img 
+                        src={selectedWine.image_url}
                         alt="" 
-                        crossOrigin="anonymous"
-                        referrerPolicy="no-referrer"
+                        loading="lazy"
                         className="h-full object-contain relative z-10 transition-transform duration-2000 group-hover:scale-105" 
                       />
                     </div>

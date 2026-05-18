@@ -1,11 +1,8 @@
 import { Router } from "express";
-import { getMenu, proxyImage, handleTranslateRequest } from "../controllers/menuController.js";
-import { authenticateUser } from "../middleware/auth.js";
+import { getMenu } from "../controllers/menuController.js";
 
 const router = Router();
 
 router.get("/menu/:storeId", getMenu);
-router.get("/proxy-image", authenticateUser, proxyImage);
-router.post("/translate", authenticateUser, handleTranslateRequest);
 
 export default router;

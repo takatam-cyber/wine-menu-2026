@@ -416,6 +416,13 @@ export const AdminView: React.FC = () => {
           });
           await Promise.all(saveInvPromises);
         }
+
+        // --- NEW: Sync publicMenu snapshot for "1 Doc Read" strategy ---
+        await updateDoc(doc(db, 'stores', selectedStoreId), {
+          publicMenu: importedWines.filter(w => w.visible !== false)
+        });
+        // ----------------------------------------------------------------
+
         await fetchStoreInventory(selectedStoreId);
       }
 
@@ -435,6 +442,7 @@ export const AdminView: React.FC = () => {
   const handleSaveInventory = async () => {
     if (!selectedStoreId) return;
     try {
+      // 1. Prepare inventory sub-collection (legacy but kept for record)
       const savePromises = selectedWines.map(wine => {
         const docRef = doc(db, 'stores', selectedStoreId, 'inventory', wine.id);
         const inventoryItem = {
@@ -453,8 +461,24 @@ export const AdminView: React.FC = () => {
         return setDoc(docRef, inventoryItem);
       });
       await Promise.all(savePromises);
-      setImportStatus({ type: 'success', message: '全ての在庫・価格データを保存しました' });
+
+      // 2. DENORMALIZATION: Save the entire rich menu to the store document's top level
+      // This is the "1 Document Read" strategy (0.1s response, Always Free)
+      const richPublicMenu = selectedWines
+        .filter(w => w.visible !== false)
+        .map(w => ({
+          ...w,
+          isActive: true,
+          updatedAt: new Date().toISOString()
+        }));
+
+      await updateDoc(doc(db, 'stores', selectedStoreId), {
+        publicMenu: richPublicMenu
+      });
+
+      setImportStatus({ type: 'success', message: '全ての在庫・価格データを保存し、公開メニューを更新しました' });
       setSelectedStoreId(null);
+      queryClient.invalidateQueries({ queryKey: ['stores'] });
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `stores/${selectedStoreId}/inventory`);
     }

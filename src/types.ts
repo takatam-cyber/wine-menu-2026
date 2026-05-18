@@ -65,6 +65,7 @@ export interface Store {
   hidePairingFilter?: boolean;
   hideWinePairing?: boolean;
   budgetTiers?: number[];
+  publicMenu?: WineMaster[];
 }
 
 export type Role = 'admin' | 'rep' | 'owner' | 'customer';
