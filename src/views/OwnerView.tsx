@@ -157,8 +157,8 @@ export const OwnerView: React.FC = () => {
     }
   };
 
-  // ★変更：危険だった常時監視型 useEffect を完全抹消。
-  // これによりマウント時の空配列による上書きバグ、およびチャタリング競合が100%消滅。
+  // ★修正：データ消失バグの根源だった常時監視型 useEffect を完全抹消。
+  // これによりマウント時の空配列によるパブリックメニュー破壊が100%防げます。
 
   const handleUpdateStore = async () => {
     if (!sid || !user?.uid) return;
@@ -187,7 +187,7 @@ export const OwnerView: React.FC = () => {
     }
   };
 
-  // ★変更：目玉アイコンクリック（表示切替）のSuccess時に明示的にパblicMenuを同期
+  // ★修正：目玉アイコンクリック（表示切替）のSuccess時に明示的にpublicMenuを手動確定同期
   const handleToggleActive = async (wineId: string, currentStatus: boolean) => {
     updateItemMutation.mutate({
       itemId: wineId,
@@ -202,7 +202,7 @@ export const OwnerView: React.FC = () => {
     });
   };
 
-  // ★変更：ワイン削除のSuccess時に明示的にパblicMenuを同期
+  // ★修正：ワイン削除のSuccess時に明示的にpublicMenuを手動確定同期
   const handleDeleteWine = async (wineId: string) => {
     if (!window.confirm('このワインをメニューから削除しますか？')) return;
     deleteItemMutation.mutate(wineId, {
@@ -213,7 +213,7 @@ export const OwnerView: React.FC = () => {
     });
   };
 
-  // ★変更：カタログからワインを追加したSuccess時に明示的にパblicMenuを同期
+  // ★修正：カタログからワインを追加したSuccess時に明示的にpublicMenuを手動確定同期
   const handleAddWine = async (masterWine: WineMaster) => {
     addItemMutation.mutate({
       itemId: masterWine.id,
