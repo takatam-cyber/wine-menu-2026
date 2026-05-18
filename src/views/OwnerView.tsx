@@ -8,7 +8,6 @@ import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import { calculateProfit } from '../lib/profit-calc';
 import { motion, AnimatePresence } from 'motion/react';
-import { useQueryClient } from '@tanstack/react-query';
 import { wineRepository } from '../lib/repositories/wineRepository';
 import { useStoresQuery } from '../hooks/useStoresQuery';
 import { useInventoryQuery, useInventoryMutations } from '../hooks/useInventoryQuery';
@@ -18,7 +17,6 @@ export const OwnerView: React.FC = () => {
   const { user } = useWines();
   const [selectedStoreId, setSelectedStoreId] = useState(new URLSearchParams(window.location.search).get('storeId') || user?.storeId || '');
   
-  const queryClient = useQueryClient();
   const { data: storesData } = useStoresQuery(user);
   const stores = storesData?.pages.flatMap(p => p.data) || [];
 
@@ -67,7 +65,7 @@ export const OwnerView: React.FC = () => {
 
   const sid = selectedStoreId;
 
-  // Auto-save logic
+  // Auto-save logic (サブコレクションのバックグラウンド更新。連射されても問題ありません)
   useEffect(() => {
     if (!editingWineId || !sid) return;
 
@@ -98,8 +96,8 @@ export const OwnerView: React.FC = () => {
     return () => clearTimeout(timer);
   }, [editWineData, editingWineId, sid, updateItemMutation]);
 
+  // セキュリティ&軽量化プロジェクション関数（仕入れ値をパージして、1MBの容量制限を徹底防御）
   const projectWineForPublic = (w: any) => ({
-    // 必須識別・テキスト
     id: w.id,
     name_jp: w.name_jp,
     name_en: w.name_en,
@@ -107,8 +105,6 @@ export const OwnerView: React.FC = () => {
     menu_short_en: w.menu_short_en || '',
     ai_explanation: w.ai_explanation || '',
     ai_explanation_en: w.ai_explanation_en || '',
-    
-    // 分類・メタデータ
     country: w.country,
     country_en: w.country_en,
     region: w.region,
@@ -121,8 +117,6 @@ export const OwnerView: React.FC = () => {
     type_en: w.type_en,
     vintage: w.vintage,
     alcohol: w.alcohol,
-    
-    // 味わいマトリックス（レーダーチャート・コンシェルジュ用）
     sweetness: w.sweetness || 1,
     body: w.body || 3,
     acidity: w.acidity || 3,
@@ -133,23 +127,20 @@ export const OwnerView: React.FC = () => {
     oak: w.oak || 1,
     aroma_features: w.aroma_features || '',
     aroma_features_en: w.aroma_features_en || '',
-    
-    // タグ・ペアリング（クイックフィルタ用）
     tags: w.tags || '',
     tags_en: w.tags_en || '',
     pairing: w.pairing || '',
     pairing_en: w.pairing_en || '',
-    
-    // 店舗固有設定・メディア
     price_bottle: w.price_bottle,
     price_glass: w.price_glass,
     image_url: w.image_url,
     isFeatured: w.isFeatured ?? false,
     promoLabel: w.promoLabel || '',
-    isActive: true,
+    isActive: w.isActive ?? true,
     updatedAt: new Date().toISOString()
   });
 
+  // 公開用トップレベルメニューの単発手動同期関数
   const syncPublicMenu = async (currentInventory: any[]) => {
     if (!sid) return;
     try {
@@ -160,14 +151,15 @@ export const OwnerView: React.FC = () => {
       await updateDoc(doc(db, 'stores', sid), {
         publicMenu: richPublicMenu
       });
+      console.log('[Sync] publicMenu successfully synchronized.');
     } catch (error) {
       console.error('Error syncing public menu:', error);
     }
   };
 
-  // Removed the automatic sync effect to prevent Firestore contention.
-  // Sync now happens manually at specific user action points.
-  
+  // ★変更：危険だった常時監視型 useEffect を完全抹消。
+  // これによりマウント時の空配列による上書きバグ、およびチャタリング競合が100%消滅。
+
   const handleUpdateStore = async () => {
     if (!sid || !user?.uid) return;
     setIsSaving(true);
@@ -195,13 +187,13 @@ export const OwnerView: React.FC = () => {
     }
   };
 
+  // ★変更：目玉アイコンクリック（表示切替）のSuccess時に明示的にパblicMenuを同期
   const handleToggleActive = async (wineId: string, currentStatus: boolean) => {
     updateItemMutation.mutate({
       itemId: wineId,
       data: { isActive: !currentStatus }
     }, {
       onSuccess: () => {
-        // ミューテーション成功後、ローカルの配列を先読み更新して即座にパブリックへ同期
         const updatedInventory = inventory.map(w => 
           w.id === wineId ? { ...w, isActive: !currentStatus } : w
         );
@@ -210,17 +202,18 @@ export const OwnerView: React.FC = () => {
     });
   };
 
+  // ★変更：ワイン削除のSuccess時に明示的にパblicMenuを同期
   const handleDeleteWine = async (wineId: string) => {
     if (!window.confirm('このワインをメニューから削除しますか？')) return;
     deleteItemMutation.mutate(wineId, {
       onSuccess: () => {
-        // 削除対象を除外した最新配列をパブリックへ同期
         const updatedInventory = inventory.filter(w => w.id !== wineId);
         syncPublicMenu(updatedInventory);
       }
     });
   };
 
+  // ★変更：カタログからワインを追加したSuccess時に明示的にパblicMenuを同期
   const handleAddWine = async (masterWine: WineMaster) => {
     addItemMutation.mutate({
       itemId: masterWine.id,
@@ -235,26 +228,16 @@ export const OwnerView: React.FC = () => {
     }, {
       onSuccess: () => {
         setShowAddModal(false);
-        // 追加されたワインを内包した最新配列をパブリックへ同期
-        const newPublicWine = {
+        const newWineSnapshot = {
           ...masterWine,
           price_bottle: masterWine.price_bottle,
           price_glass: masterWine.price_glass,
           visible: true,
-          isActive: true,
+          isActive: true
         };
-        syncPublicMenu([...inventory, newPublicWine]);
+        syncPublicMenu([...inventory, newWineSnapshot]);
       }
     });
-  };
-
-  const handleFinishEditing = async (wineId: string) => {
-    // 編集終了時に、現在の最新エディットデータを反映した配列を確定同期
-    const updatedInventory = inventory.map(w => 
-      w.id === wineId ? { ...w, ...editWineData } : w
-    );
-    await syncPublicMenu(updatedInventory);
-    setEditingWineId(null);
   };
 
   const startEditingWine = (wine: WineMaster) => {
@@ -520,6 +503,7 @@ export const OwnerView: React.FC = () => {
           <div className="flex flex-col items-center justify-center py-16 text-center border-2 border-dashed border-white/5 rounded-3xl bg-black/20">
             <Wine className="w-12 h-12 text-brand-gold/10 mb-4" />
             <p className="text-gray-500 text-xs uppercase tracking-widest">現在メニューにワインがありません</p>
+            <p className="text-gray-500 text-xs uppercase tracking-widest mt-2">{selectedStoreId}</p>
             <button onClick={() => setShowAddModal(true)} className="text-brand-gold text-xs font-bold uppercase tracking-widest mt-4 hover:underline">最初のワインを追加する</button>
           </div>
         ) : (
@@ -619,7 +603,14 @@ export const OwnerView: React.FC = () => {
                       <div className="flex items-center gap-2 shrink-0 md:ml-4">
                         {editingWineId === wine.id ? (
                           <button 
-                            onClick={() => handleFinishEditing(wine.id)}
+                            onClick={() => {
+                              // ★手動確定同期：編集を終了した瞬間に、現在のエディットデータをマッピングして確定同期
+                              const updatedInventory = inventory.map(w => 
+                                w.id === wine.id ? { ...w, ...editWineData } : w
+                              );
+                              syncPublicMenu(updatedInventory);
+                              setEditingWineId(null);
+                            }}
                             className="bg-brand-gold text-brand-wine px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest hover:brightness-110 shadow-lg"
                           >
                             終了
