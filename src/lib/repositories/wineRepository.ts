@@ -30,7 +30,14 @@ export const wineRepository = {
     const q = query(collection(db, 'winesMaster'), ...constraints);
     const snapshot = await getDocs(q);
     
-    const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as WineMaster));
+    const data = snapshot.docs.map(d => {
+      const docData = d.data() as WineMaster;
+      return { 
+        ...docData, 
+        id: d.id, 
+        pureId: docData.pureId || docData.id 
+      } as WineMaster;
+    });
     const lastVisible = snapshot.docs[snapshot.docs.length - 1] || null;
     
     return {
@@ -50,12 +57,24 @@ export const wineRepository = {
       limit(pageSize)
     );
     const snap = await getDocs(q);
-    return snap.docs.map(d => ({ id: d.id, ...d.data() } as WineMaster));
+    return snap.docs.map(d => {
+      const docData = d.data() as WineMaster;
+      return { 
+        ...docData, 
+        id: d.id, 
+        pureId: docData.pureId || docData.id 
+      } as WineMaster;
+    });
   },
 
   async getWineById(id: string): Promise<WineMaster | null> {
     const d = await getDoc(doc(db, 'winesMaster', id));
     if (!d.exists()) return null;
-    return { id: d.id, ...d.data() } as WineMaster;
+    const docData = d.data() as WineMaster;
+    return { 
+      ...docData, 
+      id: d.id, 
+      pureId: docData.pureId || docData.id 
+    } as WineMaster;
   }
 };

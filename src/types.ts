@@ -1,5 +1,6 @@
 export interface WineMaster {
   id: string;
+  pureId?: string;
   name_jp: string;
   name_en: string;
   country: string;
@@ -66,6 +67,7 @@ export interface Store {
   hideWinePairing?: boolean;
   budgetTiers?: number[];
   publicMenu?: WineMaster[];
+  allowedSuppliers?: string[];
 }
 
 export type Role = 'admin' | 'rep' | 'owner' | 'customer';

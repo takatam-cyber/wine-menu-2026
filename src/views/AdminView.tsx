@@ -10,7 +10,7 @@ import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { initializeApp, deleteApp, getApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
-import { Plus, Database, Upload, Eye, Save, Settings, Edit2, Shield, Wine, Trash2, X } from 'lucide-react';
+import { Plus, Database, Upload, Eye, Save, Settings, Edit2, Shield, Wine, Trash2, X, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -64,6 +64,31 @@ export const AdminView: React.FC = () => {
   }, [winesMasterData, masterSearchTerm, searchResults]);
 
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
+  const [storeSearchTerm, setStoreSearchTerm] = useState('');
+  const [selectedCuisineFilter, setSelectedCuisineFilter] = useState('all');
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+
+  const cuisineTypes = useMemo(() => {
+    const types = new Set(stores.map(s => s.cuisine_type).filter(Boolean));
+    return ['all', ...Array.from(types).sort()];
+  }, [stores]);
+
+  const filteredStores = useMemo(() => {
+    return stores.filter(store => {
+      const matchesSearch = !storeSearchTerm || 
+        store.name.toLowerCase().includes(storeSearchTerm.toLowerCase()) ||
+        (store.address && store.address.toLowerCase().includes(storeSearchTerm.toLowerCase()));
+      
+      const matchesCuisine = selectedCuisineFilter === 'all' || store.cuisine_type === selectedCuisineFilter;
+      
+      const matchesStatus = selectedStatusFilter === 'all' || 
+        (selectedStatusFilter === 'active' && store.isActive) ||
+        (selectedStatusFilter === 'inactive' && !store.isActive);
+      
+      return matchesSearch && matchesCuisine && matchesStatus;
+    });
+  }, [stores, storeSearchTerm, selectedCuisineFilter, selectedStatusFilter]);
+
   const [searchId, setSearchId] = useState('');
   const [selectedWines, setSelectedWines] = useState<WineMaster[]>([]);
   const [isImporting, setIsImporting] = useState(false);
@@ -111,16 +136,79 @@ export const AdminView: React.FC = () => {
     setIsEditingMaster(true);
   };
 
+  const getWineDocId = (wine: { id: string; supplier?: string; pureId?: string }) => {
+    const pure = wine.pureId || wine.id;
+    const supplier = wine.supplier || 'Pieroth';
+    const supplierPrefix = `${supplier}_`;
+    if (pure.startsWith(`${supplier}_`)) return pure;
+    return `${supplierPrefix}${pure}`;
+  };
+
+  const projectWineForPublic = (w: any) => ({
+    // 必須識別・テキスト
+    id: getWineDocId(w),
+    pureId: w.pureId || w.id,
+    supplier: w.supplier || 'Pieroth',
+    name_jp: w.name_jp,
+    name_en: w.name_en,
+    menu_short: w.menu_short || '',
+    menu_short_en: w.menu_short_en || '',
+    ai_explanation: w.ai_explanation || '',
+    ai_explanation_en: w.ai_explanation_en || '',
+    
+    // 分類・メタデータ
+    country: w.country,
+    country_en: w.country_en,
+    region: w.region,
+    region_en: w.region_en,
+    grape: w.grape,
+    grape_en: w.grape_en,
+    color: w.color,
+    color_en: w.color_en,
+    type: w.type,
+    type_en: w.type_en,
+    vintage: w.vintage,
+    alcohol: w.alcohol,
+    
+    // 味わいマトリックス（レーダーチャート・コンシェルジュ用）
+    sweetness: w.sweetness || 1,
+    body: w.body || 3,
+    acidity: w.acidity || 3,
+    tannins: w.tannins || 3,
+    aroma_intensity: w.aroma_intensity || 3,
+    complexity: w.complexity || 3,
+    finish: w.finish || 3,
+    oak: w.oak || 1,
+    aroma_features: w.aroma_features || '',
+    aroma_features_en: w.aroma_features_en || '',
+    
+    // タグ・ペアリング（クイックフィルタ用）
+    tags: w.tags || '',
+    tags_en: w.tags_en || '',
+    pairing: w.pairing || '',
+    pairing_en: w.pairing_en || '',
+    
+    // 店舗固有設定・メディア
+    price_bottle: w.price_bottle,
+    price_glass: w.price_glass,
+    image_url: w.image_url,
+    isFeatured: w.isFeatured ?? false,
+    promoLabel: w.promoLabel || '',
+    isActive: true,
+    updatedAt: new Date().toISOString()
+  });
+
   const handleUpdateMaster = async () => {
     if (!editingMasterWine) return;
     try {
-      await updateDoc(doc(db, 'winesMaster', editingMasterWine.id), editMasterData);
+      const docId = getWineDocId(editingMasterWine);
+      await updateDoc(doc(db, 'winesMaster', docId), editMasterData);
       setImportStatus({ type: 'success', message: 'マスターデータを更新しました' });
       setIsEditingMaster(false);
       queryClient.invalidateQueries({ queryKey: ['winesMaster'] });
       if (masterSearchTerm) queryClient.invalidateQueries({ queryKey: ['winesMasterSearch', masterSearchTerm] });
     } catch (error: any) {
-      handleFirestoreError(error, OperationType.UPDATE, `winesMaster/${editingMasterWine.id}`);
+      handleFirestoreError(error, OperationType.UPDATE, `winesMaster/${getWineDocId(editingMasterWine)}`);
     }
   };
 
@@ -138,10 +226,10 @@ export const AdminView: React.FC = () => {
     const path = `stores/${storeId}/inventory`;
     try {
       const querySnapshot = await getDocs(collection(db, 'stores', storeId, 'inventory'));
-      const items = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() as any }));
+      const items = querySnapshot.docs.map(d => ({ docId: d.id, ...d.data() as any }));
       
       const enrichedWines: WineMaster[] = [];
-      const itemIds = items.map(item => item.id);
+      const itemIds = items.map(item => item.docId);
 
       for (let i = 0; i < itemIds.length; i += 30) {
         const chunk = itemIds.slice(i, i + 30);
@@ -150,11 +238,12 @@ export const AdminView: React.FC = () => {
         
         masterSnaps.forEach(docSnap => {
           const masterData = docSnap.data() as WineMaster;
-          const invItem = items.find(item => item.id === docSnap.id);
+          const invItem = items.find(item => item.docId === docSnap.id);
           if (invItem) {
             enrichedWines.push({ 
               ...masterData, 
-              id: docSnap.id,
+              id: docSnap.id, // Composite System ID
+              pureId: masterData.id, // Original CSV ID
               price_bottle: invItem.price_bottle ?? masterData.price_bottle,
               price_glass: invItem.price_glass ?? masterData.price_glass,
               cost: invItem.cost ?? masterData.cost,
@@ -192,10 +281,18 @@ export const AdminView: React.FC = () => {
     }
 
     if (wine && selectedStoreId && !selectedWines.find(sw => sw.id === idToUse)) {
-      const docPath = `stores/${selectedStoreId}/inventory/${wine.id}`;
+      // Governance Check: allowedSuppliers
+      if (selectedStore?.allowedSuppliers && !selectedStore.allowedSuppliers.includes(wine.supplier || 'Pieroth')) {
+        alert(`この店舗には指定サプライヤー「${wine.supplier || 'Pieroth'}」のワインを登録する権限がありません`);
+        return;
+      }
+
+      const compositeId = getWineDocId(wine);
+      const docPath = `stores/${selectedStoreId}/inventory/${compositeId}`;
       try {
         const newInventoryItem = {
-          id: wine.id,
+          id: wine.id, // Pure ID
+          supplier: wine.supplier || 'Pieroth',
           price_bottle: wine.price_bottle || wine.cost * 3,
           price_glass: wine.price_glass || Math.round((wine.cost * 3 / 6) / 100) * 100,
           cost: wine.cost,
@@ -206,7 +303,7 @@ export const AdminView: React.FC = () => {
           updatedAt: new Date().toISOString()
         };
         
-        await setDoc(doc(db, 'stores', selectedStoreId, 'inventory', wine.id), newInventoryItem);
+        await setDoc(doc(db, 'stores', selectedStoreId, 'inventory', compositeId), newInventoryItem);
         await fetchStoreInventory(selectedStoreId);
         setSearchId('');
       } catch (error) {
@@ -220,9 +317,21 @@ export const AdminView: React.FC = () => {
     
     try {
       const winesToAdd = wines.filter(w => selectedMasterIds.includes(w.id));
+      
+      // Governance Check: allowedSuppliers
+      if (selectedStore?.allowedSuppliers) {
+        const unauthorized = winesToAdd.filter(w => !selectedStore.allowedSuppliers?.includes(w.supplier || 'Pieroth'));
+        if (unauthorized.length > 0) {
+          alert(`許可されていないサプライヤーのワインが含まれています: ${Array.from(new Set(unauthorized.map(w => w.supplier || 'Pieroth'))).join(', ')}`);
+          return;
+        }
+      }
+
       const savePromises = winesToAdd.map(wine => {
+        const compositeId = getWineDocId(wine);
         const newInventoryItem = {
-          id: wine.id,
+          id: wine.id, // Pure ID
+          supplier: wine.supplier || 'Pieroth',
           price_bottle: wine.price_bottle || wine.cost * 3,
           price_glass: wine.price_glass || Math.round((wine.cost * 3 / 6) / 100) * 100,
           cost: wine.cost,
@@ -232,7 +341,7 @@ export const AdminView: React.FC = () => {
           visible: true,
           updatedAt: new Date().toISOString()
         };
-        return setDoc(doc(db, 'stores', selectedStoreId, 'inventory', wine.id), newInventoryItem);
+        return setDoc(doc(db, 'stores', selectedStoreId, 'inventory', compositeId), newInventoryItem);
       });
 
       await Promise.all(savePromises);
@@ -377,58 +486,6 @@ export const AdminView: React.FC = () => {
     }
   };
 
-  const projectWineForPublic = (w: any) => ({
-    // 必須識別・テキスト
-    id: w.id,
-    name_jp: w.name_jp,
-    name_en: w.name_en,
-    menu_short: w.menu_short || '',
-    menu_short_en: w.menu_short_en || '',
-    ai_explanation: w.ai_explanation || '',
-    ai_explanation_en: w.ai_explanation_en || '',
-    
-    // 分類・メタデータ
-    country: w.country,
-    country_en: w.country_en,
-    region: w.region,
-    region_en: w.region_en,
-    grape: w.grape,
-    grape_en: w.grape_en,
-    color: w.color,
-    color_en: w.color_en,
-    type: w.type,
-    type_en: w.type_en,
-    vintage: w.vintage,
-    alcohol: w.alcohol,
-    
-    // 味わいマトリックス（レーダーチャート・コンシェルジュ用）
-    sweetness: w.sweetness || 1,
-    body: w.body || 3,
-    acidity: w.acidity || 3,
-    tannins: w.tannins || 3,
-    aroma_intensity: w.aroma_intensity || 3,
-    complexity: w.complexity || 3,
-    finish: w.finish || 3,
-    oak: w.oak || 1,
-    aroma_features: w.aroma_features || '',
-    aroma_features_en: w.aroma_features_en || '',
-    
-    // タグ・ペアリング（クイックフィルタ用）
-    tags: w.tags || '',
-    tags_en: w.tags_en || '',
-    pairing: w.pairing || '',
-    pairing_en: w.pairing_en || '',
-    
-    // 店舗固有設定・メディア
-    price_bottle: w.price_bottle,
-    price_glass: w.price_glass,
-    image_url: w.image_url,
-    isFeatured: w.isFeatured ?? false,
-    promoLabel: w.promoLabel || '',
-    isActive: true,
-    updatedAt: new Date().toISOString()
-  });
-
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -443,7 +500,13 @@ export const AdminView: React.FC = () => {
       for (let i = 0; i < importedWines.length; i += CHUNK_SIZE) {
         const chunk = importedWines.slice(i, i + CHUNK_SIZE);
         const saveMasterPromises = chunk.map(wine => {
-          return setDoc(doc(db, 'winesMaster', wine.id), wine);
+          const docId = getWineDocId(wine);
+          // Set pureId before saving to top-level master catalog
+          const wineWithPureId = { 
+            ...wine, 
+            pureId: wine.id 
+          };
+          return setDoc(doc(db, 'winesMaster', docId), wineWithPureId);
         });
         await Promise.all(saveMasterPromises);
       }
@@ -451,11 +514,23 @@ export const AdminView: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['winesMaster'] });
 
       if (selectedStoreId) {
-        for (let i = 0; i < importedWines.length; i += CHUNK_SIZE) {
-          const chunk = importedWines.slice(i, i + CHUNK_SIZE);
+        // Governance Check for store import
+        let winesToAdd = importedWines;
+        if (selectedStore?.allowedSuppliers) {
+          winesToAdd = importedWines.filter(w => selectedStore.allowedSuppliers?.includes(w.supplier || 'Pieroth'));
+          if (winesToAdd.length < importedWines.length) {
+            console.warn('一部のワインはサプライヤー制限により店舗に追加されませんでした');
+          }
+        }
+
+        for (let i = 0; i < winesToAdd.length; i += CHUNK_SIZE) {
+          const chunk = winesToAdd.slice(i, i + CHUNK_SIZE);
           const saveInvPromises = chunk.map(wine => {
+            const compositeId = getWineDocId(wine);
             const invItem = {
-              id: wine.id,
+              id: wine.id, // Pure ID
+              pureId: wine.id,
+              supplier: wine.supplier || 'Pieroth',
               price_bottle: wine.price_bottle || Math.round(wine.cost * 3 / 100) * 100,
               price_glass: wine.price_glass || 0,
               glasses_per_bottle: 6,
@@ -464,15 +539,15 @@ export const AdminView: React.FC = () => {
               visible: true,
               updatedAt: new Date().toISOString()
             };
-            return setDoc(doc(db, 'stores', selectedStoreId, 'inventory', wine.id), invItem);
+            return setDoc(doc(db, 'stores', selectedStoreId, 'inventory', compositeId), invItem);
           });
           await Promise.all(saveInvPromises);
         }
 
-        // --- NEW: Sync publicMenu snapshot for "1 Doc Read" strategy ---
-        const richPublicMenu = importedWines
+        // --- SYNC publicMenu snapshot (1 Doc Read strategy) ---
+        const richPublicMenu = winesToAdd
           .filter(w => w.visible !== false && w.isActive !== false)
-          .map(projectWineForPublic);
+          .map(wine => projectWineForPublic({ ...wine, pureId: wine.id }));
 
         await updateDoc(doc(db, 'stores', selectedStoreId), {
           publicMenu: richPublicMenu
@@ -500,9 +575,12 @@ export const AdminView: React.FC = () => {
     try {
       // 1. Prepare inventory sub-collection (legacy but kept for record)
       const savePromises = selectedWines.map(wine => {
-        const docRef = doc(db, 'stores', selectedStoreId, 'inventory', wine.id);
+        const compositeId = getWineDocId(wine);
+        const docRef = doc(db, 'stores', selectedStoreId, 'inventory', compositeId);
         const inventoryItem = {
-          id: wine.id,
+          id: wine.pureId || wine.id, // Maintain clean ID inside
+          pureId: wine.pureId || wine.id,
+          supplier: wine.supplier || 'Pieroth',
           price_bottle: wine.price_bottle,
           price_glass: wine.price_glass,
           cost: wine.cost,
@@ -538,11 +616,15 @@ export const AdminView: React.FC = () => {
 
   const handleDeleteWine = async (wineId: string) => {
     if (!selectedStoreId || !window.confirm('このワインをメニューから削除しますか？')) return;
+    const wine = selectedWines.find(w => w.id === wineId);
+    if (!wine) return;
+    
+    const compositeId = getWineDocId(wine);
     try {
-      await deleteDoc(doc(db, 'stores', selectedStoreId, 'inventory', wineId));
+      await deleteDoc(doc(db, 'stores', selectedStoreId, 'inventory', compositeId));
       setSelectedWines(prev => prev.filter(w => w.id !== wineId));
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `stores/${selectedStoreId}/inventory/${wineId}`);
+      handleFirestoreError(error, OperationType.DELETE, `stores/${selectedStoreId}/inventory/${compositeId}`);
     }
   };
 
@@ -593,6 +675,45 @@ export const AdminView: React.FC = () => {
         </header>
 
         <div className="max-w-7xl mx-auto px-4 md:px-8">
+          {!showMasterCatalog && (
+            <div className="flex flex-col md:flex-row gap-4 mb-8 bg-white p-4 rounded-3xl border border-slate-200 shadow-sm items-center">
+              <div className="relative flex-1 w-full">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input 
+                  type="text"
+                  placeholder="店舗名・住所で検索..."
+                  value={storeSearchTerm}
+                  onChange={(e) => setStoreSearchTerm(e.target.value)}
+                  className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:border-brand-wine outline-none transition-all"
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                <select 
+                  value={selectedCuisineFilter}
+                  onChange={(e) => setSelectedCuisineFilter(e.target.value)}
+                  className="bg-slate-50 border border-slate-200 rounded-2xl px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none focus:border-brand-wine"
+                >
+                  <option value="all">すべての料理</option>
+                  {cuisineTypes.filter(t => t !== 'all').map(type => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                </select>
+                <select 
+                  value={selectedStatusFilter}
+                  onChange={(e) => setSelectedStatusFilter(e.target.value as any)}
+                  className="bg-slate-50 border border-slate-200 rounded-2xl px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none focus:border-brand-wine"
+                >
+                  <option value="all">すべての状態</option>
+                  <option value="active">稼働中</option>
+                  <option value="inactive">停止中</option>
+                </select>
+                <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-3 py-1 bg-slate-100 rounded-full">
+                  {filteredStores.length} HIT
+                </div>
+              </div>
+            </div>
+          )}
+
           {showMasterCatalog ? (
             <MasterCatalog 
               wines={wines}
@@ -608,7 +729,7 @@ export const AdminView: React.FC = () => {
             />
           ) : (
             <StoreGrid 
-              stores={stores}
+              stores={filteredStores}
               hasMoreStores={hasMoreStores}
               onLoadMoreStores={handleLoadMoreStores}
               onCreateStore={handleCreateStore}
@@ -718,6 +839,21 @@ export const AdminView: React.FC = () => {
                     />
                     <p className="text-xs text-slate-400 mt-1 uppercase tracking-tighter">例: 5000, 10000, 20000 (数値のみ入力してください)</p>
                   </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-1">許可サプライヤー (カンマ区切り)</label>
+                    <input 
+                      type="text"
+                      placeholder="Pieroth, SuppA, SuppB"
+                      value={editStoreData.allowedSuppliers?.join(', ') || ''}
+                      onChange={e => {
+                        const suppliers = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
+                        setEditStoreData({...editStoreData, allowedSuppliers: suppliers.length > 0 ? suppliers : undefined});
+                      }}
+                      className="w-full bg-white border border-slate-300 rounded px-3 py-2 text-sm text-slate-900 focus:border-brand-wine outline-none transition-all"
+                    />
+                    <p className="text-xs text-slate-400 mt-1 uppercase tracking-tighter">例: Pieroth, OtherSupplier (未設定時は全許可)</p>
+                  </div>
                 </div>
                 <div className="flex flex-col items-center justify-center bg-white p-6 rounded-2xl border border-slate-200 shadow-inner">
                   <div className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">モバイル用QRコード</div>
@@ -799,6 +935,10 @@ export const AdminView: React.FC = () => {
                         cuisine_type: selectedStore?.cuisine_type || 'フレンチ',
                         address: selectedStore?.address,
                         isActive: selectedStore?.isActive,
+                        allowedSuppliers: selectedStore?.allowedSuppliers || [],
+                        budgetTiers: selectedStore?.budgetTiers || [],
+                        hidePairingFilter: selectedStore?.hidePairingFilter || false,
+                        hideWinePairing: selectedStore?.hideWinePairing || false,
                       });
                       setIsEditingStore(true);
                     }}
