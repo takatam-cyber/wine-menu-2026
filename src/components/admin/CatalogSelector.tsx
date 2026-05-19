@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { WineMaster, Store } from '../../types';
-import { Search, X, CheckCircle2, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
+import { Search, X, CheckCircle2, ChevronLeft, ChevronRight, Filter, Wine, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface CatalogSelectorProps {
@@ -33,7 +33,7 @@ export const CatalogSelector: React.FC<CatalogSelectorProps> = ({
   onLoadMoreWines,
 }) => {
   // Tab State
-  const [activeTab, setActiveTab] = useState<'pieroth' | 'others'>('pieroth');
+  const [activeTab, setActiveTab] = useState<'PIEROTH' | 'OTHER'>('PIEROTH');
   
   // Facet States
   const [selectedSuppliers, setSelectedSuppliers] = useState<Set<string>>(new Set());
@@ -41,7 +41,7 @@ export const CatalogSelector: React.FC<CatalogSelectorProps> = ({
   const [selectedColors, setSelectedColors] = useState<Set<string>>(new Set());
   const [priceRange, setPriceRange] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 24; // Increased for larger grid
+  const itemsPerPage = 20; 
 
   // Reset logic
   useEffect(() => {
@@ -60,8 +60,8 @@ export const CatalogSelector: React.FC<CatalogSelectorProps> = ({
   // Extract facets from current wines (split by tab)
   const tabWines = useMemo(() => {
     return wines.filter(w => {
-      const isPieroth = (w.supplier || 'Pieroth').toUpperCase() === 'PIEROTH';
-      return activeTab === 'pieroth' ? isPieroth : !isPieroth;
+      const s = (w.supplier || 'PIEROTH').toUpperCase();
+      return activeTab === 'PIEROTH' ? s === 'PIEROTH' : s === 'OTHER';
     });
   }, [wines, activeTab]);
 
@@ -83,21 +83,29 @@ export const CatalogSelector: React.FC<CatalogSelectorProps> = ({
     };
   }, [tabWines]);
 
+  // Search matching logic optimized
+  const matchesKeyword = (w: WineMaster, term: string) => {
+    if (!term) return true;
+    const t = term.toLowerCase();
+    return (
+      w.name_jp?.toLowerCase().includes(t) ||
+      w.name_en?.toLowerCase().includes(t) ||
+      w.id?.toLowerCase().includes(t) ||
+      w.grape?.toLowerCase().includes(t) ||
+      w.region?.toLowerCase().includes(t) ||
+      w.country?.toLowerCase().includes(t) ||
+      (w.supplier || '').toLowerCase().includes(t)
+    );
+  };
+
   // Combined Filtered List
   const filteredWines = useMemo(() => {
     let result = tabWines.filter(w => {
       // Keyword search
-      const matchesSearch = !masterSearchTerm || 
-        w.name_jp.toLowerCase().includes(masterSearchTerm.toLowerCase()) ||
-        w.name_en.toLowerCase().includes(masterSearchTerm.toLowerCase()) ||
-        w.country.toLowerCase().includes(masterSearchTerm.toLowerCase()) ||
-        w.grape.toLowerCase().includes(masterSearchTerm.toLowerCase()) ||
-        w.id.toLowerCase().includes(masterSearchTerm.toLowerCase());
-      
-      if (!matchesSearch) return false;
+      if (!matchesKeyword(w, masterSearchTerm)) return false;
 
-      // Supplier filter (only relevant for 'others' tab or if someone selected)
-      if (selectedSuppliers.size > 0 && !selectedSuppliers.has(w.supplier || 'Pieroth')) return false;
+      // Supplier sub-filter (only relevant for 'OTHER' tab)
+      if (activeTab === 'OTHER' && selectedSuppliers.size > 0 && !selectedSuppliers.has(w.supplier || '')) return false;
 
       // Country filter
       if (selectedCountries.size > 0 && !selectedCountries.has(w.country)) return false;
@@ -116,15 +124,19 @@ export const CatalogSelector: React.FC<CatalogSelectorProps> = ({
       return true;
     });
 
-    // Sorting: Put already selected ones at the bottom, then sort by name
+    // Sorting: Selected at the bottom, then by name
     return result.sort((a, b) => {
-      const aSelected = selectedWines.some(sw => sw.id === a.id);
-      const bSelected = selectedWines.some(sw => sw.id === b.id);
+      const aId = a.id;
+      const bId = b.id;
+      const aSelected = selectedWines.some(sw => sw.id === aId);
+      const bSelected = selectedWines.some(sw => sw.id === bId);
+      
       if (aSelected && !bSelected) return 1;
       if (!aSelected && bSelected) return -1;
-      return a.name_jp.localeCompare(b.name_jp);
+      
+      return (a.name_jp || '').localeCompare(b.name_jp || '');
     });
-  }, [tabWines, masterSearchTerm, selectedSuppliers, selectedCountries, selectedColors, priceRange, selectedWines]);
+  }, [tabWines, masterSearchTerm, selectedSuppliers, selectedCountries, selectedColors, priceRange, selectedWines, activeTab]);
 
   // Pagination
   const totalPages = Math.ceil(filteredWines.length / itemsPerPage);
@@ -147,112 +159,126 @@ export const CatalogSelector: React.FC<CatalogSelectorProps> = ({
         className="bg-white rounded-[2rem] md:rounded-[40px] w-full max-w-[1200px] h-full md:h-[90vh] flex flex-col overflow-hidden shadow-2xl relative"
       >
         {/* Header */}
-        <div className="p-6 md:p-10 border-b border-slate-100 flex items-center justify-between bg-white/80 backdrop-blur shrink-0">
+        <div className="p-6 md:px-12 md:py-8 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
           <div>
-            <h2 className="serif text-2xl md:text-3xl text-slate-900">ワインカタログから選択</h2>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="w-2 h-2 bg-brand-gold rounded-full animate-pulse" />
+            <h2 className="serif text-2xl md:text-4xl text-slate-900 tracking-tight">ワインカタログ</h2>
+            <div className="flex items-center gap-3 mt-1">
+              <div className="flex items-center gap-1.5 px-2 py-0.5 bg-brand-gold/10 rounded-full">
+                <div className="w-1.5 h-1.5 bg-brand-gold rounded-full animate-pulse" />
+                <span className="text-[10px] font-black text-brand-gold uppercase tracking-widest">Editor Mode</span>
+              </div>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{selectedStore?.name} のラインナップ編集</p>
             </div>
           </div>
           <button 
             onClick={onClose}
-            className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-900 transition-all hover:bg-slate-100"
+            className="w-14 h-14 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center text-slate-400 hover:text-brand-wine transition-all hover:bg-slate-100 group"
           >
-            <X className="w-6 h-6" />
+            <X className="w-7 h-7 group-hover:rotate-90 transition-transform duration-300" />
           </button>
         </div>
 
-        <div className="flex flex-1 overflow-hidden">
-          {/* Left Panel: Faceted Sidebar */}
-          <aside className="w-64 border-r border-slate-100 bg-slate-50/50 p-6 overflow-y-auto hidden lg:block">
-            <div className="flex items-center gap-2 text-brand-wine mb-6">
-              <Filter className="w-4 h-4" />
-              <span className="text-xs font-black uppercase tracking-widest">フィルタリング</span>
+        <div className="flex flex-1 overflow-hidden bg-white">
+          {/* Left Panel: Faceted Sidebar - Luxury Styling */}
+          <aside className="w-72 border-r border-slate-100 bg-slate-50/30 p-8 overflow-y-auto hidden lg:block custom-scrollbar">
+            <div className="flex items-center gap-3 text-brand-wine mb-10">
+              <div className="p-2 bg-brand-wine/5 rounded-xl">
+                <Filter className="w-5 h-5" />
+              </div>
+              <span className="text-xs font-black uppercase tracking-[0.2em]">ファセット検索</span>
             </div>
 
-            <div className="space-y-8">
-              {/* Supplier (Only for non-Pieroth items) */}
-              {activeTab === 'others' && facets.suppliers.length > 0 && (
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-3">サプライヤー</label>
-                  <div className="space-y-2">
+            <div className="space-y-10">
+              {/* Supplier Filter (Tab Specific) */}
+              {activeTab === 'OTHER' && facets.suppliers.length > 0 && (
+                <div className="animate-in fade-in slide-in-from-left-2 duration-500">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block mb-5 border-b border-slate-100 pb-2">インポーター</label>
+                  <div className="grid gap-1.5">
                     {facets.suppliers.map(s => (
                       <button 
                         key={s}
                         onClick={() => toggleFacet(selectedSuppliers, s, setSelectedSuppliers)}
-                        className={`block w-full text-left px-3 py-1.5 rounded-lg text-xs transition-all ${
+                        className={`group flex items-center gap-3 px-4 py-3 rounded-2xl text-xs transition-all ${
                           selectedSuppliers.has(s) 
-                            ? 'bg-brand-gold text-white font-bold shadow-sm' 
-                            : 'text-slate-600 hover:bg-slate-200/50'
+                            ? 'bg-brand-wine text-white font-bold shadow-luxury-wine' 
+                            : 'text-slate-600 hover:bg-white hover:shadow-sm'
                         }`}
                       >
-                        {s}
+                        <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${
+                          selectedSuppliers.has(s) ? 'bg-white border-white' : 'border-slate-300 bg-white'
+                        }`}>
+                          {selectedSuppliers.has(s) && <CheckCircle2 className="w-3 h-3 text-brand-wine" />}
+                        </div>
+                        <span className="truncate">{s}</span>
                       </button>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* Color */}
+              {/* Color Filter */}
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-3">ワインの色</label>
-                <div className="flex flex-wrap gap-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block mb-5 border-b border-slate-100 pb-2">ワインの色</label>
+                <div className="grid grid-cols-2 gap-2">
                   {['赤', '白', '泡', 'ロゼ'].map(c => (
                     <button 
                       key={c}
                       onClick={() => toggleFacet(selectedColors, c, setSelectedColors)}
-                      className={`px-3 py-1.5 rounded-full text-xs transition-all border ${
+                      className={`px-4 py-2.5 rounded-xl text-[11px] font-bold transition-all border ${
                         selectedColors.has(c) 
-                          ? 'bg-brand-wine border-brand-wine text-white font-bold' 
-                          : 'bg-white border-slate-200 text-slate-600'
+                          ? 'bg-brand-gold border-brand-gold text-white shadow-luxury-gold' 
+                          : 'bg-white border-slate-200 text-slate-500 hover:border-brand-gold/30 hover:text-brand-gold'
                       }`}
                     >
-                      {c}
+                      {c === '泡' ? 'スパークリング' : c}
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Price Range */}
+              {/* Price Range Filter */}
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-3">価格帯</label>
-                <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block mb-5 border-b border-slate-100 pb-2">価格帯</label>
+                <div className="grid gap-1.5">
                   {[
-                    { id: 'low', label: '〜 ¥5,000' },
-                    { id: 'mid', label: '¥5,000 〜 ¥10,000' },
-                    { id: 'high', label: '¥10,000 〜' },
+                    { id: 'low', label: '〜 5,000円' },
+                    { id: 'mid', label: '5,000円 〜 10,000円' },
+                    { id: 'high', label: '10,000円以上' },
                   ].map(r => (
                     <button 
                       key={r.id}
                       onClick={() => setPriceRange(priceRange === r.id ? null : r.id)}
-                      className={`block w-full text-left px-3 py-1.5 rounded-lg text-xs transition-all ${
+                      className={`group flex items-center justify-between px-4 py-3 rounded-2xl text-xs transition-all ${
                         priceRange === r.id 
-                          ? 'bg-brand-gold text-white font-bold shadow-sm' 
-                          : 'text-slate-600 hover:bg-slate-200/50'
+                          ? 'bg-brand-gold/10 border border-brand-gold/30 text-brand-gold-dark font-bold' 
+                          : 'text-slate-600 bg-white border border-slate-100 hover:border-brand-gold/30 hover:shadow-sm'
                       }`}
                     >
-                      {r.label}
+                      <span>{r.label}</span>
+                      {priceRange === r.id && <CheckCircle2 className="w-4 h-4" />}
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Country */}
+              {/* Country Filter - Scrollable Area */}
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-3">生産国</label>
-                <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block mb-5 border-b border-slate-100 pb-2">生産国</label>
+                <div className="grid gap-1 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
                   {facets.countries.map(c => (
                     <button 
                       key={c}
                       onClick={() => toggleFacet(selectedCountries, c, setSelectedCountries)}
-                      className={`block w-full text-left px-3 py-1.5 rounded-lg text-xs transition-all ${
+                      className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs transition-all ${
                         selectedCountries.has(c) 
-                          ? 'bg-brand-gold text-white font-bold shadow-sm' 
-                          : 'text-slate-600 hover:bg-slate-200/50'
+                          ? 'bg-brand-wine/10 text-brand-wine font-bold' 
+                          : 'text-slate-500 hover:bg-white'
                       }`}
                     >
-                      {c}
+                      <div className={`w-1.5 h-1.5 rounded-full transition-all ${
+                        selectedCountries.has(c) ? 'bg-brand-wine scale-125' : 'bg-slate-200'
+                      }`} />
+                      <span className="truncate">{c}</span>
                     </button>
                   ))}
                 </div>
@@ -260,48 +286,52 @@ export const CatalogSelector: React.FC<CatalogSelectorProps> = ({
             </div>
           </aside>
 
-          {/* Right Panel: Content */}
-          <main className="flex-1 flex flex-col bg-slate-50/30 overflow-hidden">
-            {/* Search & Tabs */}
-            <div className="p-6 md:p-8 bg-white/50 backdrop-blur-sm border-b border-slate-100 shrink-0 space-y-6">
-              {/* Tab Selector */}
-              <div className="flex bg-slate-100 p-1 rounded-2xl w-full max-w-lg mx-auto">
+          {/* Right Panel: Main Grid Area */}
+          <main className="flex-1 flex flex-col bg-slate-50/20 overflow-hidden">
+            {/* Top Controls Area */}
+            <div className="p-8 bg-white border-b border-slate-100 shrink-0 space-y-8">
+              {/* Tab Selector - Unified Styling */}
+              <div className="flex bg-slate-100/50 p-1.5 rounded-2xl w-full max-w-2xl mx-auto border border-slate-100">
                 <button 
-                  onClick={() => setActiveTab('pieroth')}
-                  className={`flex-1 py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all ${
-                    activeTab === 'pieroth' 
-                      ? 'bg-white text-brand-wine shadow-lg' 
+                  onClick={() => setActiveTab('PIEROTH')}
+                  className={`flex-1 py-3.5 px-6 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 ${
+                    activeTab === 'PIEROTH' 
+                      ? 'bg-white text-brand-wine shadow-luxury-soft ring-1 ring-slate-100' 
                       : 'text-slate-400 hover:text-slate-600'
                   }`}
                 >
-                  Pieroth Japan
+                  <Wine className={`w-3.5 h-3.5 ${activeTab === 'PIEROTH' ? 'text-brand-wine' : 'text-slate-300'}`} />
+                  ピーロート・ジャパン (PIEROTH)
                 </button>
                 <button 
-                  onClick={() => setActiveTab('others')}
-                  className={`flex-1 py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all ${
-                    activeTab === 'others' 
-                      ? 'bg-white text-brand-wine shadow-lg' 
+                  onClick={() => setActiveTab('OTHER')}
+                  className={`flex-1 py-3.5 px-6 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 ${
+                    activeTab === 'OTHER' 
+                      ? 'bg-white text-brand-wine shadow-luxury-soft ring-1 ring-slate-100' 
                       : 'text-slate-400 hover:text-slate-600'
                   }`}
                 >
-                  Other Suppliers
+                  <Filter className={`w-3.5 h-3.5 ${activeTab === 'OTHER' ? 'text-brand-wine' : 'text-slate-300'}`} />
+                  他社商品 (OTHER WINES)
                 </button>
               </div>
 
-              <div className="relative max-w-2xl mx-auto w-full">
-                <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
+              <div className="relative max-w-3xl mx-auto w-full group">
+                <Search className="absolute left-7 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-300 group-focus-within:text-brand-wine transition-colors" />
                 <input 
-                  placeholder="ワイン名、ブドウ品種、ID、またはキーワードを自由に入力..."
-                  className="w-full bg-white border border-slate-200 rounded-[2rem] pl-14 pr-8 py-4 text-sm outline-none focus:border-brand-wine shadow-sm transition-all focus:ring-4 focus:ring-brand-wine/5"
+                  placeholder="ワイン名、ブドウ品種、ID、産地で即時検索..."
+                  className="w-full bg-slate-50 border border-slate-100 rounded-[2.5rem] pl-16 pr-10 py-5 text-sm outline-none focus:bg-white focus:border-brand-wine shadow-inner focus:shadow-luxury-soft transition-all"
                   value={masterSearchTerm}
                   onChange={e => setMasterSearchTerm(e.target.value)}
                 />
               </div>
             </div>
 
-            {/* List */}
-            <div className="flex-1 overflow-y-auto p-4 md:p-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+            {/* List area */}
+            <div className="flex-1 overflow-y-auto p-8 relative custom-scrollbar">
+              <div id="catalog-scroll-top" className="absolute top-0" />
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
                 <AnimatePresence mode="popLayout">
                   {currentItems.map(wine => {
                     const isAlreadySelected = selectedWines.some(sw => sw.id === wine.id);
@@ -309,48 +339,69 @@ export const CatalogSelector: React.FC<CatalogSelectorProps> = ({
                     return (
                       <motion.div 
                         layout
-                        initial={{ opacity: 0, scale: 0.9 }}
+                        initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.9 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        transition={{ duration: 0.3 }}
                         key={wine.id} 
                         onClick={() => !isAlreadySelected && toggleMasterSelection(wine.id)}
-                        className={`bg-white p-5 rounded-3xl border transition-all flex gap-4 group cursor-pointer relative overflow-hidden ${
+                        className={`bg-white p-6 rounded-[2rem] border transition-all flex gap-5 group cursor-pointer relative overflow-hidden ${
                           isAlreadySelected 
                             ? 'border-slate-100 bg-slate-50/50' 
                             : isChecked 
-                              ? 'border-brand-wine bg-brand-wine/[0.02] shadow-xl ring-1 ring-brand-wine/20' 
-                              : 'border-slate-200 hover:border-brand-gold shadow-sm hover:shadow-lg'
+                              ? 'border-brand-wine bg-brand-wine/[0.02] shadow-luxury-wine ring-1 ring-brand-wine/10' 
+                              : 'border-slate-100 hover:border-brand-gold shadow-luxury-soft hover:shadow-luxury-gold/20'
                         }`}
                       >
                         {isAlreadySelected && (
-                          <div className="absolute top-0 right-0 bg-slate-200 text-slate-500 text-[8px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-widest">
-                            追加済み
+                          <div className="absolute top-0 right-0 bg-slate-200 text-slate-500 text-[9px] font-black px-4 py-1.5 rounded-bl-[1.25rem] uppercase tracking-widest flex items-center gap-1.5">
+                            <Info className="w-3 h-3" />
+                            導入済み
                           </div>
                         )}
-                        <div className="flex flex-col items-center gap-3 shrink-0 py-1">
-                          <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${
-                            isChecked ? 'bg-brand-wine border-brand-wine text-white' : 'border-slate-200 bg-white'
+                        
+                        <div className="flex flex-col items-center gap-4 shrink-0 py-2">
+                          <div className={`w-7 h-7 rounded-xl border-2 flex items-center justify-center transition-all duration-300 ${
+                            isChecked ? 'bg-brand-red border-brand-red text-white scale-110' : 'border-slate-200 bg-white'
                           }`}>
-                            {isChecked && <CheckCircle2 className="w-4 h-4" />}
+                            {isChecked && <CheckCircle2 className="w-5 h-5" />}
                           </div>
-                          <div className="w-16 h-28 flex items-center justify-center p-2">
+                          <div className="w-20 h-36 flex items-center justify-center p-3 bg-slate-50 rounded-2xl border border-slate-100 relative group-hover:bg-white transition-all">
                             <img 
                               src={`/api/proxy-image?url=${encodeURIComponent(wine.image_url)}`} 
                               alt="" 
                               loading="lazy"
-                              className={`h-full object-contain transition-all duration-700 ${isAlreadySelected ? 'grayscale opacity-30' : 'group-hover:scale-110 drop-shadow-lg'}`} 
+                              className={`h-full object-contain transition-all duration-700 ${isAlreadySelected ? 'grayscale opacity-30 blur-[0.5px]' : 'group-hover:scale-110 drop-shadow-luxury animate-float-slow'}`} 
                             />
+                            {isChecked && (
+                              <div className="absolute inset-0 bg-brand-wine/10 rounded-2xl animate-in zoom-in-50 duration-300" />
+                            )}
                           </div>
                         </div>
-                        <div className="flex-1 min-w-0 flex flex-col pt-1">
-                          <div className="text-[10px] font-bold text-brand-gold uppercase tracking-[0.15em] mb-1">{wine.country} • {wine.color}</div>
-                          <h4 className={`font-bold text-slate-900 text-sm mb-1 line-clamp-2 leading-tight ${isAlreadySelected ? 'text-slate-400' : ''}`}>{wine.name_jp}</h4>
-                          <p className="text-[10px] text-slate-400 font-medium italic mb-2 truncate uppercase tracking-wider">{wine.grape}</p>
-                          <div className="mt-auto pt-2 flex items-baseline gap-2">
-                            <span className="text-sm font-black text-slate-900">¥{wine.price_bottle?.toLocaleString()}</span>
-                            <span className="text-[9px] font-bold text-slate-300 uppercase">Bottle</span>
+
+                        <div className="flex-1 min-w-0 flex flex-col pt-2">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="text-[10px] font-black text-brand-gold uppercase tracking-[0.2em]">{wine.country} • {wine.color}</div>
                           </div>
-                          <div className="mt-1 text-[9px] text-slate-300 font-mono">ID: {wine.id}</div>
+                          <h4 className={`font-bold text-slate-900 text-base mb-1.5 line-clamp-2 leading-tight tracking-tight ${isAlreadySelected ? 'text-slate-400' : ''}`}>{wine.name_jp}</h4>
+                          <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-3 truncate italic">{wine.grape}</p>
+                          
+                          <div className="mt-auto space-y-3">
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-lg font-black text-slate-900 tracking-tighter">¥{wine.price_bottle?.toLocaleString()}</span>
+                              <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Bottle Reference</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="px-2 py-1 bg-slate-100 rounded-md text-[8px] font-mono text-slate-500 uppercase tracking-tighter">
+                                {wine.id}
+                              </div>
+                              {wine.vintage && wine.vintage !== 'NV' && (
+                                <div className="px-2 py-1 bg-brand-wine/5 rounded-md text-[8px] font-black text-brand-wine uppercase tracking-tighter">
+                                  {wine.vintage}
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </motion.div>
                     );
@@ -378,19 +429,29 @@ export const CatalogSelector: React.FC<CatalogSelectorProps> = ({
               )}
             </div>
 
-            {/* Pagination Controls */}
+            {/* Pagination Controls - Luxury Styling */}
             {totalPages > 1 && (
-              <div className="p-6 md:px-10 border-t border-slate-100 bg-white/80 backdrop-blur flex items-center justify-between shrink-0">
-                <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
-                  Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredWines.length)} of {filteredWines.length}
+              <div className="p-8 md:px-12 border-t border-slate-100 bg-white flex flex-col md:flex-row items-center justify-between shrink-0 gap-6">
+                <div className="flex flex-col items-center md:items-start">
+                  <div className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] mb-1">Catalog Navigation</div>
+                  <div className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">
+                    Page <span className="text-brand-wine">{currentPage}</span> of {totalPages} 
+                    <span className="mx-3 text-slate-200">|</span> 
+                    <span className="text-slate-400">{filteredWines.length} Results</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
+                
+                <div className="flex items-center gap-4">
                   <button 
                     disabled={currentPage === 1}
-                    onClick={() => setCurrentPage(prev => prev - 1)}
-                    className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center text-slate-600 disabled:opacity-20 hover:bg-slate-50 hover:border-brand-wine transition-all group"
+                    onClick={() => {
+                      setCurrentPage(prev => prev - 1);
+                      const el = document.getElementById('catalog-scroll-top');
+                      el?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    className="w-12 h-12 rounded-full border border-slate-100 flex items-center justify-center text-slate-400 disabled:opacity-20 hover:bg-brand-gold/5 hover:border-brand-gold hover:text-brand-gold transition-all active:scale-90 group"
                   >
-                    <ChevronLeft className="w-5 h-5 group-hover:-translate-x-0.5 transition-transform" />
+                    <ChevronLeft className="w-6 h-6 group-hover:-translate-x-0.5 transition-transform" />
                   </button>
                   
                   <div className="flex items-center gap-2">
@@ -404,11 +465,15 @@ export const CatalogSelector: React.FC<CatalogSelectorProps> = ({
                       return (
                         <button
                           key={pageNum}
-                          onClick={() => setCurrentPage(pageNum)}
-                          className={`w-10 h-10 rounded-full text-xs font-black transition-all ${
+                          onClick={() => {
+                            setCurrentPage(pageNum);
+                            const el = document.getElementById('catalog-scroll-top');
+                            el?.scrollIntoView({ behavior: 'smooth' });
+                          }}
+                          className={`w-12 h-12 rounded-2xl text-xs font-black tracking-widest transition-all ${
                             currentPage === pageNum 
-                              ? 'bg-brand-wine text-white shadow-lg ring-4 ring-brand-wine/10' 
-                              : 'text-slate-400 hover:text-slate-900 hover:bg-slate-100'
+                              ? 'bg-brand-gold text-white shadow-luxury-gold ring-1 ring-brand-gold/50' 
+                              : 'bg-slate-50 text-slate-400 hover:text-brand-gold hover:bg-brand-gold/5'
                           }`}
                         >
                           {pageNum}
@@ -419,10 +484,14 @@ export const CatalogSelector: React.FC<CatalogSelectorProps> = ({
 
                   <button 
                     disabled={currentPage === totalPages}
-                    onClick={() => setCurrentPage(prev => prev + 1)}
-                    className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center text-slate-600 disabled:opacity-20 hover:bg-slate-50 hover:border-brand-wine transition-all group"
+                    onClick={() => {
+                      setCurrentPage(prev => prev + 1);
+                      const el = document.getElementById('catalog-scroll-top');
+                      el?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    className="w-12 h-12 rounded-full border border-slate-100 flex items-center justify-center text-slate-400 disabled:opacity-20 hover:bg-brand-gold/5 hover:border-brand-gold hover:text-brand-gold transition-all active:scale-90 group"
                   >
-                    <ChevronRight className="w-5 h-5 group-hover:translate-x-0.5 transition-transform" />
+                    <ChevronRight className="w-6 h-6 group-hover:translate-x-0.5 transition-transform" />
                   </button>
                 </div>
               </div>

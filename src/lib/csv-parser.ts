@@ -51,6 +51,15 @@ export const parseWineCSV = (file: File): Promise<WineMaster[]> => {
                 const val = normalizedRow[key];
                 return String(val).trim();
               };
+              const getSupplierCode = (keys: string[]) => {
+                const val = getString(keys).toUpperCase();
+                // If empty or matches Pieroth variations, return PIEROTH
+                if (!val || val.includes('PIEROTH') || val.includes('ピーロート')) {
+                  return 'PIEROTH';
+                }
+                // Everything else is unified as OTHER
+                return 'OTHER';
+              };
               const getNumber = (keys: string[]) => {
                 const key = keys.find(k => normalizedRow[k] !== undefined && normalizedRow[k] !== null);
                 if (!key) return 0;
@@ -70,8 +79,12 @@ export const parseWineCSV = (file: File): Promise<WineMaster[]> => {
                 return url;
               };
 
+              const id = getString(['id', 'ID', '商品コード', 'コード']);
+              const supplier = getSupplierCode(['supplier', 'サプライヤー']);
+
               return {
-                id: getString(['id', 'ID', '商品コード', 'コード']),
+                id: id,
+                pureId: id, // Keep clean ID as pureId for reference
                 name_jp: getString(['name_jp', '商品名', '名称']),
                 name_en: getString(['name_en', 'Name En', 'English Name']),
                 country: getString(['country', '国', 'country_jp']),
@@ -91,7 +104,7 @@ export const parseWineCSV = (file: File): Promise<WineMaster[]> => {
                 cost: getNumber(['cost', '仕入原価', 'コスト']),
                 stock: getNumber(['stock', '在庫']),
                 ideal_stock: getNumber(['ideal_stock', '適正在庫']),
-                supplier: getString(['supplier', 'サプライヤー']),
+                supplier: supplier,
                 storage: getString(['storage', '保存場所']),
                 storage_en: getString(['storage_en', 'Storage En']),
                 ai_explanation: getString(['ai_explanation', 'AI解説', '解説']),

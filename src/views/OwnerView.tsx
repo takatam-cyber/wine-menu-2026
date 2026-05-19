@@ -36,6 +36,44 @@ export const OwnerView: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [editingWineId, setEditingWineId] = useState<string | null>(null);
 
+  // Advanced Filters for Inventory
+  const [invSupplierFilter, setInvSupplierFilter] = useState<string>('all');
+  const [invCountryFilter, setInvCountryFilter] = useState<string>('all');
+  const [invColorFilter, setInvColorFilter] = useState<string>('all');
+  const [invSearchTerm, setInvSearchTerm] = useState('');
+
+  // Dynamic filter options for current inventory
+  const invCountries = React.useMemo(() => {
+    const set = new Set(inventory.map(w => w.country).filter(Boolean));
+    return Array.from(set).sort();
+  }, [inventory]);
+
+  // In-memory filtered inventory
+  const filteredInventory = React.useMemo(() => {
+    return inventory.filter(w => {
+      // Keyword match
+      const search = invSearchTerm.toLowerCase();
+      const matchesSearch = !search || 
+        w.name_jp.toLowerCase().includes(search) ||
+        w.name_en.toLowerCase().includes(search) ||
+        (w.region || '').toLowerCase().includes(search) ||
+        (w.grape || '').toLowerCase().includes(search) ||
+        w.id.toLowerCase().includes(search);
+
+      // Supplier match
+      const s = (w.supplier || 'PIEROTH').toUpperCase();
+      const matchesSupplier = invSupplierFilter === 'all' || s === invSupplierFilter;
+
+      // Country match
+      const matchesCountry = invCountryFilter === 'all' || w.country === invCountryFilter;
+
+      // Color match
+      const matchesColor = invColorFilter === 'all' || (w.color || '').toLowerCase() === invColorFilter.toLowerCase();
+
+      return matchesSearch && matchesSupplier && matchesCountry && matchesColor;
+    });
+  }, [inventory, invSearchTerm, invSupplierFilter, invCountryFilter, invColorFilter]);
+
   useEffect(() => {
     if (store) {
       setEditStoreData(store);
@@ -457,14 +495,57 @@ export const OwnerView: React.FC = () => {
       )}
 
       <div className="grid gap-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-brand-gold-dark/20 pb-3 mb-2 gap-4">
-          <h3 className="text-xs font-bold uppercase tracking-widest text-brand-gold-dark flex items-center justify-center md:justify-start gap-2">
-            <Wine className="w-4 h-4 text-brand-gold-dark" />
-            稼働中のワインリスト ({inventory.length})
-          </h3>
-          <span className="text-xs text-gray-500 uppercase font-mono tracking-tighter text-center md:text-right italic">
-            最新のマスターデータと同期済み
-          </span>
+        <div className="bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-luxury-soft space-y-4">
+          <div className="flex flex-col lg:flex-row gap-4 items-center">
+            <div className="relative flex-1 w-full group">
+              <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-brand-wine transition-colors" />
+              <input 
+                placeholder="在庫内を検索 (ワイン名、産地、品種)..."
+                className="w-full bg-slate-50 border border-slate-100 rounded-2xl pl-12 pr-6 py-3.5 text-xs outline-none focus:bg-white focus:border-brand-wine transition-all"
+                value={invSearchTerm}
+                onChange={e => setInvSearchTerm(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+              <select 
+                value={invSupplierFilter}
+                onChange={e => setInvSupplierFilter(e.target.value)}
+                className="flex-1 lg:flex-none h-12 bg-slate-50 border border-slate-100 rounded-xl px-4 text-[10px] font-black uppercase tracking-widest text-slate-500 outline-none focus:border-brand-wine cursor-pointer"
+              >
+                <option value="all">サプライヤー</option>
+                <option value="PIEROTH">PIEROTH</option>
+                <option value="OTHER">OTHER</option>
+              </select>
+              <select 
+                value={invCountryFilter}
+                onChange={e => setInvCountryFilter(e.target.value)}
+                className="flex-1 lg:flex-none h-12 bg-slate-50 border border-slate-100 rounded-xl px-4 text-[10px] font-black uppercase tracking-widest text-slate-500 outline-none focus:border-brand-wine cursor-pointer"
+              >
+                <option value="all">すべての国</option>
+                {invCountries.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <select 
+                value={invColorFilter}
+                onChange={e => setInvColorFilter(e.target.value)}
+                className="flex-1 lg:flex-none h-12 bg-slate-50 border border-slate-100 rounded-xl px-4 text-[10px] font-black uppercase tracking-widest text-slate-500 outline-none focus:border-brand-wine cursor-pointer"
+              >
+                <option value="all">すべての色</option>
+                <option value="赤">赤</option>
+                <option value="白">白</option>
+                <option value="泡">泡</option>
+                <option value="ロゼ">ロゼ</option>
+              </select>
+            </div>
+          </div>
+          <div className="flex items-center justify-between px-2">
+            <h3 className="text-[10px] font-black uppercase tracking-widest text-brand-gold-dark flex items-center gap-2">
+              <Wine className="w-3 h-3" />
+              稼働中のワインリスト ({filteredInventory.length} / {inventory.length})
+            </h3>
+            <span className="text-[10px] text-slate-400 uppercase font-black tracking-tighter italic">
+              In-Memory Sync: Active
+            </span>
+          </div>
         </div>
         
         {inventory.length === 0 ? (
@@ -487,25 +568,42 @@ export const OwnerView: React.FC = () => {
             </div>
 
             <div className="grid gap-3">
-              {inventory.map((wine) => {
+              {filteredInventory.map((wine) => {
                 const margin = Math.round((wine.price_bottle - wine.cost) / wine.price_bottle * 100);
                 const isLowMargin = margin < 30;
+                const isHidden = wine.visible === false || wine.isActive === false;
+                const isOutOfStock = wine.stock === 0;
 
                 return (
-                  <div key={wine.id} className={`glass-panel p-3 md:p-4 rounded-xl shadow-luxury flex flex-col md:flex-row items-center group transition-all gap-4 border ${editingWineId === wine.id ? 'border-brand-gold bg-brand-gold/5' : 'border-brand-gold/5 hover:border-brand-gold/30'}`}>
+                  <div key={wine.id} className={`glass-panel p-3 md:p-4 rounded-xl shadow-luxury flex flex-col md:flex-row items-center group transition-all gap-4 border ${isHidden ? 'opacity-50 grayscale-[0.5]' : ''} ${editingWineId === wine.id ? 'border-brand-gold bg-brand-gold/5 shadow-luxury-gold' : 'border-brand-gold/5 hover:border-brand-gold/30'} ${isLowMargin ? 'bg-rose-500/5 border-rose-500/20' : ''}`}>
                     <div className="flex items-center gap-4 flex-1 w-full min-w-0">
-                      <div className="w-10 h-14 bg-black/40 flex items-center justify-center p-1 rounded-lg relative border border-white/5 shrink-0 overflow-hidden">
+                      <div className={`w-10 h-14 bg-black/40 flex items-center justify-center p-1 rounded-lg relative border shrink-0 overflow-hidden ${isOutOfStock ? 'border-rose-500' : 'border-white/5'}`}>
                         <img 
                           src={wine.image_url} 
                           alt="" 
                           loading="lazy"
                           className="w-full h-full object-contain relative z-10 scale-125" 
                         />
+                        {isOutOfStock && (
+                          <div className="absolute inset-0 bg-rose-500/20 backdrop-blur-[1px] flex items-center justify-center z-20">
+                            <AlertCircle className="w-5 h-5 text-rose-500" />
+                          </div>
+                        )}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="font-bold text-brand-ivory text-sm md:text-base leading-tight truncate">{wine.name_jp}</div>
-                        <div className="text-xs text-brand-gold/60 font-mono tracking-widest uppercase mt-0.5 truncate">
-                          {wine.grape} • {wine.vintage}
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <div className="font-bold text-brand-ivory text-sm md:text-base leading-tight truncate">{wine.name_jp}</div>
+                          {isHidden && <EyeOff className="w-3 h-3 text-slate-500 shrink-0" />}
+                          {isOutOfStock && <span className="bg-rose-500 text-white text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full tracking-widest shrink-0">要発注</span>}
+                          {isLowMargin && <span className="bg-brand-wine text-white text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full tracking-widest shrink-0">Alert</span>}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="text-xs text-brand-gold/60 font-mono tracking-widest uppercase truncate">
+                            {wine.grape} • {wine.vintage}
+                          </div>
+                          {(wine.supplier || 'PIEROTH').toUpperCase() === 'OTHER' && (
+                            <span className="text-[9px] font-black text-slate-400 border border-slate-400/30 px-1 rounded uppercase tracking-tighter">Other</span>
+                          )}
                         </div>
                       </div>
                     </div>

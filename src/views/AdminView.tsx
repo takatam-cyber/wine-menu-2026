@@ -138,9 +138,9 @@ export const AdminView: React.FC = () => {
 
   const getWineDocId = (wine: { id: string; supplier?: string; pureId?: string }) => {
     const pure = wine.pureId || wine.id;
-    const supplier = wine.supplier || 'Pieroth';
+    const supplier = (wine.supplier || 'PIEROTH').toUpperCase();
     const supplierPrefix = `${supplier}_`;
-    if (pure.startsWith(`${supplier}_`)) return pure;
+    if (pure.startsWith(supplierPrefix)) return pure;
     return `${supplierPrefix}${pure}`;
   };
 
@@ -148,7 +148,7 @@ export const AdminView: React.FC = () => {
     // 必須識別・テキスト
     id: getWineDocId(w),
     pureId: w.pureId || w.id,
-    supplier: w.supplier || 'Pieroth',
+    supplier: (w.supplier || 'PIEROTH').toUpperCase(),
     name_jp: w.name_jp,
     name_en: w.name_en,
     menu_short: w.menu_short || '',
@@ -202,7 +202,12 @@ export const AdminView: React.FC = () => {
     if (!editingMasterWine) return;
     try {
       const docId = getWineDocId(editingMasterWine);
-      await updateDoc(doc(db, 'winesMaster', docId), editMasterData);
+      const dataToUpdate = {
+        ...editMasterData,
+        id: docId, // Maintain composite ID consistency
+        pureId: editingMasterWine.pureId || editingMasterWine.id
+      };
+      await updateDoc(doc(db, 'winesMaster', docId), dataToUpdate);
       setImportStatus({ type: 'success', message: 'マスターデータを更新しました' });
       setIsEditingMaster(false);
       queryClient.invalidateQueries({ queryKey: ['winesMaster'] });
@@ -281,9 +286,12 @@ export const AdminView: React.FC = () => {
     }
 
     if (wine && selectedStoreId && !selectedWines.find(sw => sw.id === idToUse)) {
-      // Governance Check: allowedSuppliers
-      if (selectedStore?.allowedSuppliers && !selectedStore.allowedSuppliers.includes(wine.supplier || 'Pieroth')) {
-        alert(`この店舗には指定サプライヤー「${wine.supplier || 'Pieroth'}」のワインを登録する権限がありません`);
+      // Governance Check: allowedSuppliers (Case-insensitive)
+      const allowed = selectedStore?.allowedSuppliers?.map(s => s.toUpperCase());
+      const wineSupplier = (wine.supplier || 'PIEROTH').toUpperCase();
+      
+      if (allowed && !allowed.includes(wineSupplier)) {
+        alert(`この店舗には指定サプライヤー「${wineSupplier}」のワインを登録する権限がありません`);
         return;
       }
 
@@ -291,8 +299,9 @@ export const AdminView: React.FC = () => {
       const docPath = `stores/${selectedStoreId}/inventory/${compositeId}`;
       try {
         const newInventoryItem = {
-          id: wine.id, // Pure ID
-          supplier: wine.supplier || 'Pieroth',
+          id: compositeId, // Composite ID as identifier
+          pureId: wine.pureId || wine.id, // Pure ID for reference
+          supplier: (wine.supplier || 'PIEROTH').toUpperCase(),
           price_bottle: wine.price_bottle || wine.cost * 3,
           price_glass: wine.price_glass || Math.round((wine.cost * 3 / 6) / 100) * 100,
           cost: wine.cost,
@@ -320,9 +329,11 @@ export const AdminView: React.FC = () => {
       
       // Governance Check: allowedSuppliers
       if (selectedStore?.allowedSuppliers) {
-        const unauthorized = winesToAdd.filter(w => !selectedStore.allowedSuppliers?.includes(w.supplier || 'Pieroth'));
+        const allowed = selectedStore.allowedSuppliers.map(s => s.toUpperCase());
+        const unauthorized = winesToAdd.filter(w => !allowed.includes((w.supplier || 'PIEROTH').toUpperCase()));
         if (unauthorized.length > 0) {
-          alert(`許可されていないサプライヤーのワインが含まれています: ${Array.from(new Set(unauthorized.map(w => w.supplier || 'Pieroth'))).join(', ')}`);
+          const unauthorizedSet = Array.from(new Set(unauthorized.map(w => (w.supplier || 'PIEROTH').toUpperCase())));
+          alert(`許可されていないサプライヤーのワインが含まれています: ${unauthorizedSet.join(', ')}`);
           return;
         }
       }
@@ -330,8 +341,9 @@ export const AdminView: React.FC = () => {
       const savePromises = winesToAdd.map(wine => {
         const compositeId = getWineDocId(wine);
         const newInventoryItem = {
-          id: wine.id, // Pure ID
-          supplier: wine.supplier || 'Pieroth',
+          id: compositeId, // Composite ID as identifier
+          pureId: wine.pureId || wine.id, // Pure ID for reference
+          supplier: (wine.supplier || 'PIEROTH').toUpperCase(),
           price_bottle: wine.price_bottle || wine.cost * 3,
           price_glass: wine.price_glass || Math.round((wine.cost * 3 / 6) / 100) * 100,
           cost: wine.cost,
@@ -501,12 +513,12 @@ export const AdminView: React.FC = () => {
         const chunk = importedWines.slice(i, i + CHUNK_SIZE);
         const saveMasterPromises = chunk.map(wine => {
           const docId = getWineDocId(wine);
-          // Set pureId before saving to top-level master catalog
-          const wineWithPureId = { 
+          const wineToSave = { 
             ...wine, 
-            pureId: wine.id 
+            id: docId, // Composite ID as system identifier
+            pureId: wine.pureId || wine.id 
           };
-          return setDoc(doc(db, 'winesMaster', docId), wineWithPureId);
+          return setDoc(doc(db, 'winesMaster', docId), wineToSave);
         });
         await Promise.all(saveMasterPromises);
       }
@@ -517,7 +529,8 @@ export const AdminView: React.FC = () => {
         // Governance Check for store import
         let winesToAdd = importedWines;
         if (selectedStore?.allowedSuppliers) {
-          winesToAdd = importedWines.filter(w => selectedStore.allowedSuppliers?.includes(w.supplier || 'Pieroth'));
+          const allowed = selectedStore.allowedSuppliers.map(s => s.toUpperCase());
+          winesToAdd = importedWines.filter(w => allowed.includes((w.supplier || 'PIEROTH').toUpperCase()));
           if (winesToAdd.length < importedWines.length) {
             console.warn('一部のワインはサプライヤー制限により店舗に追加されませんでした');
           }
@@ -528,9 +541,9 @@ export const AdminView: React.FC = () => {
           const saveInvPromises = chunk.map(wine => {
             const compositeId = getWineDocId(wine);
             const invItem = {
-              id: wine.id, // Pure ID
-              pureId: wine.id,
-              supplier: wine.supplier || 'Pieroth',
+              id: compositeId, // Composite ID as identifier
+              pureId: wine.pureId || wine.id,
+              supplier: (wine.supplier || 'PIEROTH').toUpperCase(),
               price_bottle: wine.price_bottle || Math.round(wine.cost * 3 / 100) * 100,
               price_glass: wine.price_glass || 0,
               glasses_per_bottle: 6,
@@ -578,9 +591,9 @@ export const AdminView: React.FC = () => {
         const compositeId = getWineDocId(wine);
         const docRef = doc(db, 'stores', selectedStoreId, 'inventory', compositeId);
         const inventoryItem = {
-          id: wine.pureId || wine.id, // Maintain clean ID inside
+          id: compositeId, // Maintain composite ID consistency
           pureId: wine.pureId || wine.id,
-          supplier: wine.supplier || 'Pieroth',
+          supplier: (wine.supplier || 'PIEROTH').toUpperCase(),
           price_bottle: wine.price_bottle,
           price_glass: wine.price_glass,
           cost: wine.cost,
@@ -676,39 +689,46 @@ export const AdminView: React.FC = () => {
 
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           {!showMasterCatalog && (
-            <div className="flex flex-col md:flex-row gap-4 mb-8 bg-white p-4 rounded-3xl border border-slate-200 shadow-sm items-center">
-              <div className="relative flex-1 w-full">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input 
-                  type="text"
-                  placeholder="店舗名・住所で検索..."
-                  value={storeSearchTerm}
-                  onChange={(e) => setStoreSearchTerm(e.target.value)}
-                  className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:border-brand-wine outline-none transition-all"
-                />
-              </div>
-              <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-                <select 
-                  value={selectedCuisineFilter}
-                  onChange={(e) => setSelectedCuisineFilter(e.target.value)}
-                  className="bg-slate-50 border border-slate-200 rounded-2xl px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none focus:border-brand-wine"
-                >
-                  <option value="all">すべての料理</option>
-                  {cuisineTypes.filter(t => t !== 'all').map(type => (
-                    <option key={type} value={type}>{type}</option>
-                  ))}
-                </select>
-                <select 
-                  value={selectedStatusFilter}
-                  onChange={(e) => setSelectedStatusFilter(e.target.value as any)}
-                  className="bg-slate-50 border border-slate-200 rounded-2xl px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none focus:border-brand-wine"
-                >
-                  <option value="all">すべての状態</option>
-                  <option value="active">稼働中</option>
-                  <option value="inactive">停止中</option>
-                </select>
-                <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-3 py-1 bg-slate-100 rounded-full">
-                  {filteredStores.length} HIT
+            <div className="bg-white border border-slate-200 rounded-[2rem] p-6 md:p-8 mb-10 shadow-sm backdrop-blur-xl bg-white/80">
+              <div className="flex flex-col lg:flex-row gap-6 items-center">
+                <div className="relative flex-1 w-full group">
+                  <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-brand-wine transition-colors" />
+                  <input 
+                    type="text"
+                    placeholder="店舗名・住所で検索..."
+                    value={storeSearchTerm}
+                    onChange={(e) => setStoreSearchTerm(e.target.value)}
+                    className="w-full pl-14 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm focus:bg-white focus:border-brand-wine outline-none transition-all shadow-inner focus:shadow-luxury-soft"
+                  />
+                </div>
+                <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto">
+                  <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl border border-slate-100">
+                    <select 
+                      value={selectedCuisineFilter}
+                      onChange={(e) => setSelectedCuisineFilter(e.target.value)}
+                      className="bg-transparent px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 outline-none cursor-pointer hover:text-brand-wine transition-colors"
+                    >
+                      <option value="all">すべての料理</option>
+                      {cuisineTypes.filter(t => t !== 'all').map(type => (
+                        <option key={type} value={type}>{type}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl border border-slate-100">
+                    <select 
+                      value={selectedStatusFilter}
+                      onChange={(e) => setSelectedStatusFilter(e.target.value as any)}
+                      className="bg-transparent px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 outline-none cursor-pointer hover:text-brand-wine transition-colors"
+                    >
+                      <option value="all">すべての状態</option>
+                      <option value="active">稼働中</option>
+                      <option value="inactive">停止中</option>
+                    </select>
+                  </div>
+                  <div className="ml-auto lg:ml-0 flex items-center gap-2 px-4 py-2.5 bg-brand-wine shadow-lg rounded-xl">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-white/60">Hits</span>
+                    <span className="text-sm font-black text-white">{filteredStores.length}</span>
+                  </div>
                 </div>
               </div>
             </div>
