@@ -394,6 +394,7 @@ export const AdminView: React.FC = () => {
         id: newStoreId,
         name: `新規店舗 ${stores.length + 1}`,
         repId: user?.uid || '',
+        ownerId: '', // Explicitly initialize empty ownerId for rules consistency
         cuisine_type: 'フレンチ',
         isActive: true,
         hasAiSommelier: true,
@@ -487,9 +488,16 @@ export const AdminView: React.FC = () => {
   };
 
   const handleUpdateStore = async () => {
-    if (!selectedStoreId) return;
+    if (!selectedStoreId || !selectedStore) return;
     try {
-      await updateDoc(doc(db, 'stores', selectedStoreId), editStoreData);
+      // 既存のメタデータ（ownerId, repId）を確実に保持しながら更新
+      const updatePayload = {
+        ...editStoreData,
+        ownerId: selectedStore.ownerId || '',
+        repId: selectedStore.repId || '',
+        updatedAt: new Date().toISOString()
+      };
+      await updateDoc(doc(db, 'stores', selectedStoreId), updatePayload);
       setImportStatus({ type: 'success', message: '店舗情報を更新しました' });
       setIsEditingStore(false);
       queryClient.invalidateQueries({ queryKey: ['stores'] });

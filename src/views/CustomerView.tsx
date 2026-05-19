@@ -427,7 +427,11 @@ export const CustomerView: React.FC = () => {
 
     if (activeCuisine) {
       const cuisine = cuisineFilters.find(c => c.id === activeCuisine);
-      if (cuisine) matches = matches && cuisine.match.test(w.pairing || '');
+      if (cuisine) {
+        // SAFE FILTERING: Fallback to tags or name since pairing is purged in list view
+        const searchTarget = `${w.pairing || ''} ${w.tags || ''} ${w.name_jp || ''} ${w.grape || ''}`;
+        matches = matches && cuisine.match.test(searchTarget);
+      }
     }
 
     if (activeBudget) {
@@ -476,7 +480,11 @@ export const CustomerView: React.FC = () => {
 
     if (selectedDish) {
       const dish = cuisineFilters.find(d => d.id === selectedDish);
-      if (dish) matches = matches && dish.match.test(w.pairing || '');
+      if (dish) {
+        // SAFE FILTERING: Fallback to tags since pairing is purged in list view
+        const searchTarget = `${w.pairing || ''} ${w.tags || ''} ${w.name_jp || ''} ${w.grape || ''}`;
+        matches = matches && dish.match.test(searchTarget);
+      }
     }
 
     return matches;

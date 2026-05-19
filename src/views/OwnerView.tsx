@@ -3,8 +3,9 @@ import { WineMaster, Store } from '../types';
 import { Wine, Camera, MessageSquare, Save, Eye, EyeOff, Loader2, X, Trash2, Plus, Search, Edit2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useWines } from '../lib/WineContext';
 import { db } from '../lib/firebase';
-import { collection, getDocs, doc, getDoc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, updateDoc, deleteDoc, setDoc, writeBatch } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
+import { useQueryClient } from '@tanstack/react-query';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import { calculateProfit } from '../lib/profit-calc';
 import { motion, AnimatePresence } from 'motion/react';
@@ -15,13 +16,14 @@ import { useWinesMasterQuery } from '../hooks/useWinesQuery';
 
 export const OwnerView: React.FC = () => {
   const { user } = useWines();
+  const queryClient = useQueryClient();
   const [selectedStoreId, setSelectedStoreId] = useState(new URLSearchParams(window.location.search).get('storeId') || user?.storeId || '');
   
   const { data: storesData } = useStoresQuery(user);
   const stores = storesData?.pages.flatMap(p => p.data) || [];
 
   const { data: inventoryData, isLoading: inventoryLoading } = useInventoryQuery(selectedStoreId);
-  const { updateStoreMutation, updateItemMutation, deleteItemMutation, addItemMutation } = useInventoryMutations(selectedStoreId);
+  const { updateStoreMutation } = useInventoryMutations(selectedStoreId);
   
   const store = inventoryData?.store || null;
   const inventory = inventoryData?.inventory || [];
@@ -88,7 +90,7 @@ export const OwnerView: React.FC = () => {
     isFeatured: false,
     promoLabel: ''
   });
-  
+
   useEffect(() => {
     const urlSid = new URLSearchParams(window.location.search).get('storeId');
     if (urlSid) {
@@ -150,23 +152,6 @@ export const OwnerView: React.FC = () => {
     updatedAt: new Date().toISOString()
   });
 
-  // 公開用トップレベルメニューの単発手動同期関数
-  const syncPublicMenu = async (currentInventory: any[]) => {
-    if (!sid) return;
-    try {
-      const richPublicMenu = currentInventory
-        .filter(w => w.visible !== false && w.isActive !== false)
-        .map(projectWineForPublic);
-
-      await updateDoc(doc(db, 'stores', sid), {
-        publicMenu: richPublicMenu
-      });
-      console.log('[Sync] publicMenu successfully synchronized.');
-    } catch (error) {
-      console.error('Error syncing public menu:', error);
-    }
-  };
-
   // ★修正：データ消失バグの根源だった常時監視型 useEffect を完全抹消。
   // これによりマウント時の空配列によるパブリックメニュー破壊が100%防げます。
 
@@ -197,57 +182,89 @@ export const OwnerView: React.FC = () => {
     }
   };
 
-  // ★修正：目玉アイコンクリック（表示切替）のSuccess時に明示的にpublicMenuを手動確定同期
+  // ★修正：目玉アイコンクリック（表示切替）を完全にアトミック化（Batch処理）
+  // レースコンディションを防ぐため、サブコレクションとトップレベル配列を同時にコミット
   const handleToggleActive = async (wineId: string, currentStatus: boolean) => {
-    updateItemMutation.mutate({
-      itemId: wineId,
-      data: { isActive: !currentStatus }
-    }, {
-      onSuccess: () => {
-        const updatedInventory = inventory.map(w => 
-          w.id === wineId ? { ...w, isActive: !currentStatus } : w
-        );
-        syncPublicMenu(updatedInventory);
-      }
-    });
+    if (!sid) return;
+    try {
+      const batch = writeBatch(db);
+      
+      // 1. サブコレクションの更新
+      const itemRef = doc(db, 'stores', sid, 'inventory', wineId);
+      batch.update(itemRef, { isActive: !currentStatus, updatedAt: new Date().toISOString() });
+
+      // 2. 最新のスナップショットを計算し、トップレベルの publicMenu を更新
+      const updatedInventory = inventory.map(w => 
+        w.id === wineId ? { ...w, isActive: !currentStatus } : w
+      );
+      const richPublicMenu = updatedInventory
+        .filter(w => w.visible !== false && w.isActive !== false)
+        .map(projectWineForPublic);
+
+      batch.update(doc(db, 'stores', sid), { publicMenu: richPublicMenu });
+
+      await batch.commit();
+      queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
+    } catch (error) {
+      console.error('Error toggling active status:', error);
+    }
   };
 
-  // ★修正：ワイン削除のSuccess時に明示的にpublicMenuを手動確定同期
+  // ★修正：ワイン削除をアトミック化
   const handleDeleteWine = async (wineId: string) => {
-    if (!window.confirm('このワインをメニューから削除しますか？')) return;
-    deleteItemMutation.mutate(wineId, {
-      onSuccess: () => {
-        const updatedInventory = inventory.filter(w => w.id !== wineId);
-        syncPublicMenu(updatedInventory);
-      }
-    });
+    if (!sid || !window.confirm('このワインをメニューから削除しますか？')) return;
+    try {
+      const batch = writeBatch(db);
+
+      // 1. サブコレクションから削除
+      batch.delete(doc(db, 'stores', sid, 'inventory', wineId));
+
+      // 2. publicMenu からも即座に物理削除
+      const updatedInventory = inventory.filter(w => w.id !== wineId);
+      const richPublicMenu = updatedInventory
+        .filter(w => w.visible !== false && w.isActive !== false)
+        .map(projectWineForPublic);
+
+      batch.update(doc(db, 'stores', sid), { publicMenu: richPublicMenu });
+
+      await batch.commit();
+      queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
+    } catch (error) {
+      console.error('Error deleting wine:', error);
+    }
   };
 
-  // ★修正：カタログからワインを追加したSuccess時に明示的にpublicMenuを手動確定同期
+  // ★修正：ワイン追加をアトミック化
   const handleAddWine = async (masterWine: WineMaster) => {
-    addItemMutation.mutate({
-      itemId: masterWine.id,
-      data: {
+    if (!sid) return;
+    try {
+      const batch = writeBatch(db);
+      const itemRef = doc(db, 'stores', sid, 'inventory', masterWine.id);
+      
+      const newItem = {
         id: masterWine.id,
         isActive: true,
         visible: true,
         price_bottle: masterWine.price_bottle,
         price_glass: masterWine.price_glass,
         updatedAt: new Date().toISOString()
-      }
-    }, {
-      onSuccess: () => {
-        setShowAddModal(false);
-        const newWineSnapshot = {
-          ...masterWine,
-          price_bottle: masterWine.price_bottle,
-          price_glass: masterWine.price_glass,
-          visible: true,
-          isActive: true
-        };
-        syncPublicMenu([...inventory, newWineSnapshot]);
-      }
-    });
+      };
+
+      batch.set(itemRef, newItem);
+
+      const updatedInventory = [...inventory, { ...masterWine, ...newItem }];
+      const richPublicMenu = updatedInventory
+        .filter(w => w.visible !== false && w.isActive !== false)
+        .map(projectWineForPublic);
+
+      batch.update(doc(db, 'stores', sid), { publicMenu: richPublicMenu });
+
+      await batch.commit();
+      setShowAddModal(false);
+      queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
+    } catch (error) {
+      console.error('Error adding wine:', error);
+    }
   };
 
   const startEditingWine = (wine: WineMaster) => {
@@ -673,11 +690,14 @@ export const OwnerView: React.FC = () => {
                       <div className="flex items-center gap-2 shrink-0 md:ml-4">
                         {editingWineId === wine.id ? (
                           <button 
-                            onClick={() => {
-                              // ★手動確定同期：編集を終了した瞬間に、現在のエディットデータをサブコレクションとパブリックメニュー双方に確定反映
-                              updateItemMutation.mutate({
-                                itemId: wine.id,
-                                data: {
+                            onClick={async () => {
+                              if (!sid) return;
+                              // ★アトミック更新：編集保存とパブリックメニュー同期を単一のBatchに集約
+                              try {
+                                const batch = writeBatch(db);
+                                const itemRef = doc(db, 'stores', sid, 'inventory', wine.id);
+                                
+                                const updateData = {
                                   price_bottle: editWineData.price_bottle,
                                   price_glass: editWineData.price_glass,
                                   stock: editWineData.stock,
@@ -685,17 +705,25 @@ export const OwnerView: React.FC = () => {
                                   isFeatured: editWineData.isFeatured,
                                   promoLabel: editWineData.promoLabel,
                                   updatedAt: new Date().toISOString()
-                                }
-                              }, {
-                                onSuccess: () => {
-                                  // サブコレクションの更新成功後にパブリックメニューを同期
-                                  const updatedInventory = inventory.map(w => 
-                                    w.id === wine.id ? { ...w, ...editWineData } : w
-                                  );
-                                  syncPublicMenu(updatedInventory);
-                                }
-                              });
-                              setEditingWineId(null);
+                                };
+
+                                batch.update(itemRef, updateData);
+
+                                const updatedInventory = inventory.map(w => 
+                                  w.id === wine.id ? { ...w, ...editWineData } : w
+                                );
+                                const richPublicMenu = updatedInventory
+                                  .filter(w => w.visible !== false && w.isActive !== false)
+                                  .map(projectWineForPublic);
+
+                                batch.update(doc(db, 'stores', sid), { publicMenu: richPublicMenu });
+
+                                await batch.commit();
+                                queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
+                                setEditingWineId(null);
+                              } catch (error) {
+                                console.error('Error saving wine changes:', error);
+                              }
                             }}
                             className="bg-brand-gold text-brand-wine px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest hover:brightness-110 shadow-lg"
                           >
