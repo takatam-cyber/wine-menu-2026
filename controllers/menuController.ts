@@ -1,15 +1,29 @@
 import { Request, Response } from "express";
 import { dbAdmin } from "../lib/firebase-admin.js";
 
+// Server-side memory cache to shield Firestore from read spikes (B2B SaaS protection)
+const menuCache = new Map<string, { data: any, expiresAt: number }>();
+const CACHE_TTL_MS = 10000; // 10 seconds logic: ultra-low latency for stock sync vs budget control
+
 /**
- * Optimized menu fetcher using "1 Document Read" strategy.
- * Fetches the store document which now contains the pre-computed publicMenu snapshot.
+ * Optimized menu fetcher using "1 Document Read" strategy and memory caching.
+ * Fetches the store document which contains the pre-computed publicMenu snapshot.
  */
 export const getMenu = async (req: Request, res: Response) => {
   try {
     const { storeId } = req.params;
+    const now = Date.now();
+
+    // 1. CACHE LAYER: Check memory cache first to avoid Firestore "Read" explosion
+    const cached = menuCache.get(storeId);
+    if (cached && cached.expiresAt > now) {
+      // Add debug headers to verify cache health without logs
+      res.setHeader("X-Cache", "HIT");
+      res.setHeader("Cache-Control", "public, max-age=10, s-maxage=10, stale-while-revalidate=5");
+      return res.json(cached.data);
+    }
     
-    // FETCH: Only 1 Read from Firestore
+    // 2. FETCH LAYER: Cache miss or expired - Fetch exactly 1 document from Firestore
     const storeDoc = await dbAdmin.collection("stores").doc(storeId).get();
     
     if (!storeDoc.exists) {
@@ -33,16 +47,22 @@ export const getMenu = async (req: Request, res: Response) => {
 
     // PERFORMANCE: Use denormalized publicMenu if available, fallback to empty array
     const menu = storeData.publicMenu || [];
-
-    // COST CONTROL: Prevent stale stock data by disabling browser cache for the menu payload
-    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-    res.setHeader("Pragma", "no-cache");
-    res.setHeader("Expires", "0");
-    
-    res.json({
+    const responsePayload = {
       store: publicStoreData,
       menu: menu,
+    };
+
+    // 3. CACHE UPDATE: Update server-side memory for the next 10 seconds
+    menuCache.set(storeId, {
+      data: responsePayload,
+      expiresAt: now + CACHE_TTL_MS
     });
+
+    // 4. RESPONSE HEADERS: Allow 10s of downstream caching (Browser/CDN)
+    res.setHeader("X-Cache", "MISS");
+    res.setHeader("Cache-Control", "public, max-age=10, s-maxage=10, stale-while-revalidate=5");
+    
+    res.json(responsePayload);
   } catch (error: any) {
     console.error("Menu Fetch Error:", error);
     res.status(500).json({ error: "メニューの取得に失敗しました。" });

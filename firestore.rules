@@ -57,7 +57,7 @@ service cloud.firestore {
     // --- 3. Master Data ---
     match /winesMaster/{wineId} {
       allow read: if isSignedIn();
-      allow write: if isAdmin();
+      allow write: if isRep();
     }
     
     // --- 4. Diagnostic ---

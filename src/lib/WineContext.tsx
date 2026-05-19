@@ -25,30 +25,35 @@ export const WineProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (docSnap.exists()) {
         profile = docSnap.data() as UserProfile;
       } else {
+        // If it's a customer (or anonymous), don't create a record in Firestore
+        // to avoid DB pollution by scrapers/reloads.
         profile = {
           uid,
           email,
-          name: email.split('@')[0],
+          name: email ? email.split('@')[0] : 'Guest',
           role: 'customer'
         };
-        await setDoc(docRef, profile);
+        // DO NOT call setDoc here
       }
       setUser(profile);
       
-      const idTokenResult = await auth.currentUser?.getIdTokenResult();
-      if (!idTokenResult?.claims.role || idTokenResult?.claims.role !== profile.role) {
-        setLoading(true);
-        console.log(`[Enterprise] Syncing role claims for ${profile.role}...`);
-        const idToken = await auth.currentUser?.getIdToken();
-        await fetch('/api/auth/sync-claims', {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${idToken}` 
-          }
-        });
-        await auth.currentUser?.getIdToken(true);
-        console.log('[Enterprise] Claims synced and token refreshed.');
+      // Only sync claims for non-customer roles (admin, rep, owner)
+      if (profile.role !== 'customer') {
+        const idTokenResult = await auth.currentUser?.getIdTokenResult();
+        if (!idTokenResult?.claims.role || idTokenResult?.claims.role !== profile.role) {
+          setLoading(true);
+          console.log(`[Enterprise] Syncing role claims for ${profile.role}...`);
+          const idToken = await auth.currentUser?.getIdToken();
+          await fetch('/api/auth/sync-claims', {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${idToken}` 
+            }
+          });
+          await auth.currentUser?.getIdToken(true);
+          console.log('[Enterprise] Claims synced and token refreshed.');
+        }
       }
     } catch (error) {
       handleFirestoreError(error, OperationType.GET, docPath);

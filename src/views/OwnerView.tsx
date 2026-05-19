@@ -109,8 +109,9 @@ export const OwnerView: React.FC = () => {
     name_en: w.name_en,
     menu_short: w.menu_short || '',
     menu_short_en: w.menu_short_en || '',
-    ai_explanation: w.ai_explanation || '',
-    ai_explanation_en: w.ai_explanation_en || '',
+    // CRITICAL: Exclude heavy texts (Firestore 1MB limit protection)
+    ai_explanation: '',
+    ai_explanation_en: '',
     country: w.country,
     country_en: w.country_en,
     region: w.region,
@@ -131,8 +132,9 @@ export const OwnerView: React.FC = () => {
     complexity: w.complexity || 3,
     finish: w.finish || 3,
     oak: w.oak || 1,
-    aroma_features: w.aroma_features || '',
-    aroma_features_en: w.aroma_features_en || '',
+    // CRITICAL: Exclude heavy texts
+    aroma_features: '',
+    aroma_features_en: '',
     tags: w.tags || '',
     tags_en: w.tags_en || '',
     pairing: w.pairing || '',

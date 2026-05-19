@@ -163,8 +163,9 @@ export const AdminView: React.FC = () => {
     name_en: w.name_en,
     menu_short: w.menu_short || '',
     menu_short_en: w.menu_short_en || '',
-    ai_explanation: w.ai_explanation || '',
-    ai_explanation_en: w.ai_explanation_en || '',
+    // CRITICAL: Exclude heavy long texts to prevent Firestore 1MB document limit
+    ai_explanation: '',
+    ai_explanation_en: '',
     
     // 分類・メタデータ
     country: w.country,
@@ -189,8 +190,9 @@ export const AdminView: React.FC = () => {
     complexity: w.complexity || 3,
     finish: w.finish || 3,
     oak: w.oak || 1,
-    aroma_features: w.aroma_features || '',
-    aroma_features_en: w.aroma_features_en || '',
+    // CRITICAL: Exclude heavy detailed text for public snapshot
+    aroma_features: '',
+    aroma_features_en: '',
     
     // タグ・ペアリング（クイックフィルタ用）
     tags: w.tags || '',
