@@ -34,8 +34,10 @@ export const getMenu = async (req: Request, res: Response) => {
     // PERFORMANCE: Use denormalized publicMenu if available, fallback to empty array
     const menu = storeData.publicMenu || [];
 
-    // COST CONTROL: Force browser caching for 5 minutes (300s) to reduce repeat reads
-    res.setHeader("Cache-Control", "public, max-age=300");
+    // COST CONTROL: Prevent stale stock data by disabling browser cache for the menu payload
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
     
     res.json({
       store: publicStoreData,
@@ -60,7 +62,9 @@ export const proxyImage = async (req: Request, res: Response) => {
 
     const url = new URL(imageUrl);
     const ALLOWED_DOMAINS = ["drive.google.com", "lh3.googleusercontent.com", "googleusercontent.com", "firebasestorage.googleapis.com"];
-    const isAllowed = ALLOWED_DOMAINS.some(domain => url.hostname.endsWith(domain));
+    const isAllowed = ALLOWED_DOMAINS.some(domain => 
+      url.hostname === domain || url.hostname.endsWith(`.${domain}`)
+    );
 
     if (!isAllowed) {
       console.warn(`[Proxy] Blocked unauthorized domain: ${url.hostname}`);

@@ -25,9 +25,15 @@ export const WineProfile: React.FC<WineProfileProps> = ({ wine, lang = 'ja' }) =
   ];
 
   return (
-    <div className="w-full h-64 relative">
+    <div className="w-full h-72 relative">
       <ResponsiveContainer width="100%" height="100%">
-        <RadarChart cx="50%" cy="50%" outerRadius="80%" data={data}>
+        <RadarChart 
+          cx="50%" 
+          cy="50%" 
+          outerRadius="65%" 
+          data={data}
+          margin={{ top: 10, right: 40, bottom: 10, left: 40 }}
+        >
           <defs>
             <linearGradient id="goldGradient" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="#D4AF37" stopOpacity={0.8}/>
@@ -35,7 +41,11 @@ export const WineProfile: React.FC<WineProfileProps> = ({ wine, lang = 'ja' }) =
             </linearGradient>
           </defs>
           <PolarGrid stroke="rgba(212,175,55,0.1)" />
-          <PolarAngleAxis dataKey="subject" tick={{ fill: '#D4AF37', fontSize: 12, fontWeight: 'bold' }} />
+          <PolarAngleAxis 
+            dataKey="subject" 
+            tick={{ fill: '#D4AF37', fontSize: 10, fontWeight: 'bold' }}
+            tickSize={15}
+          />
           <Radar
             name={wine.name_jp}
             dataKey="A"

@@ -16,6 +16,8 @@ export function usePublicMenuQuery(storeId: string | null) {
       return response.json();
     },
     enabled: !!storeId,
-    staleTime: 1000 * 60, // 1 minute (matching server cache)
+    staleTime: 0, // Disable client-side caching to ensure real-time stock sync
+    refetchOnWindowFocus: true, // Auto-refresh data when customer re-opens the browser TAB
+    refetchInterval: 1000 * 60 * 2, // Every 2 minutes background refresh as fail-safe
   });
 }

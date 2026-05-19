@@ -441,8 +441,20 @@ export const CustomerView: React.FC = () => {
           else if (step2Style === translations.ja.mediumBody || step2Style === translations.en.mediumBody) matches = matches && (w.body || 0) === 3;
           else if (step2Style === translations.ja.lightBody || step2Style === translations.en.lightBody) matches = matches && (w.body || 0) <= 2;
         } else {
-          // ★修正：選択されたスタイル名が w.type または w.type_en のいずれかに合致すればOKとする
-          matches = matches && (w.type === step2Style || w.type_en === step2Style);
+          // 白・泡・ロゼなどの判定：文字列一致 or 数値閾値（甘味度）での判定
+          const isDry = step2Style === translations.ja.dry || step2Style === translations.en.dry || step2Style === '辛口' || step2Style === 'Brut';
+          const isMedDry = step2Style === translations.ja.mediumDry || step2Style === translations.en.mediumDry || step2Style === '中辛口' || step2Style === 'Extra Dry';
+          const isSweet = step2Style === translations.ja.sweet || step2Style === translations.en.sweet || step2Style === '甘口' || step2Style === 'Demi-Sec';
+
+          const matchesString = (w.type === step2Style || w.type_en === step2Style);
+          let matchesNumeric = false;
+          
+          const s = w.sweetness || 0;
+          if (isDry) matchesNumeric = s > 0 && s <= 2;
+          else if (isMedDry) matchesNumeric = s === 3;
+          else if (isSweet) matchesNumeric = s >= 4;
+
+          matches = matches && (matchesString || matchesNumeric);
         }
       }
     }

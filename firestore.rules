@@ -48,7 +48,9 @@ service cloud.firestore {
 
       match /inventory/{wineId} {
         allow read: if true;
-        allow write: if isAdmin() || isRep() || isOwner();
+        allow write: if isAdmin() || 
+                      (isRep() && get(/databases/$(database)/documents/stores/$(storeId)).data.repId == authUid()) || 
+                      (isOwner() && get(/databases/$(database)/documents/stores/$(storeId)).data.ownerId == authUid());
       }
     }
 
