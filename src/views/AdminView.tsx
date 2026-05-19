@@ -620,7 +620,6 @@ export const AdminView: React.FC = () => {
       });
 
       setImportStatus({ type: 'success', message: '全ての在庫・価格データを保存し、公開メニューを更新しました' });
-      setSelectedStoreId(null);
       queryClient.invalidateQueries({ queryKey: ['stores'] });
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `stores/${selectedStoreId}/inventory`);
