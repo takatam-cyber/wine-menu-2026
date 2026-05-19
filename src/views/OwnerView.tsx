@@ -50,7 +50,6 @@ export const OwnerView: React.FC = () => {
     isFeatured: false,
     promoLabel: ''
   });
-  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   
   useEffect(() => {
     const urlSid = new URLSearchParams(window.location.search).get('storeId');
@@ -64,37 +63,6 @@ export const OwnerView: React.FC = () => {
   }, [stores, user]);
 
   const sid = selectedStoreId;
-
-  // Auto-save logic (サブコレクションのバックグラウンド更新。連射されても問題ありません)
-  useEffect(() => {
-    if (!editingWineId || !sid) return;
-
-    const timer = setTimeout(() => {
-      setAutoSaveStatus('saving');
-      updateItemMutation.mutate({
-        itemId: editingWineId,
-        data: {
-          price_bottle: editWineData.price_bottle,
-          price_glass: editWineData.price_glass,
-          stock: editWineData.stock,
-          visible: editWineData.visible,
-          isFeatured: editWineData.isFeatured,
-          promoLabel: editWineData.promoLabel,
-          updatedAt: new Date().toISOString()
-        }
-      }, {
-        onSuccess: () => {
-          setAutoSaveStatus('saved');
-          setTimeout(() => setAutoSaveStatus('idle'), 2000);
-        },
-        onError: () => {
-          setAutoSaveStatus('error');
-        }
-      });
-    }, 2000); // 2 second debounce
-
-    return () => clearTimeout(timer);
-  }, [editWineData, editingWineId, sid, updateItemMutation]);
 
   // セキュリティ&軽量化プロジェクション関数（仕入れ値をパージして、1MBの容量制限を徹底防御）
   const projectWineForPublic = (w: any) => ({
@@ -604,11 +572,27 @@ export const OwnerView: React.FC = () => {
                         {editingWineId === wine.id ? (
                           <button 
                             onClick={() => {
-                              // ★手動確定同期：編集を終了した瞬間に、現在のエディットデータをマッピングして確定同期
-                              const updatedInventory = inventory.map(w => 
-                                w.id === wine.id ? { ...w, ...editWineData } : w
-                              );
-                              syncPublicMenu(updatedInventory);
+                              // ★手動確定同期：編集を終了した瞬間に、現在のエディットデータをサブコレクションとパブリックメニュー双方に確定反映
+                              updateItemMutation.mutate({
+                                itemId: wine.id,
+                                data: {
+                                  price_bottle: editWineData.price_bottle,
+                                  price_glass: editWineData.price_glass,
+                                  stock: editWineData.stock,
+                                  visible: editWineData.visible,
+                                  isFeatured: editWineData.isFeatured,
+                                  promoLabel: editWineData.promoLabel,
+                                  updatedAt: new Date().toISOString()
+                                }
+                              }, {
+                                onSuccess: () => {
+                                  // サブコレクションの更新成功後にパブリックメニューを同期
+                                  const updatedInventory = inventory.map(w => 
+                                    w.id === wine.id ? { ...w, ...editWineData } : w
+                                  );
+                                  syncPublicMenu(updatedInventory);
+                                }
+                              });
                               setEditingWineId(null);
                             }}
                             className="bg-brand-gold text-brand-wine px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest hover:brightness-110 shadow-lg"

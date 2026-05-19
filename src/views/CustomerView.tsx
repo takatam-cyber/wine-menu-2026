@@ -220,7 +220,7 @@ export const CustomerView: React.FC = () => {
 
   const getDynamicStyles = (color: string) => {
     const isEn = currentLang === 'en';
-    // Extract unique types from inventory for this color
+    // 現在の言語設定に応じて、抽出するフィールドを w.type と w.type_en で動的に切り替え
     const stylesInInventory = Array.from(new Set(inventory
       .filter(w => w.color === color && (isEn ? w.type_en : w.type))
       .map(w => (isEn ? w.type_en : w.type) as string)
@@ -228,7 +228,7 @@ export const CustomerView: React.FC = () => {
     
     if (stylesInInventory.length > 0) return stylesInInventory;
 
-    // Fallbacks if no types found in current inventory
+    // フォールバック
     if (color === '赤') return [t.fullBody, t.mediumBody, t.lightBody];
     if (color === '白') return [t.dry, t.mediumDry, t.sweet];
     if (color === '泡' || color === 'スパークリング') return [isEn ? 'Brut' : '辛口', isEn ? 'Extra Dry' : '中辛口', isEn ? 'Demi-Sec' : '甘口'];
@@ -441,6 +441,7 @@ export const CustomerView: React.FC = () => {
           else if (step2Style === translations.ja.mediumBody || step2Style === translations.en.mediumBody) matches = matches && (w.body || 0) === 3;
           else if (step2Style === translations.ja.lightBody || step2Style === translations.en.lightBody) matches = matches && (w.body || 0) <= 2;
         } else {
+          // ★修正：選択されたスタイル名が w.type または w.type_en のいずれかに合致すればOKとする
           matches = matches && (w.type === step2Style || w.type_en === step2Style);
         }
       }
