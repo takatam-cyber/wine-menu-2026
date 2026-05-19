@@ -183,77 +183,98 @@ export const OwnerView: React.FC = () => {
   };
 
   // ★修正：目玉アイコンクリック（表示切替）を完全にアトミック化（Batch処理）
-  // レースコンディションを防ぐため、サブコレクションとトップレベル配列を同時にコミット
+  // レースコンディション（先祖返り）を防ぐため、最新のキャッシュを即座に引き継いでBatchに流し込む
   const handleToggleActive = async (wineId: string, currentStatus: boolean) => {
     if (!sid) return;
+    
+    // 1. 最新のクエリキャッシュを取得（Reactの状態 inventory ではなく、常に最新のキャッシュを参照）
+    const currentData = queryClient.getQueryData<{ store: any, inventory: any[] }>(['inventory', sid]);
+    if (!currentData) return;
+
+    // 2. 次の状態を計算
+    const nextInventorySnapshot = currentData.inventory.map(w => 
+      w.id === wineId ? { ...w, isActive: !currentStatus } : w
+    );
+
+    // 3. キャッシュを先行して更新（連打されても次の呼び出しがこの状態を引き継げるようにする）
+    queryClient.setQueryData(['inventory', sid], { ...currentData, inventory: nextInventorySnapshot });
+
     try {
       const batch = writeBatch(db);
       
-      // 1. サブコレクションの更新
+      // サブコレクションの更新
       const itemRef = doc(db, 'stores', sid, 'inventory', wineId);
       batch.update(itemRef, { isActive: !currentStatus, updatedAt: new Date().toISOString() });
 
-      // 2. 最新のスナップショットを計算し、トップレベルの publicMenu を更新
-      const updatedInventory = inventory.map(w => 
-        w.id === wineId ? { ...w, isActive: !currentStatus } : w
-      );
-      const richPublicMenu = updatedInventory
+      // パブリックメニューの更新（計算済みのスナップショットを使用）
+      const richPublicMenu = nextInventorySnapshot
         .filter(w => w.visible !== false && w.isActive !== false)
         .map(projectWineForPublic);
 
       batch.update(doc(db, 'stores', sid), { publicMenu: richPublicMenu });
 
       await batch.commit();
-      queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
     } catch (error) {
       console.error('Error toggling active status:', error);
+      // エラー時はフェッチし直して整合性を戻す
+      queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
     }
   };
 
-  // ★修正：ワイン削除をアトミック化
+  // ★修正：ワイン削除をアトミック化（Race Condition排除）
   const handleDeleteWine = async (wineId: string) => {
     if (!sid || !window.confirm('このワインをメニューから削除しますか？')) return;
+    
+    const currentData = queryClient.getQueryData<{ store: any, inventory: any[] }>(['inventory', sid]);
+    if (!currentData) return;
+
+    const nextInventorySnapshot = currentData.inventory.filter(w => w.id !== wineId);
+    queryClient.setQueryData(['inventory', sid], { ...currentData, inventory: nextInventorySnapshot });
+
     try {
       const batch = writeBatch(db);
-
-      // 1. サブコレクションから削除
       batch.delete(doc(db, 'stores', sid, 'inventory', wineId));
 
-      // 2. publicMenu からも即座に物理削除
-      const updatedInventory = inventory.filter(w => w.id !== wineId);
-      const richPublicMenu = updatedInventory
+      const richPublicMenu = nextInventorySnapshot
         .filter(w => w.visible !== false && w.isActive !== false)
         .map(projectWineForPublic);
 
       batch.update(doc(db, 'stores', sid), { publicMenu: richPublicMenu });
 
       await batch.commit();
-      queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
     } catch (error) {
       console.error('Error deleting wine:', error);
+      queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
     }
   };
 
-  // ★修正：ワイン追加をアトミック化
+  // ★修正：ワイン追加をアトミック化（Race Condition排除）
   const handleAddWine = async (masterWine: WineMaster) => {
     if (!sid) return;
+    
+    const currentData = queryClient.getQueryData<{ store: any, inventory: any[] }>(['inventory', sid]);
+    const inventoryBase = currentData?.inventory || [];
+
+    const newItem = {
+      id: masterWine.id,
+      isActive: true,
+      visible: true,
+      price_bottle: masterWine.price_bottle,
+      price_glass: masterWine.price_glass,
+      updatedAt: new Date().toISOString()
+    };
+
+    const nextInventorySnapshot = [...inventoryBase, { ...masterWine, ...newItem }];
+    if (currentData) {
+      queryClient.setQueryData(['inventory', sid], { ...currentData, inventory: nextInventorySnapshot });
+    }
+
     try {
       const batch = writeBatch(db);
       const itemRef = doc(db, 'stores', sid, 'inventory', masterWine.id);
-      
-      const newItem = {
-        id: masterWine.id,
-        isActive: true,
-        visible: true,
-        price_bottle: masterWine.price_bottle,
-        price_glass: masterWine.price_glass,
-        updatedAt: new Date().toISOString()
-      };
-
       batch.set(itemRef, newItem);
 
-      const updatedInventory = [...inventory, { ...masterWine, ...newItem }];
-      const richPublicMenu = updatedInventory
+      const richPublicMenu = nextInventorySnapshot
         .filter(w => w.visible !== false && w.isActive !== false)
         .map(projectWineForPublic);
 
@@ -261,9 +282,9 @@ export const OwnerView: React.FC = () => {
 
       await batch.commit();
       setShowAddModal(false);
-      queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
     } catch (error) {
       console.error('Error adding wine:', error);
+      queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
     }
   };
 
@@ -692,6 +713,15 @@ export const OwnerView: React.FC = () => {
                           <button 
                             onClick={async () => {
                               if (!sid) return;
+                              
+                              const currentData = queryClient.getQueryData<{ store: any, inventory: any[] }>(['inventory', sid]);
+                              if (!currentData) return;
+
+                              const nextInventorySnapshot = currentData.inventory.map(w => 
+                                w.id === wine.id ? { ...w, ...editWineData } : w
+                              );
+                              queryClient.setQueryData(['inventory', sid], { ...currentData, inventory: nextInventorySnapshot });
+
                               // ★アトミック更新：編集保存とパブリックメニュー同期を単一のBatchに集約
                               try {
                                 const batch = writeBatch(db);
@@ -709,20 +739,17 @@ export const OwnerView: React.FC = () => {
 
                                 batch.update(itemRef, updateData);
 
-                                const updatedInventory = inventory.map(w => 
-                                  w.id === wine.id ? { ...w, ...editWineData } : w
-                                );
-                                const richPublicMenu = updatedInventory
+                                const richPublicMenu = nextInventorySnapshot
                                   .filter(w => w.visible !== false && w.isActive !== false)
                                   .map(projectWineForPublic);
 
                                 batch.update(doc(db, 'stores', sid), { publicMenu: richPublicMenu });
 
                                 await batch.commit();
-                                queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
                                 setEditingWineId(null);
                               } catch (error) {
                                 console.error('Error saving wine changes:', error);
+                                queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
                               }
                             }}
                             className="bg-brand-gold text-brand-wine px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest hover:brightness-110 shadow-lg"

@@ -529,7 +529,9 @@ export const AdminView: React.FC = () => {
     try {
       const importedWines = await parseWineCSV(file);
       
-      const CHUNK_SIZE = 50;
+      const CHUNK_SIZE = 450; // Safety margin for batch operations
+      
+      // 1. Update Master Catalog
       for (let i = 0; i < importedWines.length; i += CHUNK_SIZE) {
         const chunk = importedWines.slice(i, i + CHUNK_SIZE);
         const batch = writeBatch(db);
@@ -556,6 +558,7 @@ export const AdminView: React.FC = () => {
           winesToAdd = importedWines.filter(w => allowed.includes((w.supplier || 'PIEROTH').toUpperCase()));
         }
 
+        // 2. Update Inventory and Sync Public Menu
         for (let i = 0; i < winesToAdd.length; i += CHUNK_SIZE) {
           const chunk = winesToAdd.slice(i, i + CHUNK_SIZE);
           const batch = writeBatch(db);
@@ -577,18 +580,20 @@ export const AdminView: React.FC = () => {
             batch.set(doc(db, 'stores', selectedStoreId, 'inventory', compositeId), invItem);
           });
           
+          // SYNC publicMenu snapshot in the FINAL batch operation to ensure atomicity and efficiency
+          if (i + CHUNK_SIZE >= winesToAdd.length) {
+            const richPublicMenu = winesToAdd
+              .filter(w => w.visible !== false && w.isActive !== false)
+              .map(wine => projectWineForPublic({ ...wine, pureId: wine.id }));
+
+            batch.update(doc(db, 'stores', selectedStoreId), {
+              publicMenu: richPublicMenu,
+              updatedAt: new Date().toISOString()
+            });
+          }
+          
           await batch.commit();
         }
-
-        // --- SYNC publicMenu snapshot (1 Doc Read strategy) ---
-        const richPublicMenu = winesToAdd
-          .filter(w => w.visible !== false && w.isActive !== false)
-          .map(wine => projectWineForPublic({ ...wine, pureId: wine.id }));
-
-        await updateDoc(doc(db, 'stores', selectedStoreId), {
-          publicMenu: richPublicMenu
-        });
-        // ----------------------------------------------------------------
 
         await fetchStoreInventory(selectedStoreId);
       }
@@ -609,42 +614,50 @@ export const AdminView: React.FC = () => {
   const handleSaveInventory = async () => {
     if (!selectedStoreId) return;
     try {
-      // 1. ATOMIC UPDATE: Use writeBatch to group inventory writes
-      // This solves the performance bottleneck and multi-read billing in firestore.rules
-      const batch = writeBatch(db);
+      // Use chunking to handle batches > 500 items while maintaining atomicity where possible
+      const CHUNK_SIZE = 490;
+      const wines = [...selectedWines];
       
-      selectedWines.forEach(wine => {
-        const compositeId = getWineDocId(wine);
-        const docRef = doc(db, 'stores', selectedStoreId, 'inventory', compositeId);
-        const inventoryItem = {
-          id: compositeId,
-          pureId: wine.pureId || wine.id,
-          supplier: (wine.supplier || 'PIEROTH').toUpperCase(),
-          price_bottle: wine.price_bottle,
-          price_glass: wine.price_glass,
-          cost: wine.cost,
-          glasses_per_bottle: wine.glasses_per_bottle || 6,
-          visible: wine.visible ?? true,
-          isFeatured: wine.isFeatured ?? false,
-          promoLabel: wine.promoLabel || '',
-          stock: 0,
-          isActive: true,
-          updatedAt: new Date().toISOString()
-        };
-        batch.set(docRef, inventoryItem);
-      });
-      
-      await batch.commit();
+      for (let i = 0; i < wines.length; i += CHUNK_SIZE) {
+        const chunk = wines.slice(i, i + CHUNK_SIZE);
+        const batch = writeBatch(db);
+        
+        chunk.forEach(wine => {
+          const compositeId = getWineDocId(wine);
+          const docRef = doc(db, 'stores', selectedStoreId, 'inventory', compositeId);
+          const inventoryItem = {
+            id: compositeId,
+            pureId: wine.pureId || wine.id,
+            supplier: (wine.supplier || 'PIEROTH').toUpperCase(),
+            price_bottle: wine.price_bottle,
+            price_glass: wine.price_glass,
+            cost: wine.cost,
+            glasses_per_bottle: wine.glasses_per_bottle || 6,
+            visible: wine.visible ?? true,
+            isFeatured: wine.isFeatured ?? false,
+            promoLabel: wine.promoLabel || '',
+            stock: 0,
+            isActive: true,
+            updatedAt: new Date().toISOString()
+          };
+          batch.set(docRef, inventoryItem);
+        });
 
-      // 2. DENORMALIZATION: Save the entire rich menu to the store document's top level
-      // This is the "1 Document Read" strategy (0.1s response, Always Free)
-      const richPublicMenu = selectedWines
-        .filter(w => w.visible !== false && w.isActive !== false)
-        .map(projectWineForPublic);
+        // 2. DENORMALIZATION: Save the entire rich menu to the store document's top level
+        // Include this in the FINAL batch for atomic consistency
+        if (i + CHUNK_SIZE >= wines.length) {
+          const richPublicMenu = wines
+            .filter(w => w.visible !== false && w.isActive !== false)
+            .map(projectWineForPublic);
 
-      await updateDoc(doc(db, 'stores', selectedStoreId), {
-        publicMenu: richPublicMenu
-      });
+          batch.update(doc(db, 'stores', selectedStoreId), {
+            publicMenu: richPublicMenu,
+            updatedAt: new Date().toISOString()
+          });
+        }
+        
+        await batch.commit();
+      }
 
       setImportStatus({ type: 'success', message: '全ての在庫・価格データを保存し、公開メニューを更新しました' });
       queryClient.invalidateQueries({ queryKey: ['stores'] });

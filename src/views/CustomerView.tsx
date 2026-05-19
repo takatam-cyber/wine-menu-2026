@@ -1077,18 +1077,12 @@ export const CustomerView: React.FC = () => {
                         setTimeout(() => {
                           const resultsElement = document.getElementById('wine-list-results');
                           if (resultsElement) {
-                            const offset = 140; // Avoid header and filter bar
-                            const bodyRect = document.body.getBoundingClientRect().top;
-                            const elementRect = resultsElement.getBoundingClientRect().top;
-                            const elementPosition = elementRect - bodyRect;
-                            const offsetPosition = elementPosition - offset;
-
-                            window.scrollTo({
-                              top: offsetPosition,
-                              behavior: 'smooth'
+                            resultsElement.scrollIntoView({ 
+                              behavior: 'smooth', 
+                              block: 'start' 
                             });
                           }
-                        }, 350);
+                        }, 400);
                       }}
                       className="w-full py-4 bg-brand-wine text-brand-gold-dark rounded-full font-black uppercase tracking-[0.4em] shadow-xl active:scale-95 transition-all"
                     >
@@ -1126,7 +1120,9 @@ export const CustomerView: React.FC = () => {
               className="fixed inset-0 z-[130] bg-black/98 backdrop-blur-3xl overflow-hidden flex flex-col h-[100dvh] md:h-auto md:bottom-0 md:top-12 md:rounded-t-[2.5rem] border-t border-brand-gold/30 shadow-[0_-20px_500px_rgba(0,0,0,1)]"
             >
               <div className="sticky top-0 z-[140] bg-black/95 backdrop-blur-md p-8 pb-4 flex justify-between items-center border-b border-white/5">
-                <span className="text-sm text-gray-400 font-bold uppercase tracking-[0.2em] opacity-60">{t.vintage} {effectiveWine.vintage}</span>
+                <span className="text-sm text-gray-400 font-bold uppercase tracking-[0.2em] opacity-60">
+                  {t.vintage} {effectiveWine?.vintage || selectedWine.vintage}
+                </span>
                 <button 
                   onClick={() => setSelectedWine(null)} 
                   className="w-10 h-10 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-brand-gold-dark text-xl hover:bg-white/20 transition-all font-light"
@@ -1138,22 +1134,22 @@ export const CustomerView: React.FC = () => {
                     <div className="w-full aspect-square md:aspect-[4/5] bg-brand-dark/40 border border-brand-gold/20 rounded-3xl mb-8 flex items-center justify-center p-8 relative shadow-inner group overflow-hidden">
                       <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,rgba(184,134,11,0.25),transparent_70%)]" />
                       <img 
-                        src={getProxyUrl(effectiveWine.image_url)}
+                        src={getProxyUrl(selectedWine.image_url)}
                         alt="" 
                         loading="lazy"
                         className="h-full object-contain relative z-10 transition-transform duration-2000 group-hover:scale-105" 
                       />
                     </div>
                     <h2 className="serif text-3xl md:text-5xl text-brand-gold-dark mb-3 tracking-tight leading-tight">
-                      {currentLang === 'ja' ? effectiveWine.name_jp : (effectiveWine.name_en || effectiveWine.name_jp)}
+                      {currentLang === 'ja' ? selectedWine.name_jp : (selectedWine.name_en || selectedWine.name_jp)}
                     </h2>
-                    {currentLang === 'ja' && effectiveWine.name_en && (
+                    {currentLang === 'ja' && selectedWine.name_en && (
                       <p className="text-xs md:text-sm text-gray-400 tracking-[0.3em] uppercase font-bold mb-2">
-                        {effectiveWine.name_en}
+                        {selectedWine.name_en}
                       </p>
                     )}
                     <p className="text-sm text-brand-gold-dark font-bold uppercase tracking-widest border-t border-brand-gold/20 pt-2 inline-block">
-                      {t.majorGrape}: {currentLang === 'ja' ? effectiveWine.grape : (effectiveWine.grape_en || effectiveWine.grape)}
+                      {t.majorGrape}: {currentLang === 'ja' ? selectedWine.grape : (selectedWine.grape_en || selectedWine.grape)}
                     </p>
                   </div>
 
@@ -1162,7 +1158,7 @@ export const CustomerView: React.FC = () => {
                     <Award className="w-6 h-6 opacity-70" />
                     <h4 className="text-sm font-bold uppercase tracking-[0.3em]">{t.tasteProfile}</h4>
                   </div>
-                  <WineProfile wine={effectiveWine} lang={currentLang} />
+                  <WineProfile wine={effectiveWine || selectedWine} lang={currentLang} />
                 </div>
 
                 <div className="space-y-6">
@@ -1172,35 +1168,42 @@ export const CustomerView: React.FC = () => {
                   </div>
                   <div className="relative">
                     <div className="absolute top-4 left-4 text-brand-gold/20"><Sparkles className="w-8 h-8" /></div>
-                    <div className="bg-brand-gold/5 p-6 pt-10 rounded-2xl border border-brand-gold/10 shadow-inner space-y-6">
+                    <div className="bg-brand-gold/5 p-6 pt-10 rounded-2xl border border-brand-gold/10 shadow-inner min-h-[200px] flex flex-col justify-center">
                       {isDetailLoading ? (
-                        <div className="space-y-4 animate-pulse">
-                          <div className="h-4 bg-brand-gold/10 rounded w-full"></div>
-                          <div className="h-4 bg-brand-gold/10 rounded w-5/6"></div>
-                          <div className="h-4 bg-brand-gold/10 rounded w-4/6"></div>
+                        <div className="flex flex-col items-center justify-center p-12 gap-4">
+                          <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                            className="w-12 h-12 border-2 border-brand-gold/20 border-t-brand-gold rounded-full"
+                          />
+                          <p className="text-xs text-brand-gold-dark/40 font-bold uppercase tracking-[0.3em] animate-pulse">Fetching sommelier notes...</p>
                         </div>
                       ) : (
-                        <p className="text-xl md:text-2xl leading-relaxed text-brand-gold-dark font-serif first-letter:text-5xl first-letter:float-left first-letter:mr-3 first-letter:mt-1 first-letter:text-brand-gold-dark font-medium italic">
-                          {currentLang === 'ja' 
-                            ? (effectiveWine.ai_explanation || effectiveWine.aroma_features) 
-                            : (effectiveWine.ai_explanation_en || effectiveWine.aroma_features_en)}
-                        </p>
-                      )}
-                      
-                  {(currentLang === 'ja' ? effectiveWine.aroma_features : (effectiveWine.aroma_features_en || effectiveWine.aroma_features)) && (
-                    <div className="pt-4 border-t border-brand-gold/10">
-                      <p className="text-xs text-brand-gold-dark/40 font-black uppercase tracking-widest mb-2">{t.aroma}</p>
-                      <p className="text-sm text-gray-700 leading-relaxed font-sans">{currentLang === 'ja' ? effectiveWine.aroma_features : (effectiveWine.aroma_features_en || effectiveWine.aroma_features)}</p>
-                    </div>
-                  )}
+                        <div className="space-y-6 animate-in fade-in duration-700">
+                          <p className="text-xl md:text-2xl leading-relaxed text-brand-gold-dark font-serif first-letter:text-5xl first-letter:float-left first-letter:mr-3 first-letter:mt-1 first-letter:text-brand-gold-dark font-medium italic">
+                            {currentLang === 'ja' 
+                              ? (effectiveWine?.ai_explanation || effectiveWine?.aroma_features || '...') 
+                              : (effectiveWine?.ai_explanation_en || effectiveWine?.aroma_features_en || '...')}
+                          </p>
+                          
+                          {(currentLang === 'ja' ? effectiveWine?.aroma_features : (effectiveWine?.aroma_features_en || effectiveWine?.aroma_features)) && (
+                            <div className="pt-4 border-t border-brand-gold/10">
+                              <p className="text-xs text-brand-gold-dark/40 font-black uppercase tracking-widest mb-2">{t.aroma}</p>
+                              <p className="text-sm text-gray-300 leading-relaxed font-sans">
+                                {currentLang === 'ja' ? effectiveWine?.aroma_features : (effectiveWine?.aroma_features_en || effectiveWine?.aroma_features)}
+                              </p>
+                            </div>
+                          )}
 
-                    <div className="flex flex-wrap gap-2 pt-4 border-t border-brand-gold/10">
-                      {(currentLang === 'ja' ? effectiveWine.tags : (effectiveWine.tags_en || effectiveWine.tags))?.split('、').map(tag => (
-                        <span key={tag} className="px-3 py-1 bg-brand-gold/10 rounded-full text-xs text-brand-gold-dark font-bold tracking-widest whitespace-nowrap border border-brand-gold/20">
-                          #{tag.trim()}
-                        </span>
-                      ))}
-                    </div>
+                          <div className="flex flex-wrap gap-2 pt-4 border-t border-brand-gold/10">
+                            {(currentLang === 'ja' ? selectedWine.tags : (selectedWine.tags_en || selectedWine.tags))?.split('、').map(tag => (
+                              <span key={tag} className="px-3 py-1 bg-brand-gold/10 rounded-full text-xs text-brand-gold-dark font-bold tracking-widest whitespace-nowrap border border-brand-gold/20">
+                                #{tag.trim()}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1213,10 +1216,12 @@ export const CustomerView: React.FC = () => {
                     </div>
                     <div className="flex flex-wrap gap-2 md:gap-3">
                       {isDetailLoading ? (
-                        [1, 2, 3].map(i => <div key={i} className="h-10 w-24 bg-brand-gold/10 rounded-full animate-pulse" />)
+                        <div className="w-full flex gap-3">
+                          {[1, 2, 3].map(i => <div key={i} className="h-10 w-24 bg-brand-gold/10 rounded-full animate-pulse" />)}
+                        </div>
                       ) : (
-                        (currentLang === 'ja' ? effectiveWine.pairing : (effectiveWine.pairing_en || effectiveWine.pairing))?.split('、').map(p => (
-                          <span key={p} className="bg-brand-gold/10 border border-brand-gold/30 px-5 py-3 rounded-full text-sm text-brand-gold-dark font-bold tracking-wider">
+                        (currentLang === 'ja' ? effectiveWine?.pairing : (effectiveWine?.pairing_en || effectiveWine?.pairing))?.split('、').map(p => (
+                          <span key={p} className="bg-brand-gold/10 border border-brand-gold/30 px-5 py-3 rounded-full text-sm text-brand-gold-dark font-bold tracking-wider animate-in zoom-in-95 duration-500">
                             {p.trim()}
                           </span>
                         ))
@@ -1227,20 +1232,20 @@ export const CustomerView: React.FC = () => {
               </div>
 
               <div className="sticky bottom-0 z-[140] p-6 md:p-8 pt-4 pb-[env(safe-area-inset-bottom,24px)] bg-black/95 backdrop-blur-2xl border-t border-brand-gold/20 flex flex-col gap-6 safe-bottom">
-                  <div className={`flex items-center px-2 ${effectiveWine.price_glass && effectiveWine.price_glass > 0 ? 'justify-between' : 'justify-center'}`}>
-                    <div className={`flex flex-col ${!(effectiveWine.price_glass && effectiveWine.price_glass > 0) ? 'items-center text-center' : ''}`}>
+                  <div className={`flex items-center px-2 ${selectedWine.price_glass && selectedWine.price_glass > 0 ? 'justify-between' : 'justify-center'}`}>
+                    <div className={`flex flex-col ${!(selectedWine.price_glass && selectedWine.price_glass > 0) ? 'items-center text-center' : ''}`}>
                       <span className="text-sm text-gray-500 uppercase font-bold tracking-widest mb-1">{t.bottle}</span>
                       <span className="serif text-2xl md:text-3xl text-brand-gold-dark tracking-tighter">
-                        {effectiveWine.price_bottle ? `¥${effectiveWine.price_bottle.toLocaleString()}` : '-'}
+                        {selectedWine.price_bottle ? `¥${selectedWine.price_bottle.toLocaleString()}` : '-'}
                       </span>
                     </div>
-                    {effectiveWine.price_glass && effectiveWine.price_glass > 0 && (
+                    {selectedWine.price_glass && selectedWine.price_glass > 0 && (
                       <>
                         <div className="h-10 w-px bg-brand-gold/20" />
                         <div className="flex flex-col text-right">
                           <span className="text-sm text-gray-500 uppercase font-bold tracking-widest mb-1">{t.glass}</span>
                           <span className="serif text-2xl md:text-3xl text-brand-gold-dark tracking-tighter">
-                            ¥{effectiveWine.price_glass.toLocaleString()}
+                            ¥{selectedWine.price_glass.toLocaleString()}
                           </span>
                         </div>
                       </>
