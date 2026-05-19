@@ -4,6 +4,29 @@ import { dbAdmin } from "../lib/firebase-admin.js";
 // Server-side memory cache to shield Firestore from read spikes (B2B SaaS protection)
 const menuCache = new Map<string, { data: any, expiresAt: number }>();
 const CACHE_TTL_MS = 15000; // 15 seconds logic: balance between cost-saving and real-time stock sync
+const MAX_CACHE_SIZE = 500; // Hard limit to prevent memory exhaustion (DoS/OOM protection)
+
+/**
+ * Atomic Garbage Collection: Purges expired entries from the Map.
+ * Prevents memory leaks by ensuring the Map doesn't grow indefinitely.
+ */
+const performGC = () => {
+  const now = Date.now();
+  for (const [storeId, entry] of menuCache.entries()) {
+    if (entry.expiresAt < now) {
+      menuCache.delete(storeId);
+    }
+  }
+  
+  // If still over capacity after expiry cleanup, remove oldest entries (FIFO-flavor for Map)
+  if (menuCache.size > MAX_CACHE_SIZE) {
+    const keysToDelete = Array.from(menuCache.keys()).slice(0, menuCache.size - MAX_CACHE_SIZE);
+    keysToDelete.forEach(key => menuCache.delete(key));
+  }
+};
+
+// Periodic background cleanup every 10 minutes
+setInterval(performGC, 10 * 60 * 1000).unref();
 
 /**
  * Optimized menu fetcher using "1 Document Read" strategy and memory caching.
@@ -52,7 +75,10 @@ export const getMenu = async (req: Request, res: Response) => {
       menu: menu,
     };
 
-    // 3. CACHE UPDATE: Update server-side memory for the next 10 seconds
+    // 3. CACHE UPDATE: Update server-side memory for the next 15 seconds
+    // Lazy GC check on write to keep memory clean even if setInterval is delayed
+    if (menuCache.size >= MAX_CACHE_SIZE) performGC();
+    
     menuCache.set(storeId, {
       data: responsePayload,
       expiresAt: now + CACHE_TTL_MS

@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { wineRepository } from '../lib/repositories/wineRepository';
+import { WineMaster } from '../types';
 
 export const useWinesMasterQuery = () => {
   return useInfiniteQuery({
@@ -18,11 +19,21 @@ export const useWinesSearchQuery = (term: string) => {
   });
 };
 
+/**
+ * useWineDetailQuery
+ * Fetches rich master data for a specific wine by its composite ID.
+ * This pattern (Delayed Detail Fetch) avoids fetching heavy sommelier notes (AI explanations, aroma) 
+ * for the entire menu list, ensuring high performance for the Public Menu.
+ */
 export const useWineDetailQuery = (wineId: string | null) => {
   return useQuery({
     queryKey: ['wineDetail', wineId],
-    queryFn: () => wineId ? wineRepository.getWineById(wineId) : null,
+    queryFn: async (): Promise<WineMaster | null> => {
+      if (!wineId) return null;
+      return wineRepository.getWineById(wineId);
+    },
     enabled: !!wineId,
-    staleTime: 1000 * 60 * 10, // 10 minutes cache for master data
+    staleTime: 1000 * 60 * 60, // 1 hour stale time for stable master data
+    gcTime: 1000 * 60 * 60 * 24, // Keep in cache for 24 hours
   });
 };

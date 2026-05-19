@@ -197,8 +197,8 @@ export const AdminView: React.FC = () => {
     // タグ・ペアリング（クイックフィルタ用）
     tags: w.tags || '',
     tags_en: w.tags_en || '',
-    pairing: '',
-    pairing_en: '',
+    pairing: w.pairing || '',
+    pairing_en: w.pairing_en || '',
     
     // 店舗固有設定・メディア
     price_bottle: w.price_bottle,
