@@ -126,9 +126,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
               <div className="md:col-span-4 flex items-center gap-3 w-full min-w-0">
                 <button
                   onClick={() => {
-                    const newWines = [...selectedWines];
-                    newWines[idx].isFeatured = !newWines[idx].isFeatured;
-                    setSelectedWines(newWines);
+                    setSelectedWines(prev => prev.map((w, i) => i === idx ? { ...w, isFeatured: !w.isFeatured } : w));
                   }}
                   className={`p-2 rounded-xl transition-all border shrink-0 ${
                     wine.isFeatured ? 'bg-amber-50 border-amber-300 text-amber-500 shadow-sm' : 'bg-slate-50 border-slate-200 text-slate-300 hover:text-slate-400'
@@ -165,9 +163,8 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                     type="number"
                     value={wine.cost}
                     onChange={(e) => {
-                      const newWines = [...selectedWines];
-                      newWines[idx].cost = parseInt(e.target.value) || 0;
-                      setSelectedWines(newWines);
+                      const val = parseInt(e.target.value) || 0;
+                      setSelectedWines(prev => prev.map((w, i) => i === idx ? { ...w, cost: val } : w));
                     }}
                     className="w-24 bg-slate-50 border border-slate-200 rounded-xl px-2 py-1.5 focus:border-brand-wine outline-none font-mono text-slate-700 text-center font-bold"
                   />
@@ -182,9 +179,8 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                     type="number"
                     value={wine.price_bottle}
                     onChange={(e) => {
-                      const newWines = [...selectedWines];
-                      newWines[idx].price_bottle = parseInt(e.target.value) || 0;
-                      setSelectedWines(newWines);
+                      const val = parseInt(e.target.value) || 0;
+                      setSelectedWines(prev => prev.map((w, i) => i === idx ? { ...w, price_bottle: val } : w));
                     }}
                     className="w-24 md:w-28 bg-white border border-slate-300 rounded-xl px-2 py-1.5 focus:border-brand-wine outline-none font-mono text-slate-900 font-bold text-center"
                   />
@@ -204,9 +200,8 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                       type="number"
                       value={wine.price_glass}
                       onChange={(e) => {
-                        const newWines = [...selectedWines];
-                        newWines[idx].price_glass = parseInt(e.target.value) || 0;
-                        setSelectedWines(newWines);
+                        const val = parseInt(e.target.value) || 0;
+                        setSelectedWines(prev => prev.map((w, i) => i === idx ? { ...w, price_glass: val } : w));
                       }}
                       className="w-20 bg-white border border-slate-300 rounded-lg px-2 py-1 text-xs font-mono text-slate-900 text-center"
                     />
@@ -223,9 +218,8 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                       type="number"
                       value={wine.glasses_per_bottle || 6}
                       onChange={(e) => {
-                        const newWines = [...selectedWines];
-                        newWines[idx].glasses_per_bottle = parseInt(e.target.value) || 6;
-                        setSelectedWines(newWines);
+                        const val = parseInt(e.target.value) || 6;
+                        setSelectedWines(prev => prev.map((w, i) => i === idx ? { ...w, glasses_per_bottle: val } : w));
                       }}
                       className="w-12 bg-slate-50 border border-slate-300 rounded-md px-1 py-0.5 text-center text-xs font-mono text-slate-600"
                     />
@@ -239,9 +233,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest md:hidden">メニュー表示</span>
                 <button
                   onClick={() => {
-                    const newWines = [...selectedWines];
-                    newWines[idx].visible = !newWines[idx].visible;
-                    setSelectedWines(newWines);
+                    setSelectedWines(prev => prev.map((w, i) => i === idx ? { ...w, visible: !w.visible } : w));
                   }}
                   className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all shrink-0 ${
                     wine.visible
@@ -262,9 +254,8 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                      className="text-xs bg-slate-50 border border-slate-200 rounded-md px-2 py-1 outline-none focus:border-brand-wine w-24"
                      value={wine.promoLabel || ''}
                      onChange={(e) => {
-                       const newWines = [...selectedWines];
-                       newWines[idx].promoLabel = e.target.value;
-                       setSelectedWines(newWines);
+                       const val = e.target.value;
+                       setSelectedWines(prev => prev.map((w, i) => i === idx ? { ...w, promoLabel: val } : w));
                      }}
                    />
                 </div>
@@ -275,9 +266,8 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                      className="text-[11px] bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 outline-none focus:border-brand-wine w-24"
                      value={wine.promoLabel || ''}
                      onChange={(e) => {
-                       const newWines = [...selectedWines];
-                       newWines[idx].promoLabel = e.target.value;
-                       setSelectedWines(newWines);
+                       const val = e.target.value;
+                       setSelectedWines(prev => prev.map((w, i) => i === idx ? { ...w, promoLabel: val } : w));
                      }}
                    />
                 </div>

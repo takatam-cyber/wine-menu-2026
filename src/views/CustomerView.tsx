@@ -1170,20 +1170,24 @@ export const CustomerView: React.FC = () => {
               </div>
 
               <div className="sticky bottom-0 z-[140] p-6 md:p-8 pt-4 pb-[env(safe-area-inset-bottom,24px)] bg-black/95 backdrop-blur-2xl border-t border-brand-gold/20 flex flex-col gap-6 safe-bottom">
-                  <div className="flex justify-between items-center px-2">
-                    <div className="flex flex-col">
+                  <div className={`flex items-center px-2 ${selectedWine.price_glass && selectedWine.price_glass > 0 ? 'justify-between' : 'justify-center'}`}>
+                    <div className={`flex flex-col ${!(selectedWine.price_glass && selectedWine.price_glass > 0) ? 'items-center text-center' : ''}`}>
                       <span className="text-sm text-gray-500 uppercase font-bold tracking-widest mb-1">{t.bottle}</span>
                       <span className="serif text-2xl md:text-3xl text-brand-gold-dark tracking-tighter">
                         {selectedWine.price_bottle ? `¥${selectedWine.price_bottle.toLocaleString()}` : '-'}
                       </span>
                     </div>
-                    <div className="h-10 w-px bg-brand-gold/20" />
-                    <div className="flex flex-col text-right">
-                      <span className="text-sm text-gray-500 uppercase font-bold tracking-widest mb-1">{t.glass}</span>
-                      <span className="serif text-2xl md:text-3xl text-brand-gold-dark tracking-tighter">
-                        {selectedWine.price_glass ? `¥${selectedWine.price_glass.toLocaleString()}` : '-'}
-                      </span>
-                    </div>
+                    {selectedWine.price_glass && selectedWine.price_glass > 0 && (
+                      <>
+                        <div className="h-10 w-px bg-brand-gold/20" />
+                        <div className="flex flex-col text-right">
+                          <span className="text-sm text-gray-500 uppercase font-bold tracking-widest mb-1">{t.glass}</span>
+                          <span className="serif text-2xl md:text-3xl text-brand-gold-dark tracking-tighter">
+                            ¥{selectedWine.price_glass.toLocaleString()}
+                          </span>
+                        </div>
+                      </>
+                    )}
                   </div>
                  <div className="text-center">
                    <p className="text-sm text-brand-gold-dark font-bold uppercase tracking-[0.3em] opacity-40">{t.ageNotice}</p>
