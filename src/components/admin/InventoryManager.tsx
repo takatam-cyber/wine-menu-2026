@@ -66,9 +66,9 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
             </datalist>
           </div>
           <button
-            onClick={onShowCatalogSelection}
+            onClick={() => handleAddWine()}
             className="bg-brand-gold text-brand-wine p-2 md:p-2.5 rounded-full hover:scale-110 transition-all shadow-md active:scale-95 shrink-0"
-            title="マスターから追加"
+            title="選択したワインをリストに即時追加"
           >
             <Plus className="w-5 h-5" />
           </button>

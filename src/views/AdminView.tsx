@@ -116,6 +116,16 @@ export const AdminView: React.FC = () => {
     }
   }, []);
 
+  // 追記：トースト通知がでたら4秒後に自動消滅させるタイマー
+  useEffect(() => {
+    if (importStatus) {
+      const timer = setTimeout(() => {
+        setImportStatus(null);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [importStatus]);
+
   const handleSearchMaster = (term: string) => {
     setMasterSearchTerm(term);
   };
@@ -1018,14 +1028,36 @@ export const AdminView: React.FC = () => {
           onLoadMoreWines={handleLoadMoreWines}
         />
 
-        {importStatus && (
-          <div className={`p-4 rounded-xl flex items-center gap-3 animate-in slide-in-from-top duration-500 z-50 ${
-            importStatus.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
-          }`}>
-            <span className="text-xs font-bold uppercase tracking-widest">{importStatus.message}</span>
-            <button onClick={() => setImportStatus(null)} className="ml-auto text-xs font-bold opacity-60 hover:opacity-100"><X className="w-4 h-4" /></button>
-          </div>
-        )}
+        {/* ─── 修正後：固定位置から、画面右上に浮かび上がるPOPUPトーストへ刷新 ─── */}
+        <AnimatePresence>
+          {importStatus && (
+            <motion.div 
+              initial={{ opacity: 0, y: -20, scale: 0.9, x: 20 }}
+              animate={{ opacity: 1, y: 0, scale: 1, x: 0 }}
+              exit={{ opacity: 0, y: -20, scale: 0.9, x: 20 }}
+              className={`fixed top-6 right-6 z-[250] w-full max-w-sm p-4 rounded-2xl flex items-center gap-3 border shadow-[0_20px_50px_rgba(0,0,0,0.18)] backdrop-blur-md ${
+                importStatus.type === 'success' 
+                  ? 'bg-emerald-50/95 border-emerald-200 text-emerald-800' 
+                  : 'bg-rose-50/95 border-rose-200 text-rose-800'
+              }`}
+            >
+              <div className="flex-1">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">
+                  {importStatus.type === 'success' ? 'SYSTEM SUCCESS' : 'SYSTEM ERROR'}
+                </p>
+                <p className="text-xs font-bold mt-0.5 tracking-wide leading-relaxed">
+                  {importStatus.message}
+                </p>
+              </div>
+              <button 
+                onClick={() => setImportStatus(null)} 
+                className="p-1.5 hover:bg-black/5 rounded-xl transition-colors opacity-40 hover:opacity-100 shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Analytics Section */}
         <StoreAnalytics selectedWines={selectedWines} />
