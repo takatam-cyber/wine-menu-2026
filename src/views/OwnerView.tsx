@@ -107,11 +107,13 @@ export const OwnerView: React.FC = () => {
     id: w.id,
     name_jp: w.name_jp,
     name_en: w.name_en,
-    menu_short: w.menu_short || '',
-    menu_short_en: w.menu_short_en || '',
-    // CRITICAL: Exclude heavy texts (Firestore 1MB limit protection)
+    // CRITICAL: Force empty strings for heavy texts to guarantee 1MB limit safety
+    menu_short: '',
+    menu_short_en: '',
     ai_explanation: '',
     ai_explanation_en: '',
+    
+    // Taxonomy
     country: w.country,
     country_en: w.country_en,
     region: w.region,
@@ -132,13 +134,13 @@ export const OwnerView: React.FC = () => {
     complexity: w.complexity || 3,
     finish: w.finish || 3,
     oak: w.oak || 1,
-    // CRITICAL: Exclude heavy texts
+    // CRITICAL: Force empty strings for heavy texts
     aroma_features: '',
     aroma_features_en: '',
     tags: w.tags || '',
     tags_en: w.tags_en || '',
-    pairing: w.pairing || '',
-    pairing_en: w.pairing_en || '',
+    pairing: '',
+    pairing_en: '',
     price_bottle: w.price_bottle,
     price_glass: w.price_glass,
     image_url: w.image_url,

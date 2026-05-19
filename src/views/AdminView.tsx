@@ -5,7 +5,7 @@ import { wineRepository } from '../lib/repositories/wineRepository';
 import { useStoresQuery } from '../hooks/useStoresQuery';
 import { useWinesMasterQuery, useWinesSearchQuery } from '../hooks/useWinesQuery';
 import { db } from '../lib/firebase';
-import { doc, setDoc, collection, getDocs, getDoc, updateDoc, deleteDoc, query, where } from 'firebase/firestore';
+import { doc, setDoc, collection, getDocs, getDoc, updateDoc, deleteDoc, query, where, writeBatch } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { initializeApp, deleteApp, getApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
@@ -161,9 +161,9 @@ export const AdminView: React.FC = () => {
     supplier: (w.supplier || 'PIEROTH').toUpperCase(),
     name_jp: w.name_jp,
     name_en: w.name_en,
-    menu_short: w.menu_short || '',
-    menu_short_en: w.menu_short_en || '',
-    // CRITICAL: Exclude heavy long texts to prevent Firestore 1MB document limit
+    // CRITICAL: Exclude heavy texts for public snapshot to stay under 1MB Firestore limit
+    menu_short: '',
+    menu_short_en: '',
     ai_explanation: '',
     ai_explanation_en: '',
     
@@ -197,8 +197,8 @@ export const AdminView: React.FC = () => {
     // タグ・ペアリング（クイックフィルタ用）
     tags: w.tags || '',
     tags_en: w.tags_en || '',
-    pairing: w.pairing || '',
-    pairing_en: w.pairing_en || '',
+    pairing: '',
+    pairing_en: '',
     
     // 店舗固有設定・メディア
     price_bottle: w.price_bottle,
@@ -350,11 +350,12 @@ export const AdminView: React.FC = () => {
         }
       }
 
-      const savePromises = winesToAdd.map(wine => {
+      const batch = writeBatch(db);
+      winesToAdd.forEach(wine => {
         const compositeId = getWineDocId(wine);
         const newInventoryItem = {
-          id: compositeId, // Composite ID as identifier
-          pureId: wine.pureId || wine.id, // Pure ID for reference
+          id: compositeId,
+          pureId: wine.pureId || wine.id,
           supplier: (wine.supplier || 'PIEROTH').toUpperCase(),
           price_bottle: wine.price_bottle || wine.cost * 3,
           price_glass: wine.price_glass || Math.round((wine.cost * 3 / 6) / 100) * 100,
@@ -365,10 +366,10 @@ export const AdminView: React.FC = () => {
           visible: true,
           updatedAt: new Date().toISOString()
         };
-        return setDoc(doc(db, 'stores', selectedStoreId, 'inventory', compositeId), newInventoryItem);
+        batch.set(doc(db, 'stores', selectedStoreId, 'inventory', compositeId), newInventoryItem);
       });
 
-      await Promise.all(savePromises);
+      await batch.commit();
       await fetchStoreInventory(selectedStoreId);
       
       setImportStatus({ type: 'success', message: `${selectedMasterIds.length}件のワインを追加しました` });
@@ -523,37 +524,38 @@ export const AdminView: React.FC = () => {
       const CHUNK_SIZE = 50;
       for (let i = 0; i < importedWines.length; i += CHUNK_SIZE) {
         const chunk = importedWines.slice(i, i + CHUNK_SIZE);
-        const saveMasterPromises = chunk.map(wine => {
+        const batch = writeBatch(db);
+        
+        chunk.forEach(wine => {
           const docId = getWineDocId(wine);
           const wineToSave = { 
             ...wine, 
-            id: docId, // Composite ID as system identifier
+            id: docId, 
             pureId: wine.pureId || wine.id 
           };
-          return setDoc(doc(db, 'winesMaster', docId), wineToSave);
+          batch.set(doc(db, 'winesMaster', docId), wineToSave);
         });
-        await Promise.all(saveMasterPromises);
+        
+        await batch.commit();
       }
 
       queryClient.invalidateQueries({ queryKey: ['winesMaster'] });
 
       if (selectedStoreId) {
-        // Governance Check for store import
         let winesToAdd = importedWines;
         if (selectedStore?.allowedSuppliers) {
           const allowed = selectedStore.allowedSuppliers.map(s => s.toUpperCase());
           winesToAdd = importedWines.filter(w => allowed.includes((w.supplier || 'PIEROTH').toUpperCase()));
-          if (winesToAdd.length < importedWines.length) {
-            console.warn('一部のワインはサプライヤー制限により店舗に追加されませんでした');
-          }
         }
 
         for (let i = 0; i < winesToAdd.length; i += CHUNK_SIZE) {
           const chunk = winesToAdd.slice(i, i + CHUNK_SIZE);
-          const saveInvPromises = chunk.map(wine => {
+          const batch = writeBatch(db);
+          
+          chunk.forEach(wine => {
             const compositeId = getWineDocId(wine);
             const invItem = {
-              id: compositeId, // Composite ID as identifier
+              id: compositeId,
               pureId: wine.pureId || wine.id,
               supplier: (wine.supplier || 'PIEROTH').toUpperCase(),
               price_bottle: wine.price_bottle || Math.round(wine.cost * 3 / 100) * 100,
@@ -564,9 +566,10 @@ export const AdminView: React.FC = () => {
               visible: true,
               updatedAt: new Date().toISOString()
             };
-            return setDoc(doc(db, 'stores', selectedStoreId, 'inventory', compositeId), invItem);
+            batch.set(doc(db, 'stores', selectedStoreId, 'inventory', compositeId), invItem);
           });
-          await Promise.all(saveInvPromises);
+          
+          await batch.commit();
         }
 
         // --- SYNC publicMenu snapshot (1 Doc Read strategy) ---
@@ -598,12 +601,15 @@ export const AdminView: React.FC = () => {
   const handleSaveInventory = async () => {
     if (!selectedStoreId) return;
     try {
-      // 1. Prepare inventory sub-collection (legacy but kept for record)
-      const savePromises = selectedWines.map(wine => {
+      // 1. ATOMIC UPDATE: Use writeBatch to group inventory writes
+      // This solves the performance bottleneck and multi-read billing in firestore.rules
+      const batch = writeBatch(db);
+      
+      selectedWines.forEach(wine => {
         const compositeId = getWineDocId(wine);
         const docRef = doc(db, 'stores', selectedStoreId, 'inventory', compositeId);
         const inventoryItem = {
-          id: compositeId, // Maintain composite ID consistency
+          id: compositeId,
           pureId: wine.pureId || wine.id,
           supplier: (wine.supplier || 'PIEROTH').toUpperCase(),
           price_bottle: wine.price_bottle,
@@ -617,9 +623,10 @@ export const AdminView: React.FC = () => {
           isActive: true,
           updatedAt: new Date().toISOString()
         };
-        return setDoc(docRef, inventoryItem);
+        batch.set(docRef, inventoryItem);
       });
-      await Promise.all(savePromises);
+      
+      await batch.commit();
 
       // 2. DENORMALIZATION: Save the entire rich menu to the store document's top level
       // This is the "1 Document Read" strategy (0.1s response, Always Free)

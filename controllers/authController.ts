@@ -27,15 +27,20 @@ export const syncClaims = async (req: AuthenticatedRequest, res: Response) => {
     const userDoc = await dbAdmin.collection("users").doc(uid).get();
     
     let role = "customer";
+    let storeId = null;
+    let repId = null;
     if (userDoc.exists) {
-      role = userDoc.data()?.role || "customer";
+      const data = userDoc.data();
+      role = data?.role || "customer";
+      storeId = data?.storeId || null;
+      repId = data?.repId || null;
     }
 
     if (email && (email.endsWith("@pieroth.jp") || email === "takatam40725@gmail.com")) {
       role = "admin";
     }
 
-    await authAdmin.setCustomUserClaims(uid, { role });
+    await authAdmin.setCustomUserClaims(uid, { role, storeId, repId });
     
     if (userDoc.exists && userDoc.data()?.role !== role) {
       await dbAdmin.collection("users").doc(uid).set({ role }, { merge: true });

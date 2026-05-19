@@ -17,3 +17,12 @@ export const useWinesSearchQuery = (term: string) => {
     enabled: !!term,
   });
 };
+
+export const useWineDetailQuery = (wineId: string | null) => {
+  return useQuery({
+    queryKey: ['wineDetail', wineId],
+    queryFn: () => wineId ? wineRepository.getWineById(wineId) : null,
+    enabled: !!wineId,
+    staleTime: 1000 * 60 * 10, // 10 minutes cache for master data
+  });
+};

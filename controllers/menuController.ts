@@ -3,7 +3,7 @@ import { dbAdmin } from "../lib/firebase-admin.js";
 
 // Server-side memory cache to shield Firestore from read spikes (B2B SaaS protection)
 const menuCache = new Map<string, { data: any, expiresAt: number }>();
-const CACHE_TTL_MS = 10000; // 10 seconds logic: ultra-low latency for stock sync vs budget control
+const CACHE_TTL_MS = 15000; // 15 seconds logic: balance between cost-saving and real-time stock sync
 
 /**
  * Optimized menu fetcher using "1 Document Read" strategy and memory caching.
@@ -19,7 +19,7 @@ export const getMenu = async (req: Request, res: Response) => {
     if (cached && cached.expiresAt > now) {
       // Add debug headers to verify cache health without logs
       res.setHeader("X-Cache", "HIT");
-      res.setHeader("Cache-Control", "public, max-age=10, s-maxage=10, stale-while-revalidate=5");
+      res.setHeader("Cache-Control", "public, max-age=15, s-maxage=15, stale-while-revalidate=30");
       return res.json(cached.data);
     }
     
@@ -58,9 +58,9 @@ export const getMenu = async (req: Request, res: Response) => {
       expiresAt: now + CACHE_TTL_MS
     });
 
-    // 4. RESPONSE HEADERS: Allow 10s of downstream caching (Browser/CDN)
+    // 4. RESPONSE HEADERS: Allow 15s of downstream caching (Browser/CDN)
     res.setHeader("X-Cache", "MISS");
-    res.setHeader("Cache-Control", "public, max-age=10, s-maxage=10, stale-while-revalidate=5");
+    res.setHeader("Cache-Control", "public, max-age=15, s-maxage=15, stale-while-revalidate=30");
     
     res.json(responsePayload);
   } catch (error: any) {

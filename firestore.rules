@@ -42,15 +42,19 @@ service cloud.firestore {
       allow get: if isSignedIn(); 
       allow list: if isSignedIn();
       allow create: if isRep();
-      allow update, delete: if isAdmin() || 
-                    (isRep() && resource.data.repId == authUid()) || 
-                    (isOwner() && resource.data.ownerId == authUid());
+      allow update, delete: if isAdmin() || (isSignedIn() && (
+                    (isRep() && (request.auth.token.repId == authUid() || resource.data.repId == authUid())) || 
+                    (isOwner() && (request.auth.token.storeId == storeId || resource.data.ownerId == authUid()))
+      ));
 
       match /inventory/{wineId} {
         allow read: if true;
-        allow write: if isAdmin() || 
-                      (isRep() && get(/databases/$(database)/documents/stores/$(storeId)).data.repId == authUid()) || 
-                      (isOwner() && get(/databases/$(database)/documents/stores/$(storeId)).data.ownerId == authUid());
+        allow write: if isAdmin() || (isSignedIn() && (
+          // ZERO-READ OPTIMIZATION: Use custom claims from request.auth.token
+          // This prevents billable get() calls during large writeBatch operations.
+          (isRep() && (request.auth.token.repId == authUid() || get(/databases/$(database)/documents/stores/$(storeId)).data.repId == authUid())) ||
+          (isOwner() && (request.auth.token.storeId == storeId || get(/databases/$(database)/documents/stores/$(storeId)).data.ownerId == authUid()))
+        ));
       }
     }
 
