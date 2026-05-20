@@ -2,26 +2,44 @@ import { Request, Response } from "express";
 import { dbAdmin } from "../lib/firebase-admin.js";
 
 // Server-side memory cache to shield Firestore from read spikes (B2B SaaS protection)
-const menuCache = new Map<string, { data: any, expiresAt: number }>();
+interface CacheEntry {
+  data: any;
+  expiresAt: number;
+  hits: number;
+  lastAccessedAt: number;
+}
+
+const menuCache = new Map<string, CacheEntry>();
 const CACHE_TTL_MS = 15000; // 15 seconds logic: balance between cost-saving and real-time stock sync
 const MAX_CACHE_SIZE = 500; // Hard limit to prevent memory exhaustion (DoS/OOM protection)
 
 /**
- * Atomic Garbage Collection: Purges expired entries from the Map.
- * Prevents memory leaks by ensuring the Map doesn't grow indefinitely.
+ * Atomic Garbage Collection with LRU logic:
+ * 1. Purges strictly expired entries.
+ * 2. If memory footprint is still above MAX_CACHE_SIZE, evicts Least Recently Used (LRU) entries.
+ * This completely prevents cache thrashing for hot hyper-active stores (e.g. Roppongi stores).
  */
 const performGC = () => {
   const now = Date.now();
+  
+  // 1. Strict Expiration Eviction
   for (const [storeId, entry] of menuCache.entries()) {
     if (entry.expiresAt < now) {
       menuCache.delete(storeId);
     }
   }
   
-  // If still over capacity after expiry cleanup, remove oldest entries (FIFO-flavor for Map)
+  // 2. Graceful LRU Eviction if over max capacity limit
   if (menuCache.size > MAX_CACHE_SIZE) {
-    const keysToDelete = Array.from(menuCache.keys()).slice(0, menuCache.size - MAX_CACHE_SIZE);
-    keysToDelete.forEach(key => menuCache.delete(key));
+    const entries = Array.from(menuCache.entries());
+    
+    // Sort entries by lastAccessedAt in ascending order (oldest access gets evicted first)
+    entries.sort((a, b) => a[1].lastAccessedAt - b[1].lastAccessedAt);
+    
+    const countToEvict = menuCache.size - MAX_CACHE_SIZE;
+    for (let i = 0; i < countToEvict; i++) {
+      menuCache.delete(entries[i][0]);
+    }
   }
 };
 
@@ -40,6 +58,10 @@ export const getMenu = async (req: Request, res: Response) => {
     // 1. CACHE LAYER: Check memory cache first to avoid Firestore "Read" explosion
     const cached = menuCache.get(storeId);
     if (cached && cached.expiresAt > now) {
+      // TELEMETRY: Register hit and update access recency (critical for LRU defense)
+      cached.hits++;
+      cached.lastAccessedAt = now;
+
       // Add debug headers to verify cache health without logs
       res.setHeader("X-Cache", "HIT");
       res.setHeader("Cache-Control", "public, max-age=15, s-maxage=15, stale-while-revalidate=30");
@@ -81,7 +103,9 @@ export const getMenu = async (req: Request, res: Response) => {
     
     menuCache.set(storeId, {
       data: responsePayload,
-      expiresAt: now + CACHE_TTL_MS
+      expiresAt: now + CACHE_TTL_MS,
+      hits: 1,
+      lastAccessedAt: now,
     });
 
     // 4. RESPONSE HEADERS: Allow 15s of downstream caching (Browser/CDN)

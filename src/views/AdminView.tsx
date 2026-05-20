@@ -614,8 +614,8 @@ export const AdminView: React.FC = () => {
   const handleSaveInventory = async () => {
     if (!selectedStoreId) return;
     try {
-      // Use chunking to handle batches > 500 items while maintaining atomicity where possible
-      const CHUNK_SIZE = 490;
+      // Use chunking to handle batches > 500 items while maintaining atomicity for inventory items
+      const CHUNK_SIZE = 500;
       const wines = [...selectedWines];
       
       for (let i = 0; i < wines.length; i += CHUNK_SIZE) {
@@ -642,22 +642,20 @@ export const AdminView: React.FC = () => {
           };
           batch.set(docRef, inventoryItem);
         });
-
-        // 2. DENORMALIZATION: Save the entire rich menu to the store document's top level
-        // Include this in the FINAL batch for atomic consistency
-        if (i + CHUNK_SIZE >= wines.length) {
-          const richPublicMenu = wines
-            .filter(w => w.visible !== false && w.isActive !== false)
-            .map(projectWineForPublic);
-
-          batch.update(doc(db, 'stores', selectedStoreId), {
-            publicMenu: richPublicMenu,
-            updatedAt: new Date().toISOString()
-          });
-        }
         
         await batch.commit();
       }
+
+      // 2. DENORMALIZATION: Save the entire rich menu to the store document's top level
+      // Trigger updateDoc strictly after the master write batches have committed successfully
+      const richPublicMenu = wines
+        .filter(w => w.visible !== false && w.isActive !== false)
+        .map(projectWineForPublic);
+
+      await updateDoc(doc(db, 'stores', selectedStoreId), {
+        publicMenu: richPublicMenu,
+        updatedAt: new Date().toISOString()
+      });
 
       setImportStatus({ type: 'success', message: '全ての在庫・価格データを保存し、公開メニューを更新しました' });
       queryClient.invalidateQueries({ queryKey: ['stores'] });
