@@ -3,10 +3,10 @@ import { WineMaster, Store } from '../types';
 import { useWines } from '../lib/WineContext';
 import { wineRepository } from '../lib/repositories/wineRepository';
 import { useStoresQuery } from '../hooks/useStoresQuery';
-import { useWinesMasterQuery, useWinesSearchQuery } from '../hooks/useWinesQuery';
+import { useWinesMasterQuery } from '../hooks/useWinesQuery';
 import { useInventoryQuery } from '../hooks/useInventoryQuery';
 import { db } from '../lib/firebase';
-import { doc, setDoc, collection, getDocs, getDoc, updateDoc, deleteDoc, query, where, writeBatch } from 'firebase/firestore';
+import { doc, setDoc, collection, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { initializeApp, deleteApp, getApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
@@ -53,14 +53,14 @@ export const AdminView: React.FC = () => {
   } = useWinesMasterQuery();
 
   const [masterSearchTerm, setMasterSearchTerm] = useState('');
-  const { data: searchResults } = useWinesSearchQuery(masterSearchTerm);
 
   // Flattened Data
   const stores = useMemo(() => storesData?.pages.flatMap(page => page.data) || [], [storesData]);
+  
+  // 【罠②根治】Firestoreの前方一致クエリを完全廃止し、ロード済み配列をCatalogSelector内のincludes検索に一本化
   const wines = useMemo(() => {
-    if (masterSearchTerm && searchResults) return searchResults;
     return winesMasterData?.pages.flatMap(page => page.data) || [];
-  }, [winesMasterData, masterSearchTerm, searchResults]);
+  }, [winesMasterData]);
 
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
   const { data: inventoryData } = useInventoryQuery(selectedStoreId);
@@ -175,7 +175,6 @@ export const AdminView: React.FC = () => {
       setImportStatus({ type: 'success', message: 'マスターデータを更新しました' });
       setIsEditingMaster(false);
       queryClient.invalidateQueries({ queryKey: ['winesMaster'] });
-      if (masterSearchTerm) queryClient.invalidateQueries({ queryKey: ['winesMasterSearch', masterSearchTerm] });
     } catch (error: any) {
       handleFirestoreError(error, OperationType.UPDATE, `winesMaster/${getWineDocId(editingMasterWine)}`);
     }
@@ -516,6 +515,9 @@ export const AdminView: React.FC = () => {
         chunk.forEach(wine => {
           const compositeId = getWineDocId(wine);
           const docRef = doc(db, 'stores', selectedStoreId, 'inventory', compositeId);
+          
+          // 【罠①根治】管理者画面の保存対象から stock と isActive を完全パージ。
+          // merge: true により、オーナーが画面裏で変更した最新の在庫数や公開トグルが絶対に破壊されない。
           const inventoryItem = {
             id: compositeId,
             pureId: wine.pureId || wine.id,
@@ -527,8 +529,6 @@ export const AdminView: React.FC = () => {
             visible: wine.visible ?? true,
             isFeatured: wine.isFeatured ?? false,
             promoLabel: wine.promoLabel || '',
-            stock: wine.stock || 0,
-            isActive: wine.isActive ?? true,
             updatedAt: new Date().toISOString()
           };
           batch.set(docRef, inventoryItem, { merge: true });
@@ -701,9 +701,122 @@ export const AdminView: React.FC = () => {
 
   return (
     <div id="admin-view" className="min-h-screen bg-[#FDFCFB] text-slate-900 pb-20 animate-in fade-in duration-700">
-      {/* 既存の画面レイアウト（省略なしの構造のままレンダリング） */}
-      {/* ...既存のJSX構造コード... */}
-      <StoreGrid stores={filteredStores} hasMoreStores={hasMoreStores} onLoadMoreStores={handleLoadMoreStores} onCreateStore={handleCreateStore} onDeleteStore={handleDeleteStore} onSelectStore={setSelectedStoreId} />
+      <header className="bg-white border-b border-slate-200 px-4 md:px-8 py-6 md:py-10 mb-6 md:mb-8 z-20 shadow-sm">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div>
+            <div className="flex items-center justify-center md:justify-start gap-4 mb-1 md:mb-2 text-center md:text-left">
+              <h1 className="serif text-2xl md:text-4xl text-slate-900">
+                {showMasterCatalog ? 'マスターカタログ' : '営業統括ダッシュボード'}
+              </h1>
+              <button 
+                onClick={() => setShowMasterCatalog(!showMasterCatalog)}
+                className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest border transition-all flex items-center gap-2 ${showMasterCatalog ? 'bg-brand-wine text-white border-brand-wine' : 'bg-white text-slate-600 border-slate-200 hover:border-brand-wine hover:text-brand-wine'}`}
+              >
+                <Database className="w-3.5 h-3.5" />
+                {showMasterCatalog ? 'ダッシュボードへ' : 'マスターを表示'}
+              </button>
+            </div>
+            <p className="text-slate-400 text-xs uppercase tracking-[0.4em] font-bold text-center md:text-left">Sales Representative: {user?.name} • Total Stores: {stores.length}</p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3 md:gap-4 px-4 md:px-0">
+            <button
+               onClick={handleCreateStore}
+               className="flex items-center justify-center gap-2 px-6 md:px-8 py-3 bg-brand-wine text-white rounded-full text-xs font-bold uppercase tracking-widest hover:scale-105 transition-all shadow-md active:scale-95 w-full sm:w-auto"
+            >
+              <Plus className="w-5 h-5" />
+              新規店舗を開拓
+            </button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileUpload}
+              accept=".csv"
+              className="hidden"
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center justify-center gap-2 px-6 md:px-8 py-3 bg-white border-2 border-slate-200 rounded-full text-xs text-slate-600 font-bold uppercase tracking-widest hover:border-brand-wine hover:text-brand-wine transition-all shadow-sm w-full sm:w-auto"
+            >
+              <Upload className="w-5 h-5" />
+              マスター更新
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div className="max-w-7xl mx-auto px-4 md:px-8">
+        {!showMasterCatalog && (
+          <div className="bg-white border border-slate-200 rounded-[2rem] p-6 md:p-8 mb-10 shadow-sm backdrop-blur-xl bg-white/80">
+            <div className="flex flex-col lg:flex-row gap-6 items-center">
+              <div className="relative flex-1 w-full group">
+                <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-brand-wine transition-colors" />
+                <input 
+                  type="text"
+                  placeholder="店舗名・住所で検索..."
+                  value={storeSearchTerm}
+                  onChange={(e) => setStoreSearchTerm(e.target.value)}
+                  className="w-full pl-14 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm focus:bg-white focus:border-brand-wine outline-none transition-all shadow-inner focus:shadow-luxury-soft"
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto">
+                <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl border border-slate-100">
+                  <select 
+                    value={selectedCuisineFilter}
+                    onChange={(e) => setSelectedCuisineFilter(e.target.value)}
+                    className="bg-transparent px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 outline-none cursor-pointer hover:text-brand-wine transition-colors"
+                  >
+                    <option value="all">すべての料理</option>
+                    {cuisineTypes.filter(t => t !== 'all').map(type => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl border border-slate-100">
+                  <select 
+                    value={selectedStatusFilter}
+                    onChange={(e) => setSelectedStatusFilter(e.target.value as any)}
+                    className="bg-transparent px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 outline-none cursor-pointer hover:text-brand-wine transition-colors"
+                  >
+                    <option value="all">すべての状態</option>
+                    <option value="active">稼働中</option>
+                    <option value="inactive">停止中</option>
+                  </select>
+                </div>
+                <div className="ml-auto lg:ml-0 flex items-center gap-2 px-4 py-2.5 bg-brand-wine shadow-lg rounded-xl">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-white/60">Hits</span>
+                  <span className="text-sm font-black text-white">{filteredStores.length}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showMasterCatalog ? (
+          <MasterCatalog 
+            wines={wines}
+            masterSearchTerm={masterSearchTerm}
+            onSearchMaster={handleSearchMaster}
+            isEditingMaster={isEditingMaster}
+            editingMasterWine={editingMasterWine}
+            editMasterData={editMasterData}
+            setEditMasterData={setEditMasterData}
+            onStartEditingMaster={startEditingMaster}
+            onUpdateMaster={handleUpdateMaster}
+            onCancelEditMaster={() => setIsEditingMaster(false)}
+          />
+        ) : (
+          <StoreGrid 
+            stores={filteredStores}
+            hasMoreStores={hasMoreStores}
+            onLoadMoreStores={handleLoadMoreStores}
+            onCreateStore={handleCreateStore}
+            onDeleteStore={handleDeleteStore}
+            onSelectStore={setSelectedStoreId}
+          />
+        )}
+
+        {renderMasterEditModal()}
+      </div>
     </div>
   );
 };
