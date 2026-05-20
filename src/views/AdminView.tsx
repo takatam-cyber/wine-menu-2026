@@ -220,12 +220,10 @@ export const AdminView: React.FC = () => {
         pureId: editingMasterWine.pureId || editingMasterWine.id
       };
       // Clean undefined properties to prevent Firestore update silent crashes/errors
-      Object.keys(dataToUpdate).forEach(key => {
-        if (dataToUpdate[key] === undefined) {
-          delete dataToUpdate[key];
-        }
-      });
-      await updateDoc(doc(db, 'winesMaster', docId), dataToUpdate);
+      const cleanedData = Object.fromEntries(
+        Object.entries(dataToUpdate).filter(([_, v]) => v !== undefined)
+      );
+      await updateDoc(doc(db, 'winesMaster', docId), cleanedData);
       setImportStatus({ type: 'success', message: 'マスターデータを更新しました' });
       setIsEditingMaster(false);
       queryClient.invalidateQueries({ queryKey: ['winesMaster'] });

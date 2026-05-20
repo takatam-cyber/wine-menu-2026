@@ -200,8 +200,25 @@ export const OwnerView: React.FC = () => {
     if (!sid || inventory.length === 0) return;
     setIsSaving(true);
     try {
+      const mergedInventory = inventory.map(w => {
+        // 現在編集中のワインは、editWineDataの最新の入力値をマージする
+        if (editingWineId && getWineDocId(w) === getWineDocId({ id: editingWineId })) {
+          return {
+            ...w,
+            price_bottle: editWineData.price_bottle,
+            price_glass: editWineData.price_glass,
+            stock: editWineData.stock,
+            glasses_per_bottle: editWineData.glasses_per_bottle,
+            visible: editWineData.visible,
+            isFeatured: editWineData.isFeatured,
+            promoLabel: editWineData.promoLabel
+          };
+        }
+        return w;
+      });
+
       const batch = writeBatch(db);
-      inventory.forEach(wine => {
+      mergedInventory.forEach(wine => {
         const compositeId = getWineDocId(wine);
         const itemRef = doc(db, 'stores', sid, 'inventory', compositeId);
         batch.set(itemRef, {
@@ -220,7 +237,7 @@ export const OwnerView: React.FC = () => {
         }, { merge: true });
       });
 
-      const richPublicMenu = inventory
+      const richPublicMenu = mergedInventory
         .filter(w => w.visible !== false && w.isActive !== false)
         .map(projectWineForPublic);
 
@@ -228,6 +245,7 @@ export const OwnerView: React.FC = () => {
       await batch.commit();
      
       alert('すべてのセラー情報を一括保存しました。');
+      setEditingWineId(null);
       queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
     } catch (error) {
       console.error('一括保存に失敗しました:', error);
@@ -238,9 +256,9 @@ export const OwnerView: React.FC = () => {
   };
 
   // 表示切替トグル
-  const handleToggleActive = async (wineId: string, currentStatus: boolean) => {
+  const handleToggleActive = async (wine: any, currentStatus: boolean) => {
     if (!sid) return;
-    const compositeId = getWineDocId({ id: wineId });
+    const compositeId = getWineDocId(wine);
     const currentData = queryClient.getQueryData<{ store: any, inventory: any[] }>(['inventory', sid]);
     if (!currentData) return;
 
@@ -267,9 +285,9 @@ export const OwnerView: React.FC = () => {
   };
 
   // ワイン削除
-  const handleDeleteWine = async (wineId: string) => {
+  const handleDeleteWine = async (wine: any) => {
     if (!sid || !window.confirm('このワインをメニューから削除しますか？')) return;
-    const compositeId = getWineDocId({ id: wineId });
+    const compositeId = getWineDocId(wine);
     
     const currentData = queryClient.getQueryData<{ store: any, inventory: any[] }>(['inventory', sid]);
     if (!currentData) return;
@@ -349,9 +367,9 @@ export const OwnerView: React.FC = () => {
     });
   };
 
-  const handleToggleFeatured = async (wineId: string, currentFeatured: boolean) => {
+  const handleToggleFeatured = async (wine: any, currentFeatured: boolean) => {
     if (!sid) return;
-    const compositeId = getWineDocId({ id: wineId });
+    const compositeId = getWineDocId(wine);
     const currentData = queryClient.getQueryData<{ store: any, inventory: any[] }>(['inventory', sid]);
     if (!currentData) return;
 
@@ -817,7 +835,7 @@ export const OwnerView: React.FC = () => {
                               if (!currentData) return;
 
                               const nextInventorySnapshot = currentData.inventory.map(w => 
-                                w.id === wine.id ? { ...w, ...editWineData } : w
+                                getWineDocId(w) === getWineDocId(wine) ? { ...w, ...editWineData } : w
                               );
                               queryClient.setQueryData(['inventory', sid], { ...currentData, inventory: nextInventorySnapshot });
 
@@ -849,7 +867,7 @@ export const OwnerView: React.FC = () => {
                                 await batch.commit();
                                 setEditingWineId(null);
                               } catch (error) {
-                                console.error('Error saving wine changes:', error);
+                                      console.error('Error saving wine changes:', error);
                                 queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
                               }
                             }}
@@ -860,7 +878,7 @@ export const OwnerView: React.FC = () => {
                         ) : (
                           <div className="flex items-center gap-1">
                             <button
-                              onClick={() => handleToggleFeatured(wine.id, wine.isFeatured || false)}
+                              onClick={() => handleToggleFeatured(wine, wine.isFeatured || false)}
                               className={`p-2 rounded-lg transition-all ${
                                 wine.isFeatured ? 'text-amber-500 bg-amber-500/10' : 'text-gray-600 hover:text-brand-gold'
                               }`}
@@ -875,7 +893,7 @@ export const OwnerView: React.FC = () => {
                               <Edit2 className="w-3.5 h-3.5" />
                             </button>
                             <button
-                              onClick={() => handleToggleActive(wine.id, wine.isActive || false)}
+                              onClick={() => handleToggleActive(wine, wine.isActive || false)}
                               className={`p-2 rounded-lg transition-all ${
                                 wine.isActive ? 'text-brand-gold' : 'text-gray-600'
                               }`}
@@ -883,7 +901,7 @@ export const OwnerView: React.FC = () => {
                               {wine.isActive ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
                             </button>
                             <button
-                              onClick={() => handleDeleteWine(wine.id)}
+                              onClick={() => handleDeleteWine(wine)}
                               className="p-2 text-brand-wine/40 hover:text-rose-500 transition-colors"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
