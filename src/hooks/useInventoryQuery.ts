@@ -16,12 +16,11 @@ export function useInventoryQuery(storeId: string | null) {
       ]);
 
       if (!storeData) return null;
-
       if (inventoryItems.length === 0) {
         return { store: storeData, inventory: [] };
       }
 
-      // クォータ節約のための「in」一括取得（最大30件ずつチャンク処理してRead数を劇的に削減）
+      // クォータ節約のための「in」クエリによる一括取得（最大30件ずつチャンク処理してRead数を劇的に削減）
       const enrichedWines: WineMaster[] = [];
       const itemIds = inventoryItems.map(item => item.id);
 
@@ -52,7 +51,7 @@ export function useInventoryQuery(storeId: string | null) {
         });
       }
 
-      // マスターデータの登録順（name_jp順など）に綺麗にソートして返却
+      // マスターデータの登録順に綺麗にソートして返却
       const sortedWines = enrichedWines.sort((a, b) => (a.name_jp || '').localeCompare(b.name_jp || ''));
 
       return {
