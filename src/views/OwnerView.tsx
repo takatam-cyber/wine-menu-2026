@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { WineMaster, Store } from '../types';
-import { Wine, Camera, MessageSquare, Save, Eye, EyeOff, Loader2, X, Trash2, Plus, Search, Edit2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Wine, Camera, MessageSquare, Save, Eye, EyeOff, Loader2, X, Trash2, Plus, Search, Edit2, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
 import { useWines } from '../lib/WineContext';
 import { db } from '../lib/firebase';
 import { collection, getDocs, doc, getDoc, updateDoc, deleteDoc, setDoc, writeBatch } from 'firebase/firestore';
@@ -82,10 +82,27 @@ export const OwnerView: React.FC = () => {
     }
   }, [store]);
 
-  const [editWineData, setEditWineData] = useState<{ price_bottle: number; price_glass: number; stock: number; visible: boolean; isFeatured: boolean; promoLabel: string }>({ 
+  const getWineDocId = (wine: { id: string; supplier?: string; pureId?: string }) => {
+    const pure = wine.pureId || wine.id;
+    const supplier = (wine.supplier || 'PIEROTH').toUpperCase();
+    const supplierPrefix = `${supplier}_`;
+    if (pure.startsWith(supplierPrefix)) return pure;
+    return `${supplierPrefix}${pure}`;
+  };
+
+  const [editWineData, setEditWineData] = useState<{
+    price_bottle: number;
+    price_glass: number;
+    stock: number;
+    glasses_per_bottle: number;
+    visible: boolean;
+    isFeatured: boolean;
+    promoLabel: string;
+  }>({ 
     price_bottle: 0, 
     price_glass: 0, 
     stock: 0,
+    glasses_per_bottle: 6,
     visible: true,
     isFeatured: false,
     promoLabel: ''
@@ -294,10 +311,38 @@ export const OwnerView: React.FC = () => {
       price_bottle: wine.price_bottle,
       price_glass: wine.price_glass,
       stock: wine.stock || 0,
+      glasses_per_bottle: wine.glasses_per_bottle || 6,
       visible: wine.visible !== false,
       isFeatured: wine.isFeatured || false,
       promoLabel: wine.promoLabel || ''
     });
+  };
+
+  const handleToggleFeatured = async (wineId: string, currentFeatured: boolean) => {
+    if (!sid) return;
+    const currentData = queryClient.getQueryData<{ store: any, inventory: any[] }>(['inventory', sid]);
+    if (!currentData) return;
+
+    const nextInventorySnapshot = currentData.inventory.map(w =>
+      w.id === wineId ? { ...w, isFeatured: !currentFeatured } : w
+    );
+    queryClient.setQueryData(['inventory', sid], { ...currentData, inventory: nextInventorySnapshot });
+
+    try {
+      const batch = writeBatch(db);
+      const itemRef = doc(db, 'stores', sid, 'inventory', wineId);
+      batch.update(itemRef, { isFeatured: !currentFeatured, updatedAt: new Date().toISOString() });
+
+      const richPublicMenu = nextInventorySnapshot
+        .filter(w => w.visible !== false && w.isActive !== false)
+        .map(projectWineForPublic);
+
+      batch.update(doc(db, 'stores', sid), { publicMenu: richPublicMenu });
+      await batch.commit();
+    } catch (error) {
+      console.error('Error toggling featured status:', error);
+      queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
+    }
   };
 
   const filteredMasterWines = masterWines.filter(w => 
@@ -670,6 +715,15 @@ export const OwnerView: React.FC = () => {
                             />
                           </div>
                           <div className="w-16">
+                            <label className="text-[9px] text-brand-gold/40 block uppercase tracking-widest mb-0.5">杯数/本</label>
+                            <input
+                              type="number"
+                              className="w-full bg-white/5 border border-brand-gold/30 rounded px-2 py-1 text-xs text-brand-ivory outline-none focus:border-brand-gold font-mono text-center"
+                              value={editWineData.glasses_per_bottle}
+                              onChange={e => setEditWineData({...editWineData, glasses_per_bottle: parseInt(e.target.value) || 6}) }
+                            />
+                          </div>
+                          <div className="w-16">
                             <input 
                               type="number"
                               className="w-full bg-white/5 border border-brand-gold/30 rounded px-2 py-1 text-xs text-brand-ivory outline-none focus:border-brand-gold"
@@ -722,22 +776,24 @@ export const OwnerView: React.FC = () => {
                               );
                               queryClient.setQueryData(['inventory', sid], { ...currentData, inventory: nextInventorySnapshot });
 
-                              // ★アトミック更新：編集保存とパブリックメニュー同期を単一のBatchに集約
                               try {
                                 const batch = writeBatch(db);
-                                const itemRef = doc(db, 'stores', sid, 'inventory', wine.id);
+                                // バグ根治: AdminViewと完全に一致させるために getWineDocId を使用
+                                const targetDocId = getWineDocId(wine);
+                                const itemRef = doc(db, 'stores', sid, 'inventory', targetDocId);
                                 
                                 const updateData = {
                                   price_bottle: editWineData.price_bottle,
                                   price_glass: editWineData.price_glass,
                                   stock: editWineData.stock,
+                                  glasses_per_bottle: editWineData.glasses_per_bottle, // 連動性確保
                                   visible: editWineData.visible,
                                   isFeatured: editWineData.isFeatured,
                                   promoLabel: editWineData.promoLabel,
                                   updatedAt: new Date().toISOString()
                                 };
 
-                                batch.update(itemRef, updateData);
+                                batch.set(itemRef, updateData, { merge: true });
 
                                 const richPublicMenu = nextInventorySnapshot
                                   .filter(w => w.visible !== false && w.isActive !== false)
@@ -758,6 +814,15 @@ export const OwnerView: React.FC = () => {
                           </button>
                         ) : (
                           <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => handleToggleFeatured(wine.id, wine.isFeatured || false)}
+                              className={`p-2 rounded-lg transition-all ${
+                                wine.isFeatured ? 'text-amber-500 bg-amber-500/10' : 'text-gray-600 hover:text-brand-gold'
+                              }`}
+                              title="メニューのおすすめに設定"
+                            >
+                              <Sparkles className={`w-3.5 h-3.5 ${wine.isFeatured ? 'fill-current' : ''}`} />
+                            </button>
                             <button
                               onClick={() => startEditingWine(wine)}
                               className="p-2 text-brand-gold/40 hover:text-brand-gold transition-colors"
