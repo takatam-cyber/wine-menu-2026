@@ -39,7 +39,8 @@ export function useInventoryQuery(storeId: string | null) {
               pureId: masterData.id || docSnap.id,
               price_bottle: invItem.price_bottle ?? masterData.price_bottle,
               price_glass: invItem.price_glass ?? masterData.price_glass,
-              cost: masterData.cost ?? 2000,
+              // 【ビジネスロジックの罠を粉砕】店舗固有の特別卸値（invItem.cost）を最優先でマージ
+              cost: invItem.cost ?? masterData.cost ?? 2000,
               glasses_per_bottle: invItem.glasses_per_bottle ?? 6,
               visible: invItem.visible ?? true,
               isFeatured: invItem.isFeatured ?? false,
