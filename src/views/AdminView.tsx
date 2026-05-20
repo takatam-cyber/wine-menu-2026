@@ -678,6 +678,136 @@ export const AdminView: React.FC = () => {
     }
   };
 
+  // ───【最重要】マスターカタログの編集モーダルを、関数の末尾で一元ハンドリングする ───
+  const renderMasterEditModal = () => (
+    <AnimatePresence>
+      {isEditingMaster && editingMasterWine && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+        >
+          <motion.div
+            initial={{ scale: 0.95, y: 20 }}
+            animate={{ scale: 1, y: 0 }}
+            className="bg-white rounded-[2rem] shadow-2xl w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh]"
+          >
+            <div className="p-8 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h3 className="serif text-2xl text-slate-900">マスター銘柄編集</h3>
+                <p className="text-xs text-slate-400 uppercase tracking-widest font-bold mt-1">Editing Master Registry Item: {editingMasterWine.id}</p>
+              </div>
+              <button onClick={() => setIsEditingMaster(false)} className="p-2 text-slate-300 hover:text-slate-600 transition-colors">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="p-8 space-y-6 overflow-y-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="md:col-span-1">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">ワイン名称 (日本語)</label>
+                  <input 
+                    type="text"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
+                    value={editMasterData.name_jp || ''}
+                    onChange={e => setEditMasterData({...editMasterData, name_jp: e.target.value})}
+                  />
+                </div>
+                <div className="md:col-span-1">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">Wine Name (English)</label>
+                  <input 
+                    type="text"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
+                    value={editMasterData.name_en || ''}
+                    onChange={e => setEditMasterData({...editMasterData, name_en: e.target.value})}
+                  />
+                </div>
+                <div className="md:col-span-1">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">国 (日本語)</label>
+                  <input 
+                    type="text"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
+                    value={editMasterData.country || ''}
+                    onChange={e => setEditMasterData({...editMasterData, country: e.target.value})}
+                  />
+                </div>
+                <div className="md:col-span-1">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">Country (English)</label>
+                  <input 
+                    type="text"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
+                    value={editMasterData.country_en || ''}
+                    onChange={e => setEditMasterData({...editMasterData, country_en: e.target.value})}
+                  />
+                </div>
+                <div className="md:col-span-1">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">主要品種 (日本語)</label>
+                  <input 
+                    type="text"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
+                    value={editMasterData.grape || ''}
+                    onChange={e => setEditMasterData({...editMasterData, grape: e.target.value})}
+                  />
+                </div>
+                <div className="md:col-span-1">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">Grape (English)</label>
+                  <input 
+                    type="text"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
+                    value={editMasterData.grape_en || ''}
+                    onChange={e => setEditMasterData({...editMasterData, grape_en: e.target.value})}
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">参考価格 (ボトル)</label>
+                  <input 
+                    type="number"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
+                    value={editMasterData.price_bottle || 0}
+                    onChange={e => setEditMasterData({...editMasterData, price_bottle: parseInt(e.target.value) || 0})}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">AIソムリエ解説文 (日本語)</label>
+                <textarea 
+                  rows={3}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine resize-none mb-4"
+                  value={editMasterData.ai_explanation || ''}
+                  onChange={e => setEditMasterData({...editMasterData, ai_explanation: e.target.value})}
+                />
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">AI Sommelier Explanation (English)</label>
+                <textarea 
+                  rows={3}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine resize-none"
+                  value={editMasterData.ai_explanation_en || ''}
+                  onChange={e => setEditMasterData({...editMasterData, ai_explanation_en: e.target.value})}
+                />
+                <p className="text-xs text-slate-400 mt-2 font-medium italic">※この説明は全店舗のメニューに共通して反映されます。</p>
+              </div>
+            </div>
+
+            <div className="p-8 border-t border-slate-100 flex justify-end gap-3 bg-slate-50/50">
+              <button 
+                onClick={() => setIsEditingMaster(false)}
+                className="px-6 py-3 text-xs font-bold uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-all"
+              >
+                キャンセル
+              </button>
+              <button 
+                onClick={handleUpdateMaster}
+                className="px-10 py-3 bg-brand-wine text-white rounded-full text-xs font-bold uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-lg"
+              >
+                マスターを更新
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+
   if (!selectedStoreId) {
     return (
       <div id="admin-view" className="min-h-screen bg-[#FDFCFB] text-slate-900 pb-20 animate-in fade-in duration-700">
@@ -794,6 +924,8 @@ export const AdminView: React.FC = () => {
               onSelectStore={setSelectedStoreId}
             />
           )}
+
+          {renderMasterEditModal()}
         </div>
       </div>
     );
@@ -1129,132 +1261,7 @@ export const AdminView: React.FC = () => {
         </div>
       </div>
 
-      <AnimatePresence>
-        {isEditingMaster && editingMasterWine && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-          >
-            <motion.div
-              initial={{ scale: 0.95, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              className="bg-white rounded-[2rem] shadow-2xl w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh]"
-            >
-              <div className="p-8 border-b border-slate-100 flex items-center justify-between">
-                <div>
-                  <h3 className="serif text-2xl text-slate-900">マスター銘柄編集</h3>
-                  <p className="text-xs text-slate-400 uppercase tracking-widest font-bold mt-1">Editing Master Registry Item: {editingMasterWine.id}</p>
-                </div>
-                <button onClick={() => setIsEditingMaster(false)} className="p-2 text-slate-300 hover:text-slate-600 transition-colors">
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-
-              <div className="p-8 space-y-6 overflow-y-auto">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="md:col-span-1">
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">ワイン名称 (日本語)</label>
-                    <input 
-                      type="text"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
-                      value={editMasterData.name_jp || ''}
-                      onChange={e => setEditMasterData({...editMasterData, name_jp: e.target.value})}
-                    />
-                  </div>
-                  <div className="md:col-span-1">
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">Wine Name (English)</label>
-                    <input 
-                      type="text"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
-                      value={editMasterData.name_en || ''}
-                      onChange={e => setEditMasterData({...editMasterData, name_en: e.target.value})}
-                    />
-                  </div>
-                  <div className="md:col-span-1">
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">国 (日本語)</label>
-                    <input 
-                      type="text"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
-                      value={editMasterData.country || ''}
-                      onChange={e => setEditMasterData({...editMasterData, country: e.target.value})}
-                    />
-                  </div>
-                  <div className="md:col-span-1">
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">Country (English)</label>
-                    <input 
-                      type="text"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
-                      value={editMasterData.country_en || ''}
-                      onChange={e => setEditMasterData({...editMasterData, country_en: e.target.value})}
-                    />
-                  </div>
-                  <div className="md:col-span-1">
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">主要品種 (日本語)</label>
-                    <input 
-                      type="text"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
-                      value={editMasterData.grape || ''}
-                      onChange={e => setEditMasterData({...editMasterData, grape: e.target.value})}
-                    />
-                  </div>
-                  <div className="md:col-span-1">
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">Grape (English)</label>
-                    <input 
-                      type="text"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
-                      value={editMasterData.grape_en || ''}
-                      onChange={e => setEditMasterData({...editMasterData, grape_en: e.target.value})}
-                    />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">参考価格 (ボトル)</label>
-                    <input 
-                      type="number"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
-                      value={editMasterData.price_bottle || 0}
-                      onChange={e => setEditMasterData({...editMasterData, price_bottle: parseInt(e.target.value) || 0})}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">AIソムリエ解説文 (日本語)</label>
-                  <textarea 
-                    rows={3}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine resize-none mb-4"
-                    value={editMasterData.ai_explanation || ''}
-                    onChange={e => setEditMasterData({...editMasterData, ai_explanation: e.target.value})}
-                  />
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">AI Sommelier Explanation (English)</label>
-                  <textarea 
-                    rows={3}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine resize-none"
-                    value={editMasterData.ai_explanation_en || ''}
-                    onChange={e => setEditMasterData({...editMasterData, ai_explanation_en: e.target.value})}
-                  />
-                  <p className="text-xs text-slate-400 mt-2 font-medium italic">※この説明は全店舗のメニューに共通して反映されます。</p>
-                </div>
-              </div>
-
-              <div className="p-8 border-t border-slate-100 flex justify-end gap-3 bg-slate-50/50">
-                <button 
-                  onClick={() => setIsEditingMaster(false)}
-                  className="px-6 py-3 text-xs font-bold uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-all"
-                >
-                  キャンセル
-                </button>
-                <button 
-                  onClick={handleUpdateMaster}
-                  className="px-10 py-3 bg-brand-wine text-white rounded-full text-xs font-bold uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-lg"
-                >
-                  マスターを更新
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {renderMasterEditModal()}
     </div>
   );
 };

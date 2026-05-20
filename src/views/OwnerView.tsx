@@ -123,16 +123,15 @@ export const OwnerView: React.FC = () => {
 
   // セキュリティ&軽量化プロジェクション関数（仕入れ値をパージして、1MBの容量制限を徹底防御）
   const projectWineForPublic = (w: any) => ({
-    id: w.id,
+    id: getWineDocId(w),
+    pureId: w.pureId || w.id,
+    supplier: (w.supplier || 'PIEROTH').toUpperCase(),
     name_jp: w.name_jp,
     name_en: w.name_en,
-    // CRITICAL: Force empty strings for heavy texts to guarantee 1MB limit safety
     menu_short: '',
     menu_short_en: '',
     ai_explanation: '',
     ai_explanation_en: '',
-    
-    // Taxonomy
     country: w.country,
     country_en: w.country_en,
     region: w.region,
@@ -153,7 +152,6 @@ export const OwnerView: React.FC = () => {
     complexity: w.complexity || 3,
     finish: w.finish || 3,
     oak: w.oak || 1,
-    // CRITICAL: Force empty strings for heavy texts
     aroma_features: '',
     aroma_features_en: '',
     tags: w.tags || '',
@@ -162,15 +160,13 @@ export const OwnerView: React.FC = () => {
     pairing_en: w.pairing_en || '',
     price_bottle: w.price_bottle,
     price_glass: w.price_glass,
+    glasses_per_bottle: w.glasses_per_bottle || 6,
     image_url: w.image_url,
     isFeatured: w.isFeatured ?? false,
     promoLabel: w.promoLabel || '',
     isActive: w.isActive ?? true,
     updatedAt: new Date().toISOString()
   });
-
-  // ★修正：データ消失バグの根源だった常時監視型 useEffect を完全抹消。
-  // これによりマウント時の空配列によるパブリックメニュー破壊が100%防げます。
 
   const handleUpdateStore = async () => {
     if (!sid || !user?.uid) return;
@@ -199,65 +195,97 @@ export const OwnerView: React.FC = () => {
     }
   };
 
-  // ★修正：目玉アイコンクリック（表示切替）を完全にアトミック化（Batch処理）
-  // レースコンディション（先祖返り）を防ぐため、最新のキャッシュを即座に引き継いでBatchに流し込む
+  // ─── 追加機能：新規一括保存（確定ボタン）ロジック ───
+  const handleSaveAllInventory = async () => {
+    if (!sid || inventory.length === 0) return;
+    setIsSaving(true);
+    try {
+      const batch = writeBatch(db);
+      inventory.forEach(wine => {
+        const compositeId = getWineDocId(wine);
+        const itemRef = doc(db, 'stores', sid, 'inventory', compositeId);
+        batch.set(itemRef, {
+          id: compositeId,
+          pureId: wine.pureId || wine.id,
+          supplier: (wine.supplier || 'PIEROTH').toUpperCase(),
+          price_bottle: wine.price_bottle || 0,
+          price_glass: wine.price_glass || 0,
+          stock: wine.stock || 0,
+          glasses_per_bottle: wine.glasses_per_bottle || 6,
+          visible: wine.visible ?? true,
+          isFeatured: wine.isFeatured ?? false,
+          promoLabel: wine.promoLabel || '',
+          isActive: wine.isActive ?? true,
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+      });
+
+      const richPublicMenu = inventory
+        .filter(w => w.visible !== false && w.isActive !== false)
+        .map(projectWineForPublic);
+
+      batch.update(doc(db, 'stores', sid), { publicMenu: richPublicMenu });
+      await batch.commit();
+     
+      alert('すべてのセラー情報を一括保存しました。');
+      queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
+    } catch (error) {
+      console.error('一括保存に失敗しました:', error);
+      alert('一括保存に失敗しました。');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // 表示切替トグル
   const handleToggleActive = async (wineId: string, currentStatus: boolean) => {
     if (!sid) return;
-    
-    // 1. 最新のクエリキャッシュを取得（Reactの状態 inventory ではなく、常に最新のキャッシュを参照）
+    const compositeId = getWineDocId({ id: wineId });
     const currentData = queryClient.getQueryData<{ store: any, inventory: any[] }>(['inventory', sid]);
     if (!currentData) return;
 
-    // 2. 次の状態を計算
-    const nextInventorySnapshot = currentData.inventory.map(w => 
-      w.id === wineId ? { ...w, isActive: !currentStatus } : w
+    const nextInventorySnapshot = currentData.inventory.map(w =>
+      getWineDocId(w) === compositeId ? { ...w, isActive: !currentStatus } : w
     );
-
-    // 3. キャッシュを先行して更新（連打されても次の呼び出しがこの状態を引き継げるようにする）
     queryClient.setQueryData(['inventory', sid], { ...currentData, inventory: nextInventorySnapshot });
 
     try {
       const batch = writeBatch(db);
-      
-      // サブコレクションの更新
-      const itemRef = doc(db, 'stores', sid, 'inventory', wineId);
+      const itemRef = doc(db, 'stores', sid, 'inventory', compositeId);
       batch.update(itemRef, { isActive: !currentStatus, updatedAt: new Date().toISOString() });
 
-      // パブリックメニューの更新（計算済みのスナップショットを使用）
       const richPublicMenu = nextInventorySnapshot
         .filter(w => w.visible !== false && w.isActive !== false)
         .map(projectWineForPublic);
 
       batch.update(doc(db, 'stores', sid), { publicMenu: richPublicMenu });
-
       await batch.commit();
     } catch (error) {
       console.error('Error toggling active status:', error);
-      // エラー時はフェッチし直して整合性を戻す
       queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
     }
   };
 
-  // ★修正：ワイン削除をアトミック化（Race Condition排除）
+  // ワイン削除
   const handleDeleteWine = async (wineId: string) => {
     if (!sid || !window.confirm('このワインをメニューから削除しますか？')) return;
+    const compositeId = getWineDocId({ id: wineId });
     
     const currentData = queryClient.getQueryData<{ store: any, inventory: any[] }>(['inventory', sid]);
     if (!currentData) return;
 
-    const nextInventorySnapshot = currentData.inventory.filter(w => w.id !== wineId);
+    const nextInventorySnapshot = currentData.inventory.filter(w => getWineDocId(w) !== compositeId);
     queryClient.setQueryData(['inventory', sid], { ...currentData, inventory: nextInventorySnapshot });
 
     try {
       const batch = writeBatch(db);
-      batch.delete(doc(db, 'stores', sid, 'inventory', wineId));
+      batch.delete(doc(db, 'stores', sid, 'inventory', compositeId));
 
       const richPublicMenu = nextInventorySnapshot
         .filter(w => w.visible !== false && w.isActive !== false)
         .map(projectWineForPublic);
 
       batch.update(doc(db, 'stores', sid), { publicMenu: richPublicMenu });
-
       await batch.commit();
     } catch (error) {
       console.error('Error deleting wine:', error);
@@ -265,19 +293,24 @@ export const OwnerView: React.FC = () => {
     }
   };
 
-  // ★修正：ワイン追加をアトミック化（Race Condition排除）
+  // カタログからワインの追加
   const handleAddWine = async (masterWine: WineMaster) => {
     if (!sid) return;
+    const compositeId = getWineDocId(masterWine);
     
     const currentData = queryClient.getQueryData<{ store: any, inventory: any[] }>(['inventory', sid]);
     const inventoryBase = currentData?.inventory || [];
 
     const newItem = {
-      id: masterWine.id,
+      id: compositeId,
+      pureId: masterWine.pureId || masterWine.id,
+      supplier: (masterWine.supplier || 'PIEROTH').toUpperCase(),
       isActive: true,
       visible: true,
-      price_bottle: masterWine.price_bottle,
-      price_glass: masterWine.price_glass,
+      price_bottle: masterWine.price_bottle || 0,
+      price_glass: masterWine.price_glass || 0,
+      glasses_per_bottle: 6,
+      stock: 0,
       updatedAt: new Date().toISOString()
     };
 
@@ -288,15 +321,13 @@ export const OwnerView: React.FC = () => {
 
     try {
       const batch = writeBatch(db);
-      const itemRef = doc(db, 'stores', sid, 'inventory', masterWine.id);
-      batch.set(itemRef, newItem);
+      batch.set(doc(db, 'stores', sid, 'inventory', compositeId), newItem);
 
       const richPublicMenu = nextInventorySnapshot
         .filter(w => w.visible !== false && w.isActive !== false)
         .map(projectWineForPublic);
 
       batch.update(doc(db, 'stores', sid), { publicMenu: richPublicMenu });
-
       await batch.commit();
       setShowAddModal(false);
     } catch (error) {
@@ -320,17 +351,18 @@ export const OwnerView: React.FC = () => {
 
   const handleToggleFeatured = async (wineId: string, currentFeatured: boolean) => {
     if (!sid) return;
+    const compositeId = getWineDocId({ id: wineId });
     const currentData = queryClient.getQueryData<{ store: any, inventory: any[] }>(['inventory', sid]);
     if (!currentData) return;
 
     const nextInventorySnapshot = currentData.inventory.map(w =>
-      w.id === wineId ? { ...w, isFeatured: !currentFeatured } : w
+      getWineDocId(w) === compositeId ? { ...w, isFeatured: !currentFeatured } : w
     );
     queryClient.setQueryData(['inventory', sid], { ...currentData, inventory: nextInventorySnapshot });
 
     try {
       const batch = writeBatch(db);
-      const itemRef = doc(db, 'stores', sid, 'inventory', wineId);
+      const itemRef = doc(db, 'stores', sid, 'inventory', compositeId);
       batch.update(itemRef, { isFeatured: !currentFeatured, updatedAt: new Date().toISOString() });
 
       const richPublicMenu = nextInventorySnapshot
@@ -346,7 +378,7 @@ export const OwnerView: React.FC = () => {
   };
 
   const filteredMasterWines = masterWines.filter(w => 
-    !inventory.some(inv => inv.id === w.id) &&
+    !inventory.some(inv => getWineDocId(inv) === getWineDocId(w)) &&
     (w.name_jp.toLowerCase().includes(searchTerm.toLowerCase()) || 
      w.name_en.toLowerCase().includes(searchTerm.toLowerCase()) ||
      w.id.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -478,13 +510,23 @@ export const OwnerView: React.FC = () => {
             </div>
           )}
         </div>
-        <button 
-          onClick={() => setShowAddModal(true)}
-          className="bg-brand-gold text-brand-wine px-6 py-3 rounded-full text-xs font-bold uppercase tracking-widest flex items-center gap-2 hover:scale-105 transition-all shadow-luxury active:scale-95"
-        >
-          <Plus className="w-5 h-5" />
-          ワインを追加
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleSaveAllInventory}
+            disabled={isSaving}
+            className="bg-transparent border border-brand-gold/50 text-brand-gold hover:bg-brand-gold/10 px-6 py-3 rounded-full text-xs font-bold uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 shadow-md disabled:opacity-40"
+          >
+            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            変更を一括保存
+          </button>
+          <button 
+            onClick={() => setShowAddModal(true)}
+            className="bg-brand-gold text-brand-wine px-6 py-3 rounded-full text-xs font-bold uppercase tracking-widest flex items-center gap-2 hover:scale-105 transition-all shadow-luxury active:scale-95"
+          >
+            <Plus className="w-5 h-5" />
+            ワインを追加
+          </button>
+        </div>
       </header>
 
       {/* Analytics Dashboard */}
@@ -697,45 +739,48 @@ export const OwnerView: React.FC = () => {
 
                     <div className="flex items-center justify-between w-full md:w-auto gap-4 md:gap-0">
                       {editingWineId === wine.id ? (
-                        <div className="flex flex-wrap md:flex-nowrap items-center gap-2 w-full">
-                          <div className="w-20 md:w-24">
+                        <div className="flex flex-wrap md:flex-nowrap items-center gap-3 w-full">
+                          <div className="w-24">
+                            <label className="text-[10px] font-extrabold text-brand-gold/60 uppercase tracking-widest block mb-1">ボトル価格</label>
                             <input 
                               type="number"
-                              className="w-full bg-white/5 border border-brand-gold/30 rounded px-2 py-1 text-xs text-brand-ivory outline-none focus:border-brand-gold"
+                              className="w-full bg-white/5 border border-brand-gold/30 rounded px-2.5 py-1.5 text-xs text-brand-ivory outline-none focus:border-brand-gold font-mono text-center shadow-inner"
                               value={editWineData.price_bottle}
                               onChange={e => setEditWineData({...editWineData, price_bottle: parseInt(e.target.value) || 0}) }
                             />
                           </div>
-                          <div className="w-20 md:w-24">
+                          <div className="w-24">
+                            <label className="text-[10px] font-extrabold text-brand-gold/60 uppercase tracking-widest block mb-1">グラス価格</label>
                             <input 
                               type="number"
-                              className="w-full bg-white/5 border border-brand-gold/30 rounded px-2 py-1 text-xs text-brand-ivory outline-none focus:border-brand-gold"
+                              className="w-full bg-white/5 border border-brand-gold/30 rounded px-2.5 py-1.5 text-xs text-brand-ivory outline-none focus:border-brand-gold font-mono text-center shadow-inner"
                               value={editWineData.price_glass}
                               onChange={e => setEditWineData({...editWineData, price_glass: parseInt(e.target.value) || 0}) }
                             />
                           </div>
-                          <div className="w-16">
-                            <label className="text-[9px] text-brand-gold/40 block uppercase tracking-widest mb-0.5">杯数/本</label>
+                          <div className="w-20">
+                            <label className="text-[10px] font-extrabold text-brand-gold/60 uppercase tracking-widest block mb-1">グラス杯数</label>
                             <input
                               type="number"
-                              className="w-full bg-white/5 border border-brand-gold/30 rounded px-2 py-1 text-xs text-brand-ivory outline-none focus:border-brand-gold font-mono text-center"
+                              className="w-full bg-white/5 border border-brand-gold/30 rounded px-2.5 py-1.5 text-xs text-brand-ivory outline-none focus:border-brand-gold font-mono text-center shadow-inner"
                               value={editWineData.glasses_per_bottle}
                               onChange={e => setEditWineData({...editWineData, glasses_per_bottle: parseInt(e.target.value) || 6}) }
                             />
                           </div>
                           <div className="w-16">
+                            <label className="text-[10px] font-extrabold text-brand-gold/60 uppercase tracking-widest block mb-1">在庫数</label>
                             <input 
                               type="number"
-                              className="w-full bg-white/5 border border-brand-gold/30 rounded px-2 py-1 text-xs text-brand-ivory outline-none focus:border-brand-gold"
+                              className="w-full bg-white/5 border border-brand-gold/30 rounded px-2.5 py-1.5 text-xs text-brand-ivory outline-none focus:border-brand-gold font-mono text-center shadow-inner"
                               value={editWineData.stock}
                               onChange={e => setEditWineData({...editWineData, stock: parseInt(e.target.value) || 0}) }
                             />
                           </div>
                           <div className="hidden md:flex flex-col items-center justify-center w-24">
-                             <div className={`text-xs font-bold ${isLowMargin ? 'text-rose-500' : 'text-emerald-500'}`}>
+                             <label className="text-[10px] font-extrabold text-brand-gold/60 uppercase tracking-widest block mb-1">粗利率</label>
+                             <div className={`text-xs font-bold font-mono py-1.5 ${isLowMargin ? 'text-rose-500' : 'text-emerald-500'}`}>
                                {margin}%
                              </div>
-                             {isLowMargin && <div className="text-xs text-rose-500/60 font-bold uppercase">Low Margin</div>}
                           </div>
                         </div>
                       ) : (
