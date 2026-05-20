@@ -214,11 +214,17 @@ export const AdminView: React.FC = () => {
     if (!editingMasterWine) return;
     try {
       const docId = getWineDocId(editingMasterWine);
-      const dataToUpdate = {
+      const dataToUpdate: any = {
         ...editMasterData,
         id: docId, // Maintain composite ID consistency
         pureId: editingMasterWine.pureId || editingMasterWine.id
       };
+      // Clean undefined properties to prevent Firestore update silent crashes/errors
+      Object.keys(dataToUpdate).forEach(key => {
+        if (dataToUpdate[key] === undefined) {
+          delete dataToUpdate[key];
+        }
+      });
       await updateDoc(doc(db, 'winesMaster', docId), dataToUpdate);
       setImportStatus({ type: 'success', message: 'マスターデータを更新しました' });
       setIsEditingMaster(false);
@@ -267,7 +273,9 @@ export const AdminView: React.FC = () => {
               glasses_per_bottle: invItem.glasses_per_bottle ?? 6,
               visible: invItem.visible ?? masterData.visible ?? true,
               isFeatured: invItem.isFeatured ?? masterData.isFeatured ?? false,
-              promoLabel: invItem.promoLabel || masterData.promoLabel || ''
+              promoLabel: invItem.promoLabel || masterData.promoLabel || '',
+              stock: invItem.stock ?? 0,
+              isActive: invItem.isActive ?? true
             });
           }
         });
@@ -636,11 +644,11 @@ export const AdminView: React.FC = () => {
             visible: wine.visible ?? true,
             isFeatured: wine.isFeatured ?? false,
             promoLabel: wine.promoLabel || '',
-            stock: 0,
-            isActive: true,
+            stock: wine.stock || 0,
+            isActive: wine.isActive ?? true,
             updatedAt: new Date().toISOString()
           };
-          batch.set(docRef, inventoryItem);
+          batch.set(docRef, inventoryItem, { merge: true });
         });
         
         await batch.commit();
