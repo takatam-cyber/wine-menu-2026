@@ -202,7 +202,7 @@ export const OwnerView: React.FC = () => {
     try {
       const mergedInventory = inventory.map(w => {
         // 現在編集中のワインは、editWineDataの最新の入力値をマージする
-        if (editingWineId && getWineDocId(w) === getWineDocId({ id: editingWineId })) {
+        if (editingWineId && w.id === editingWineId) {
           return {
             ...w,
             price_bottle: editWineData.price_bottle,
@@ -256,11 +256,14 @@ export const OwnerView: React.FC = () => {
   };
 
   // 表示切替トグル
-  const handleToggleActive = async (wine: any, currentStatus: boolean) => {
+  const handleToggleActive = async (wineId: string, currentStatus: boolean) => {
     if (!sid) return;
-    const compositeId = getWineDocId(wine);
     const currentData = queryClient.getQueryData<{ store: any, inventory: any[] }>(['inventory', sid]);
     if (!currentData) return;
+
+    const wine = currentData.inventory.find(w => w.id === wineId);
+    if (!wine) return;
+    const compositeId = getWineDocId(wine);
 
     const nextInventorySnapshot = currentData.inventory.map(w =>
       getWineDocId(w) === compositeId ? { ...w, isActive: !currentStatus } : w
@@ -285,13 +288,15 @@ export const OwnerView: React.FC = () => {
   };
 
   // ワイン削除
-  const handleDeleteWine = async (wine: any) => {
+  const handleDeleteWine = async (wineId: string) => {
     if (!sid || !window.confirm('このワインをメニューから削除しますか？')) return;
-    const compositeId = getWineDocId(wine);
-    
     const currentData = queryClient.getQueryData<{ store: any, inventory: any[] }>(['inventory', sid]);
     if (!currentData) return;
 
+    const wine = currentData.inventory.find(w => w.id === wineId);
+    if (!wine) return;
+    const compositeId = getWineDocId(wine);
+    
     const nextInventorySnapshot = currentData.inventory.filter(w => getWineDocId(w) !== compositeId);
     queryClient.setQueryData(['inventory', sid], { ...currentData, inventory: nextInventorySnapshot });
 
@@ -367,11 +372,14 @@ export const OwnerView: React.FC = () => {
     });
   };
 
-  const handleToggleFeatured = async (wine: any, currentFeatured: boolean) => {
+  const handleToggleFeatured = async (wineId: string, currentFeatured: boolean) => {
     if (!sid) return;
-    const compositeId = getWineDocId(wine);
     const currentData = queryClient.getQueryData<{ store: any, inventory: any[] }>(['inventory', sid]);
     if (!currentData) return;
+
+    const wine = currentData.inventory.find(w => w.id === wineId);
+    if (!wine) return;
+    const compositeId = getWineDocId(wine);
 
     const nextInventorySnapshot = currentData.inventory.map(w =>
       getWineDocId(w) === compositeId ? { ...w, isFeatured: !currentFeatured } : w
@@ -878,7 +886,7 @@ export const OwnerView: React.FC = () => {
                         ) : (
                           <div className="flex items-center gap-1">
                             <button
-                              onClick={() => handleToggleFeatured(wine, wine.isFeatured || false)}
+                              onClick={() => handleToggleFeatured(wine.id, wine.isFeatured || false)}
                               className={`p-2 rounded-lg transition-all ${
                                 wine.isFeatured ? 'text-amber-500 bg-amber-500/10' : 'text-gray-600 hover:text-brand-gold'
                               }`}
@@ -893,7 +901,7 @@ export const OwnerView: React.FC = () => {
                               <Edit2 className="w-3.5 h-3.5" />
                             </button>
                             <button
-                              onClick={() => handleToggleActive(wine, wine.isActive || false)}
+                              onClick={() => handleToggleActive(wine.id, wine.isActive || false)}
                               className={`p-2 rounded-lg transition-all ${
                                 wine.isActive ? 'text-brand-gold' : 'text-gray-600'
                               }`}
@@ -901,7 +909,7 @@ export const OwnerView: React.FC = () => {
                               {wine.isActive ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
                             </button>
                             <button
-                              onClick={() => handleDeleteWine(wine)}
+                              onClick={() => handleDeleteWine(wine.id)}
                               className="p-2 text-brand-wine/40 hover:text-rose-500 transition-colors"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
