@@ -11,7 +11,7 @@ import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { initializeApp, deleteApp, getApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
-import { Plus, Database, Upload, Eye, Save, Settings, Edit2, Shield, Wine, Trash2, X, Search } from 'lucide-react';
+import { Plus, Database, Upload, Eye, Save, Settings, Edit2, Shield, Wine, Trash2, X, Search, ChevronLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -35,6 +35,61 @@ const getBaseUrl = () => {
   return origin;
 };
 
+// ID生成および射影ユーティリティを追加
+const getWineDocId = (wine: { id: string; supplier?: string; pureId?: string }) => {
+  const pure = wine.pureId || wine.id;
+  const supplier = (wine.supplier || 'PIEROTH').toUpperCase();
+  const supplierPrefix = `${supplier}_`;
+  if (pure.startsWith(supplierPrefix)) return pure;
+  return `${supplierPrefix}${pure}`;
+};
+
+const projectWineForPublic = (w: any) => ({
+  id: getWineDocId(w),
+  pureId: w.pureId || w.id,
+  supplier: (w.supplier || 'PIEROTH').toUpperCase(),
+  name_jp: w.name_jp,
+  name_en: w.name_en,
+  menu_short: '',
+  menu_short_en: '',
+  ai_explanation: '',
+  ai_explanation_en: '',
+  country: w.country,
+  country_en: w.country_en,
+  region: w.region,
+  region_en: w.region_en,
+  grape: w.grape,
+  grape_en: w.grape_en,
+  color: w.color,
+  color_en: w.color_en,
+  type: w.type,
+  type_en: w.type_en,
+  vintage: w.vintage,
+  alcohol: w.alcohol,
+  sweetness: w.sweetness || 1,
+  body: w.body || 3,
+  acidity: w.acidity || 3,
+  tannins: w.tannins || 3,
+  aroma_intensity: w.aroma_intensity || 3,
+  complexity: w.complexity || 3,
+  finish: w.finish || 3,
+  oak: w.oak || 1,
+  aroma_features: '',
+  aroma_features_en: '',
+  tags: w.tags || '',
+  tags_en: w.tags_en || '',
+  pairing: w.pairing || '',
+  pairing_en: w.pairing_en || '',
+  price_bottle: w.price_bottle,
+  price_glass: w.price_glass,
+  glasses_per_bottle: w.glasses_per_bottle || 6,
+  image_url: w.image_url,
+  isFeatured: w.isFeatured ?? false,
+  promoLabel: w.promoLabel || '',
+  isActive: w.isActive ?? true,
+  updatedAt: new Date().toISOString()
+});
+
 export const AdminView: React.FC = () => {
   const { user } = useWines();
   const queryClient = useQueryClient();
@@ -57,7 +112,6 @@ export const AdminView: React.FC = () => {
   // Flattened Data
   const stores = useMemo(() => storesData?.pages.flatMap(page => page.data) || [], [storesData]);
   
-  // 【罠②根治】Firestoreの前方一致クエリを完全廃止し、ロード済み配列をCatalogSelector内のincludes検索に一本化
   const wines = useMemo(() => {
     return winesMasterData?.pages.flatMap(page => page.data) || [];
   }, [winesMasterData]);
@@ -65,20 +119,16 @@ export const AdminView: React.FC = () => {
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
   const { data: inventoryData } = useInventoryQuery(selectedStoreId);
 
-  const lastLoadedStoreId = useRef<string | null>(null);
   const [selectedWines, setSelectedWines] = useState<WineMaster[]>([]);
 
+  // 【バグ修正】ワイン追加時やタブ切り替え時にもデータを即時同期させる
   useEffect(() => {
     if (inventoryData?.inventory && selectedStoreId === inventoryData.store?.id) {
-      if (lastLoadedStoreId.current !== selectedStoreId) {
-        setSelectedWines(inventoryData.inventory);
-        lastLoadedStoreId.current = selectedStoreId;
-      }
+      setSelectedWines(inventoryData.inventory);
     } else if (!selectedStoreId) {
       setSelectedWines([]);
-      lastLoadedStoreId.current = null;
     }
-  }, [selectedStoreId, inventoryData]);
+  }, [selectedStoreId, inventoryData?.inventory]);
 
   const [storeSearchTerm, setStoreSearchTerm] = useState('');
   const [selectedCuisineFilter, setSelectedCuisineFilter] = useState('all');
@@ -238,6 +288,7 @@ export const AdminView: React.FC = () => {
     }
   };
 
+  // 【バグ修正】トランザクション制限（500件）クラッシュ防止のためChunk分割を実装
   const handleBulkAddWines = async () => {
     if (!selectedStoreId || selectedMasterIds.length === 0) return;
     
@@ -254,26 +305,32 @@ export const AdminView: React.FC = () => {
         }
       }
 
-      const batch = writeBatch(db);
-      winesToAdd.forEach(wine => {
-        const compositeId = getWineDocId(wine);
-        const newInventoryItem = {
-          id: compositeId,
-          pureId: wine.pureId || wine.id,
-          supplier: (wine.supplier || 'PIEROTH').toUpperCase(),
-          price_bottle: wine.price_bottle || wine.cost * 3,
-          price_glass: wine.price_glass || Math.round((wine.cost * 3 / 6) / 100) * 100,
-          cost: wine.cost,
-          glasses_per_bottle: 6,
-          stock: 0,
-          isActive: true,
-          visible: true,
-          updatedAt: new Date().toISOString()
-        };
-        batch.set(doc(db, 'stores', selectedStoreId, 'inventory', compositeId), newInventoryItem);
-      });
+      const CHUNK_SIZE = 450;
+      for (let i = 0; i < winesToAdd.length; i += CHUNK_SIZE) {
+        const chunk = winesToAdd.slice(i, i + CHUNK_SIZE);
+        const batch = writeBatch(db);
+        
+        chunk.forEach(wine => {
+          const compositeId = getWineDocId(wine);
+          const newInventoryItem = {
+            id: compositeId,
+            pureId: wine.pureId || wine.id,
+            supplier: (wine.supplier || 'PIEROTH').toUpperCase(),
+            price_bottle: wine.price_bottle || wine.cost * 3,
+            price_glass: wine.price_glass || Math.round((wine.cost * 3 / 6) / 100) * 100,
+            cost: wine.cost,
+            glasses_per_bottle: 6,
+            stock: 0,
+            isActive: true,
+            visible: true,
+            updatedAt: new Date().toISOString()
+          };
+          batch.set(doc(db, 'stores', selectedStoreId, 'inventory', compositeId), newInventoryItem);
+        });
 
-      await batch.commit();
+        await batch.commit();
+      }
+
       queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
       queryClient.invalidateQueries({ queryKey: ['stores'] });
       
@@ -516,8 +573,6 @@ export const AdminView: React.FC = () => {
           const compositeId = getWineDocId(wine);
           const docRef = doc(db, 'stores', selectedStoreId, 'inventory', compositeId);
           
-          // 【罠①根治】管理者画面の保存対象から stock と isActive を完全パージ。
-          // merge: true により、オーナーが画面裏で変更した最新の在庫数や公開トグルが絶対に破壊されない。
           const inventoryItem = {
             id: compositeId,
             pureId: wine.pureId || wine.id,
@@ -745,7 +800,7 @@ export const AdminView: React.FC = () => {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 md:px-8">
-        {!showMasterCatalog && (
+        {!showMasterCatalog && !selectedStoreId && (
           <div className="bg-white border border-slate-200 rounded-[2rem] p-6 md:p-8 mb-10 shadow-sm backdrop-blur-xl bg-white/80">
             <div className="flex flex-col lg:flex-row gap-6 items-center">
               <div className="relative flex-1 w-full group">
@@ -791,6 +846,7 @@ export const AdminView: React.FC = () => {
           </div>
         )}
 
+        {/* 【バグ修正】 店舗が選択された場合にInventoryManager等を表示する分岐を追加 */}
         {showMasterCatalog ? (
           <MasterCatalog 
             wines={wines}
@@ -804,6 +860,159 @@ export const AdminView: React.FC = () => {
             onUpdateMaster={handleUpdateMaster}
             onCancelEditMaster={() => setIsEditingMaster(false)}
           />
+        ) : selectedStoreId ? (
+          <div className="space-y-8 animate-in fade-in duration-500">
+            <div className="flex items-center gap-4 mb-6">
+              <button 
+                onClick={() => setSelectedStoreId(null)}
+                className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-full text-xs font-bold uppercase tracking-widest hover:border-brand-wine hover:text-brand-wine transition-all flex items-center gap-2"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                店舗一覧へ戻る
+              </button>
+              <h2 className="serif text-2xl md:text-3xl text-slate-900">{selectedStore?.name}</h2>
+              <span className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full ${selectedStore?.isActive ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-red-50 text-red-600 border border-red-100'}`}>
+                {selectedStore?.isActive ? '稼働中' : '停止中'}
+              </span>
+            </div>
+
+            <StoreAnalytics selectedWines={selectedWines} />
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="lg:col-span-2">
+                <InventoryManager 
+                  selectedStore={selectedStore}
+                  selectedStoreId={selectedStoreId}
+                  selectedWines={selectedWines}
+                  setSelectedWines={setSelectedWines}
+                  masterWines={wines}
+                  searchId={searchId}
+                  setSearchId={setSearchId}
+                  handleAddWine={handleAddWine}
+                  onShowCatalogSelection={() => setShowCatalogSelection(true)}
+                  onFileUpload={handleFileUpload}
+                  onSaveInventory={handleSaveInventory}
+                  onDeleteWine={handleDeleteWine}
+                  fileInputRef={fileInputRef}
+                  hasMoreWines={hasMoreWinesMaster}
+                  onLoadMoreWines={handleLoadMoreWines}
+                />
+              </div>
+              <div className="space-y-6">
+                <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Settings className="text-brand-wine w-5 h-5" />
+                    <h2 className="text-xs font-bold uppercase tracking-widest text-slate-800">基本情報設定</h2>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-1">店名</label>
+                    <input 
+                      type="text"
+                      value={isEditingStore ? editStoreData.name : selectedStore?.name}
+                      onChange={(e) => isEditingStore && setEditStoreData({...editStoreData, name: e.target.value})}
+                      disabled={!isEditingStore}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-brand-wine disabled:opacity-70 disabled:bg-slate-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-1">料理カテゴリー</label>
+                    <input 
+                      type="text"
+                      value={isEditingStore ? editStoreData.cuisine_type : selectedStore?.cuisine_type}
+                      onChange={(e) => isEditingStore && setEditStoreData({...editStoreData, cuisine_type: e.target.value})}
+                      disabled={!isEditingStore}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-brand-wine disabled:opacity-70 disabled:bg-slate-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-1">住所</label>
+                    <input 
+                      type="text"
+                      value={isEditingStore ? editStoreData.address : selectedStore?.address}
+                      onChange={(e) => isEditingStore && setEditStoreData({...editStoreData, address: e.target.value})}
+                      disabled={!isEditingStore}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-brand-wine disabled:opacity-70 disabled:bg-slate-100"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">公開ステータス</span>
+                    <button 
+                      onClick={() => isEditingStore && setEditStoreData({...editStoreData, isActive: !editStoreData.isActive})}
+                      disabled={!isEditingStore}
+                      className={`w-12 h-6 rounded-full transition-all relative disabled:opacity-50 ${
+                        (isEditingStore ? editStoreData.isActive : selectedStore?.isActive) 
+                          ? 'bg-green-500' 
+                          : 'bg-slate-300'
+                      }`}
+                    >
+                      <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${
+                        (isEditingStore ? editStoreData.isActive : selectedStore?.isActive) 
+                          ? 'left-7' 
+                          : 'left-1'
+                      }`} />
+                    </button>
+                  </div>
+                  <div className="pt-4 flex gap-2">
+                    {isEditingStore ? (
+                      <>
+                        <button 
+                          onClick={() => setIsEditingStore(false)}
+                          className="flex-1 py-2 text-xs font-bold uppercase tracking-widest text-slate-500 hover:bg-slate-50 rounded-xl transition-all"
+                        >
+                          キャンセル
+                        </button>
+                        <button 
+                          onClick={handleUpdateStore}
+                          className="flex-1 py-2 bg-brand-wine text-white text-xs font-bold uppercase tracking-widest rounded-xl hover:shadow-lg hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2"
+                        >
+                          <Save className="w-3.5 h-3.5" /> 保存
+                        </button>
+                      </>
+                    ) : (
+                      <button 
+                        onClick={() => {
+                          setEditStoreData(selectedStore || {});
+                          setIsEditingStore(true);
+                        }}
+                        className="w-full py-2 bg-slate-100 text-brand-wine text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-brand-wine hover:text-white transition-all flex items-center justify-center gap-2"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" /> 店舗情報を編集
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <OwnerAccountForm 
+                  selectedStore={selectedStore}
+                  ownerEmail={ownerEmail}
+                  setOwnerEmail={setOwnerEmail}
+                  ownerPassword={ownerPassword}
+                  setOwnerPassword={setOwnerPassword}
+                  isCreatingOwner={isCreatingOwner}
+                  isEditingOwner={isEditingOwner}
+                  onHandleCreateOwner={handleCreateOwner}
+                  showOwnerForm={showOwnerForm}
+                  setShowOwnerForm={setShowOwnerForm}
+                  onToggleEditMode={toggleOwnerEditMode}
+                />
+              </div>
+            </div>
+            
+            <CatalogSelector 
+              isOpen={showCatalogSelection}
+              onClose={() => setShowCatalogSelection(false)}
+              selectedStore={selectedStore}
+              wines={wines}
+              masterSearchTerm={masterSearchTerm}
+              setMasterSearchTerm={setMasterSearchTerm}
+              selectedWines={selectedWines}
+              selectedMasterIds={selectedMasterIds}
+              toggleMasterSelection={toggleMasterSelection}
+              handleBulkAddWines={handleBulkAddWines}
+              hasMoreWines={hasMoreWinesMaster}
+              onLoadMoreWines={handleLoadMoreWines}
+            />
+          </div>
         ) : (
           <StoreGrid 
             stores={filteredStores}
