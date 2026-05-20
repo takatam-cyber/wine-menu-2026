@@ -15,7 +15,6 @@ import { Plus, Database, Upload, Eye, Save, Settings, Edit2, Shield, Wine, Trash
 import { motion, AnimatePresence } from 'motion/react';
 import { useQueryClient } from '@tanstack/react-query';
 
-// New Components and Utils
 import { parseWineCSV } from '../lib/csv-parser';
 import { StoreGrid } from '../components/admin/StoreGrid';
 import { InventoryManager } from '../components/admin/InventoryManager';
@@ -39,25 +38,12 @@ export const AdminView: React.FC = () => {
   const { user } = useWines();
   const queryClient = useQueryClient();
   
-  // React Query Hooks
-  const { 
-    data: storesData, 
-    fetchNextPage: fetchNextStores, 
-    hasNextPage: hasMoreStores,
-    refetch: refetchStores
-  } = useStoresQuery(user);
-  
-  const { 
-    data: winesMasterData, 
-    fetchNextPage: fetchNextWinesMaster, 
-    hasNextPage: hasMoreWinesMaster,
-    refetch: refetchWinesMaster
-  } = useWinesMasterQuery();
+  const { data: storesData, fetchNextPage: fetchNextStores, hasNextPage: hasMoreStores } = useStoresQuery(user);
+  const { data: winesMasterData, fetchNextPage: fetchNextWinesMaster, hasNextPage: hasMoreWinesMaster } = useWinesMasterQuery();
 
   const [masterSearchTerm, setMasterSearchTerm] = useState('');
   const { data: searchResults } = useWinesSearchQuery(masterSearchTerm);
 
-  // Flattened Data
   const stores = useMemo(() => storesData?.pages.flatMap(page => page.data) || [], [storesData]);
   const wines = useMemo(() => {
     if (masterSearchTerm && searchResults) return searchResults;
@@ -68,6 +54,7 @@ export const AdminView: React.FC = () => {
   const { data: inventoryData } = useInventoryQuery(selectedStoreId);
 
   const lastLoadedStoreId = useRef<string | null>(null);
+  const [selectedWines, setSelectedWines] = useState<WineMaster[]>([]);
 
   useEffect(() => {
     if (inventoryData?.inventory && selectedStoreId === inventoryData.store?.id) {
@@ -97,7 +84,6 @@ export const AdminView: React.FC = () => {
         (store.address && store.address.toLowerCase().includes(storeSearchTerm.toLowerCase()));
       
       const matchesCuisine = selectedCuisineFilter === 'all' || store.cuisine_type === selectedCuisineFilter;
-      
       const matchesStatus = selectedStatusFilter === 'all' || 
         (selectedStatusFilter === 'active' && store.isActive) ||
         (selectedStatusFilter === 'inactive' && !store.isActive);
@@ -107,7 +93,6 @@ export const AdminView: React.FC = () => {
   }, [stores, storeSearchTerm, selectedCuisineFilter, selectedStatusFilter]);
 
   const [searchId, setSearchId] = useState('');
-  const [selectedWines, setSelectedWines] = useState<WineMaster[]>([]);
   const [isImporting, setIsImporting] = useState(false);
   const [importStatus, setImportStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
   const [showOwnerForm, setShowOwnerForm] = useState(false);
@@ -133,7 +118,6 @@ export const AdminView: React.FC = () => {
     }
   }, []);
 
-  // 追記：トースト通知がでたら4秒後に自動消滅させるタイマー
   useEffect(() => {
     if (importStatus) {
       const timer = setTimeout(() => {
@@ -172,19 +156,15 @@ export const AdminView: React.FC = () => {
   };
 
   const projectWineForPublic = (w: any) => ({
-    // 必須識別・テキスト
     id: getWineDocId(w),
     pureId: w.pureId || w.id,
     supplier: (w.supplier || 'PIEROTH').toUpperCase(),
     name_jp: w.name_jp,
     name_en: w.name_en,
-    // CRITICAL: Exclude heavy texts for public snapshot to stay under 1MB Firestore limit
     menu_short: '',
     menu_short_en: '',
     ai_explanation: '',
     ai_explanation_en: '',
-    
-    // 分類・メタデータ
     country: w.country,
     country_en: w.country_en,
     region: w.region,
@@ -197,8 +177,6 @@ export const AdminView: React.FC = () => {
     type_en: w.type_en,
     vintage: w.vintage,
     alcohol: w.alcohol,
-    
-    // 味わいマトリックス（レーダーチャート・コンシェルジュ用）
     sweetness: w.sweetness || 1,
     body: w.body || 3,
     acidity: w.acidity || 3,
@@ -207,17 +185,12 @@ export const AdminView: React.FC = () => {
     complexity: w.complexity || 3,
     finish: w.finish || 3,
     oak: w.oak || 1,
-    // CRITICAL: Exclude heavy detailed text for public snapshot
     aroma_features: '',
     aroma_features_en: '',
-    
-    // タグ・ペアリング（クイックフィルタ用）
     tags: w.tags || '',
     tags_en: w.tags_en || '',
     pairing: w.pairing || '',
     pairing_en: w.pairing_en || '',
-    
-    // 店舗固有設定・メディア
     price_bottle: w.price_bottle,
     price_glass: w.price_glass,
     image_url: w.image_url,
@@ -233,10 +206,9 @@ export const AdminView: React.FC = () => {
       const docId = getWineDocId(editingMasterWine);
       const dataToUpdate: any = {
         ...editMasterData,
-        id: docId, // Maintain composite ID consistency
+        id: docId,
         pureId: editingMasterWine.pureId || editingMasterWine.id
       };
-      // Clean undefined properties to prevent Firestore update silent crashes/errors
       const cleanedData = Object.fromEntries(
         Object.entries(dataToUpdate).filter(([_, v]) => v !== undefined)
       );
@@ -250,17 +222,7 @@ export const AdminView: React.FC = () => {
     }
   };
 
-  const handleLoadMoreStores = () => {
-    fetchNextStores();
-  };
-
-  const handleLoadMoreWines = () => {
-    fetchNextWinesMaster();
-  };
-
   const selectedStore = stores.find(s => s.id === selectedStoreId);
-
-
 
   const handleAddWine = async (wineId?: string) => {
     const idToUse = wineId || searchId;
@@ -275,7 +237,6 @@ export const AdminView: React.FC = () => {
     }
 
     if (wine && selectedStoreId && !selectedWines.find(sw => sw.id === idToUse)) {
-      // Governance Check: allowedSuppliers (Case-insensitive)
       const allowed = selectedStore?.allowedSuppliers?.map(s => s.toUpperCase());
       const wineSupplier = (wine.supplier || 'PIEROTH').toUpperCase();
       
@@ -288,8 +249,8 @@ export const AdminView: React.FC = () => {
       const docPath = `stores/${selectedStoreId}/inventory/${compositeId}`;
       try {
         const newInventoryItem = {
-          id: compositeId, // Composite ID as identifier
-          pureId: wine.pureId || wine.id, // Pure ID for reference
+          id: compositeId,
+          pureId: wine.pureId || wine.id,
           supplier: (wine.supplier || 'PIEROTH').toUpperCase(),
           price_bottle: wine.price_bottle || wine.cost * 3,
           price_glass: wine.price_glass || Math.round((wine.cost * 3 / 6) / 100) * 100,
@@ -317,7 +278,6 @@ export const AdminView: React.FC = () => {
     try {
       const winesToAdd = wines.filter(w => selectedMasterIds.includes(w.id));
       
-      // Governance Check: allowedSuppliers
       if (selectedStore?.allowedSuppliers) {
         const allowed = selectedStore.allowedSuppliers.map(s => s.toUpperCase());
         const unauthorized = winesToAdd.filter(w => !allowed.includes((w.supplier || 'PIEROTH').toUpperCase()));
@@ -360,9 +320,7 @@ export const AdminView: React.FC = () => {
   };
 
   const toggleMasterSelection = (id: string) => {
-    setSelectedMasterIds(prev => 
-      prev.includes(id) ? prev.filter(mid => mid !== id) : [...prev, id]
-    );
+    setSelectedMasterIds(prev => prev.includes(id) ? prev.filter(mid => mid !== id) : [...prev, id]);
   };
 
   const handleCreateStore = async () => {
@@ -373,7 +331,7 @@ export const AdminView: React.FC = () => {
         id: newStoreId,
         name: `新規店舗 ${stores.length + 1}`,
         repId: user?.uid || '',
-        ownerId: '', // Explicitly initialize empty ownerId for rules consistency
+        ownerId: '',
         cuisine_type: 'フレンチ',
         isActive: true,
         hasAiSommelier: true,
@@ -469,7 +427,6 @@ export const AdminView: React.FC = () => {
   const handleUpdateStore = async () => {
     if (!selectedStoreId || !selectedStore) return;
     try {
-      // 既存のメタデータ（ownerId, repId）を確実に保持しながら更新
       const updatePayload = {
         ...editStoreData,
         ownerId: selectedStore.ownerId || '',
@@ -507,21 +464,15 @@ export const AdminView: React.FC = () => {
 
     try {
       const importedWines = await parseWineCSV(file);
+      const CHUNK_SIZE = 450;
       
-      const CHUNK_SIZE = 450; // Safety margin for batch operations
-      
-      // 1. Update Master Catalog
       for (let i = 0; i < importedWines.length; i += CHUNK_SIZE) {
         const chunk = importedWines.slice(i, i + CHUNK_SIZE);
         const batch = writeBatch(db);
         
         chunk.forEach(wine => {
           const docId = getWineDocId(wine);
-          const wineToSave = { 
-            ...wine, 
-            id: docId, 
-            pureId: wine.pureId || wine.id 
-          };
+          const wineToSave = { ...wine, id: docId, pureId: wine.pureId || wine.id };
           batch.set(doc(db, 'winesMaster', docId), wineToSave);
         });
         
@@ -537,7 +488,6 @@ export const AdminView: React.FC = () => {
           winesToAdd = importedWines.filter(w => allowed.includes((w.supplier || 'PIEROTH').toUpperCase()));
         }
 
-        // 2. Update Inventory and Sync Public Menu
         for (let i = 0; i < winesToAdd.length; i += CHUNK_SIZE) {
           const chunk = winesToAdd.slice(i, i + CHUNK_SIZE);
           const batch = writeBatch(db);
@@ -559,7 +509,6 @@ export const AdminView: React.FC = () => {
             batch.set(doc(db, 'stores', selectedStoreId, 'inventory', compositeId), invItem);
           });
           
-          // SYNC publicMenu snapshot in the FINAL batch operation to ensure atomicity and efficiency
           if (i + CHUNK_SIZE >= winesToAdd.length) {
             const richPublicMenu = winesToAdd
               .filter(w => w.visible !== false && w.isActive !== false)
@@ -577,10 +526,7 @@ export const AdminView: React.FC = () => {
         queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
       }
 
-      setImportStatus({ 
-        type: 'success', 
-        message: `${importedWines.length}件の銘柄データをインポートしました` 
-      });
+      setImportStatus({ type: 'success', message: `${importedWines.length}件の銘柄データをインポートしました` });
     } catch (error: any) {
       console.error('Import error:', error);
       setImportStatus({ type: 'error', message: `インポート失敗: ${error.message}` });
@@ -593,7 +539,6 @@ export const AdminView: React.FC = () => {
   const handleSaveInventory = async () => {
     if (!selectedStoreId) return;
     try {
-      // Use chunking to handle batches > 500 items while maintaining atomicity for inventory items
       const CHUNK_SIZE = 500;
       const wines = [...selectedWines];
       
@@ -625,8 +570,6 @@ export const AdminView: React.FC = () => {
         await batch.commit();
       }
 
-      // 2. DENORMALIZATION: Save the entire rich menu to the store document's top level
-      // Trigger updateDoc strictly after the master write batches have committed successfully
       const richPublicMenu = wines
         .filter(w => w.visible !== false && w.isActive !== false)
         .map(projectWineForPublic);
@@ -638,7 +581,6 @@ export const AdminView: React.FC = () => {
 
       queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
       queryClient.invalidateQueries({ queryKey: ['stores'] });
-
       setImportStatus({ type: 'success', message: '全ての在庫・価格データを保存し、公開メニューを更新しました' });
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `stores/${selectedStoreId}/inventory`);
@@ -661,7 +603,6 @@ export const AdminView: React.FC = () => {
     }
   };
 
-  // ───【最重要】マスターカタログの編集モーダルを、関数の末尾で一元ハンドリングする ───
   const renderMasterEditModal = () => (
     <AnimatePresence>
       {isEditingMaster && editingMasterWine && (
@@ -1027,51 +968,6 @@ export const AdminView: React.FC = () => {
                     <p className="text-xs text-slate-400 mt-1 uppercase tracking-tighter">例: Pieroth, OtherSupplier (未設定時は全許可)</p>
                   </div>
                 </div>
-                <div className="flex flex-col items-center justify-center bg-white p-6 rounded-2xl border border-slate-200 shadow-inner">
-                  <div className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">モバイル用QRコード</div>
-                  <div className="p-3 bg-white border border-slate-100 rounded-xl shadow-lg mb-4">
-                    <img 
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(getBaseUrl() + '/menu/' + selectedStoreId)}`}
-                      alt="Store QR Code"
-                      referrerPolicy="no-referrer"
-                      className="w-48 h-48"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-2 w-full">
-                    <button 
-                      onClick={() => window.location.href = `/owner?storeId=${selectedStoreId}`}
-                      className="w-full py-3 bg-brand-wine text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:brightness-125 flex items-center justify-center gap-2 shadow-luxury border border-brand-gold/30"
-                    >
-                      <Settings className="w-3.5 h-3.5" />
-                      店舗オーナーとして管理
-                    </button>
-                    <button 
-                      onClick={() => window.open(`${getBaseUrl()}/menu/${selectedStoreId}`, '_blank')}
-                      className="w-full py-3 bg-brand-gold text-brand-wine rounded-xl text-xs font-bold uppercase tracking-widest hover:brightness-110 flex items-center justify-center gap-2 shadow-sm"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                      お客様メニューを表示
-                    </button>
-                    <button 
-                      onClick={() => {
-                        const url = getBaseUrl() + '/menu/' + selectedStoreId;
-                        navigator.clipboard.writeText(url);
-                        alert('URLをコピーしました');
-                      }}
-                      className="w-full py-2 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-slate-200 transition-all border border-slate-200"
-                    >
-                      URLをコピー
-                    </button>
-                    <div className="h-px bg-slate-200 my-2" />
-                    <button 
-                      onClick={() => handleDeleteStore(selectedStoreId!)}
-                      className="w-full py-3 bg-white text-red-500 border border-red-200 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-red-50 transition-all flex items-center justify-center gap-2"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      この店舗を削除する
-                    </button>
-                  </div>
-                </div>
                 <div>
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-1">住所</label>
                   <input 
@@ -1248,3 +1144,5 @@ export const AdminView: React.FC = () => {
     </div>
   );
 };
+
+}
