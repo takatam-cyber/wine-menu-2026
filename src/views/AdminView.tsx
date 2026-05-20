@@ -67,11 +67,19 @@ export const AdminView: React.FC = () => {
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
   const { data: inventoryData } = useInventoryQuery(selectedStoreId);
 
+  const lastLoadedStoreId = useRef<string | null>(null);
+
   useEffect(() => {
-    if (inventoryData) {
-      setSelectedWines(inventoryData.inventory);
+    if (inventoryData?.inventory && selectedStoreId === inventoryData.store?.id) {
+      if (lastLoadedStoreId.current !== selectedStoreId) {
+        setSelectedWines(inventoryData.inventory);
+        lastLoadedStoreId.current = selectedStoreId;
+      }
+    } else if (!selectedStoreId) {
+      setSelectedWines([]);
+      lastLoadedStoreId.current = null;
     }
-  }, [inventoryData]);
+  }, [selectedStoreId, inventoryData]);
 
   const [storeSearchTerm, setStoreSearchTerm] = useState('');
   const [selectedCuisineFilter, setSelectedCuisineFilter] = useState('all');
@@ -295,6 +303,7 @@ export const AdminView: React.FC = () => {
         
         await setDoc(doc(db, 'stores', selectedStoreId, 'inventory', compositeId), newInventoryItem);
         queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
+        queryClient.invalidateQueries({ queryKey: ['stores'] });
         setSearchId('');
       } catch (error) {
         handleFirestoreError(error, OperationType.WRITE, docPath);
@@ -340,6 +349,7 @@ export const AdminView: React.FC = () => {
 
       await batch.commit();
       queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
+      queryClient.invalidateQueries({ queryKey: ['stores'] });
       
       setImportStatus({ type: 'success', message: `${selectedMasterIds.length}件のワインを追加しました` });
       setShowCatalogSelection(false);
