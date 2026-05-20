@@ -304,7 +304,6 @@ export const AdminView: React.FC = () => {
         await setDoc(doc(db, 'stores', selectedStoreId, 'inventory', compositeId), newInventoryItem);
         queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
         queryClient.invalidateQueries({ queryKey: ['stores'] });
-        lastLoadedStoreId.current = null;
         setSearchId('');
       } catch (error) {
         handleFirestoreError(error, OperationType.WRITE, docPath);
@@ -351,7 +350,6 @@ export const AdminView: React.FC = () => {
       await batch.commit();
       queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
       queryClient.invalidateQueries({ queryKey: ['stores'] });
-      lastLoadedStoreId.current = null;
       
       setImportStatus({ type: 'success', message: `${selectedMasterIds.length}件のワインを追加しました` });
       setShowCatalogSelection(false);
@@ -577,7 +575,6 @@ export const AdminView: React.FC = () => {
         }
 
         queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
-        lastLoadedStoreId.current = null;
       }
 
       setImportStatus({ 
@@ -641,7 +638,6 @@ export const AdminView: React.FC = () => {
 
       queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
       queryClient.invalidateQueries({ queryKey: ['stores'] });
-      lastLoadedStoreId.current = null;
 
       setImportStatus({ type: 'success', message: '全ての在庫・価格データを保存し、公開メニューを更新しました' });
     } catch (error) {
@@ -659,7 +655,6 @@ export const AdminView: React.FC = () => {
       await deleteDoc(doc(db, 'stores', selectedStoreId, 'inventory', compositeId));
       queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
       queryClient.invalidateQueries({ queryKey: ['stores'] });
-      lastLoadedStoreId.current = null;
       setSelectedWines(prev => prev.filter(w => w.id !== wineId));
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `stores/${selectedStoreId}/inventory/${compositeId}`);

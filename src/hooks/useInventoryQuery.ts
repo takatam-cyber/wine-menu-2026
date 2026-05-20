@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { storeRepository } from '../lib/repositories/storeRepository';
-import { wineRepository } from '../lib/repositories/wineRepository';
+import { db } from '../lib/firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { WineMaster, Store } from '../types';
 
 export function useInventoryQuery(storeId: string | null) {
@@ -16,27 +17,47 @@ export function useInventoryQuery(storeId: string | null) {
 
       if (!storeData) return null;
 
-      // Enrich inventory with master data
-      const enriched = await Promise.all(inventoryItems.map(async (item) => {
-        const master = await wineRepository.getWineById(item.id);
-        if (!master) return null;
+      if (inventoryItems.length === 0) {
+        return { store: storeData, inventory: [] };
+      }
 
-        return { 
-          ...master, 
-          isActive: item.isActive ?? true, 
-          visible: item.visible ?? true,
-          isFeatured: item.isFeatured ?? false,
-          promoLabel: item.promoLabel || '',
-          price_bottle: item.price_bottle ?? master.price_bottle,
-          price_glass: item.price_glass ?? master.price_glass,
-          stock: item.stock ?? master.stock,
-          cost: master.cost ?? 2000
-        };
-      }));
+      // クォータ節約のための「in」一括取得（最大30件ずつチャンク処理してRead数を劇的に削減）
+      const enrichedWines: WineMaster[] = [];
+      const itemIds = inventoryItems.map(item => item.id);
+
+      for (let i = 0; i < itemIds.length; i += 30) {
+        const chunk = itemIds.slice(i, i + 30);
+        const q = query(collection(db, 'winesMaster'), where('__name__', 'in', chunk));
+        const masterSnaps = await getDocs(q);
+        
+        masterSnaps.forEach(docSnap => {
+          const masterData = docSnap.data() as WineMaster;
+          const invItem = inventoryItems.find(item => item.id === docSnap.id);
+          if (invItem) {
+            enrichedWines.push({ 
+              ...masterData, 
+              id: docSnap.id,
+              pureId: masterData.id || docSnap.id,
+              price_bottle: invItem.price_bottle ?? masterData.price_bottle,
+              price_glass: invItem.price_glass ?? masterData.price_glass,
+              cost: masterData.cost ?? 2000,
+              glasses_per_bottle: invItem.glasses_per_bottle ?? 6,
+              visible: invItem.visible ?? true,
+              isFeatured: invItem.isFeatured ?? false,
+              promoLabel: invItem.promoLabel || '',
+              stock: invItem.stock ?? 0,
+              isActive: invItem.isActive ?? true
+            });
+          }
+        });
+      }
+
+      // マスターデータの登録順（name_jp順など）に綺麗にソートして返却
+      const sortedWines = enrichedWines.sort((a, b) => (a.name_jp || '').localeCompare(b.name_jp || ''));
 
       return {
         store: storeData,
-        inventory: enriched.filter(w => w !== null) as WineMaster[]
+        inventory: sortedWines
       };
     },
     enabled: !!storeId,
