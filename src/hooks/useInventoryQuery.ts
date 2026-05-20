@@ -27,10 +27,10 @@ export function useInventoryQuery(storeId: string | null) {
           visible: item.visible ?? true,
           isFeatured: item.isFeatured ?? false,
           promoLabel: item.promoLabel || '',
-          price_bottle: item.price_bottle || master.price_bottle,
-          price_glass: item.price_glass || master.price_glass,
+          price_bottle: item.price_bottle ?? master.price_bottle,
+          price_glass: item.price_glass ?? master.price_glass,
           stock: item.stock ?? master.stock,
-          cost: master.cost || 2000
+          cost: master.cost ?? 2000
         };
       }));
 

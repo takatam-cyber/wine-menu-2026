@@ -4,6 +4,7 @@ import { useWines } from '../lib/WineContext';
 import { wineRepository } from '../lib/repositories/wineRepository';
 import { useStoresQuery } from '../hooks/useStoresQuery';
 import { useWinesMasterQuery, useWinesSearchQuery } from '../hooks/useWinesQuery';
+import { useInventoryQuery } from '../hooks/useInventoryQuery';
 import { db } from '../lib/firebase';
 import { doc, setDoc, collection, getDocs, getDoc, updateDoc, deleteDoc, query, where, writeBatch } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
@@ -64,6 +65,14 @@ export const AdminView: React.FC = () => {
   }, [winesMasterData, masterSearchTerm, searchResults]);
 
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
+  const { data: inventoryData } = useInventoryQuery(selectedStoreId);
+
+  useEffect(() => {
+    if (inventoryData) {
+      setSelectedWines(inventoryData.inventory);
+    }
+  }, [inventoryData]);
+
   const [storeSearchTerm, setStoreSearchTerm] = useState('');
   const [selectedCuisineFilter, setSelectedCuisineFilter] = useState('all');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
@@ -243,53 +252,7 @@ export const AdminView: React.FC = () => {
 
   const selectedStore = stores.find(s => s.id === selectedStoreId);
 
-  const fetchStoreInventory = async (storeId: string) => {
-    const path = `stores/${storeId}/inventory`;
-    try {
-      const querySnapshot = await getDocs(collection(db, 'stores', storeId, 'inventory'));
-      const items = querySnapshot.docs.map(d => ({ docId: d.id, ...d.data() as any }));
-      
-      const enrichedWines: WineMaster[] = [];
-      const itemIds = items.map(item => item.docId);
 
-      for (let i = 0; i < itemIds.length; i += 30) {
-        const chunk = itemIds.slice(i, i + 30);
-        const q = query(collection(db, 'winesMaster'), where('__name__', 'in', chunk));
-        const masterSnaps = await getDocs(q);
-        
-        masterSnaps.forEach(docSnap => {
-          const masterData = docSnap.data() as WineMaster;
-          const invItem = items.find(item => item.docId === docSnap.id);
-          if (invItem) {
-            enrichedWines.push({ 
-              ...masterData, 
-              id: docSnap.id, // Composite System ID
-              pureId: masterData.id, // Original CSV ID
-              price_bottle: invItem.price_bottle ?? masterData.price_bottle,
-              price_glass: invItem.price_glass ?? masterData.price_glass,
-              cost: invItem.cost ?? masterData.cost,
-              glasses_per_bottle: invItem.glasses_per_bottle ?? 6,
-              visible: invItem.visible ?? masterData.visible ?? true,
-              isFeatured: invItem.isFeatured ?? masterData.isFeatured ?? false,
-              promoLabel: invItem.promoLabel || masterData.promoLabel || '',
-              stock: invItem.stock ?? 0,
-              isActive: invItem.isActive ?? true
-            });
-          }
-        });
-      }
-      
-      setSelectedWines(enrichedWines);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.GET, path);
-    }
-  };
-
-  useEffect(() => {
-    if (selectedStoreId) {
-      fetchStoreInventory(selectedStoreId);
-    }
-  }, [selectedStoreId]);
 
   const handleAddWine = async (wineId?: string) => {
     const idToUse = wineId || searchId;
@@ -331,7 +294,7 @@ export const AdminView: React.FC = () => {
         };
         
         await setDoc(doc(db, 'stores', selectedStoreId, 'inventory', compositeId), newInventoryItem);
-        await fetchStoreInventory(selectedStoreId);
+        queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
         setSearchId('');
       } catch (error) {
         handleFirestoreError(error, OperationType.WRITE, docPath);
@@ -376,7 +339,7 @@ export const AdminView: React.FC = () => {
       });
 
       await batch.commit();
-      await fetchStoreInventory(selectedStoreId);
+      queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
       
       setImportStatus({ type: 'success', message: `${selectedMasterIds.length}件のワインを追加しました` });
       setShowCatalogSelection(false);
@@ -601,7 +564,7 @@ export const AdminView: React.FC = () => {
           await batch.commit();
         }
 
-        await fetchStoreInventory(selectedStoreId);
+        queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
       }
 
       setImportStatus({ 
@@ -663,8 +626,10 @@ export const AdminView: React.FC = () => {
         updatedAt: new Date().toISOString()
       });
 
-      setImportStatus({ type: 'success', message: '全ての在庫・価格データを保存し、公開メニューを更新しました' });
+      queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
       queryClient.invalidateQueries({ queryKey: ['stores'] });
+
+      setImportStatus({ type: 'success', message: '全ての在庫・価格データを保存し、公開メニューを更新しました' });
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `stores/${selectedStoreId}/inventory`);
     }
@@ -678,6 +643,7 @@ export const AdminView: React.FC = () => {
     const compositeId = getWineDocId(wine);
     try {
       await deleteDoc(doc(db, 'stores', selectedStoreId, 'inventory', compositeId));
+      queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
       setSelectedWines(prev => prev.filter(w => w.id !== wineId));
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `stores/${selectedStoreId}/inventory/${compositeId}`);
