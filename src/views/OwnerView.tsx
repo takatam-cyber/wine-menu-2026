@@ -247,6 +247,7 @@ export const OwnerView: React.FC = () => {
       alert('すべてのセラー情報を一括保存しました。');
       setEditingWineId(null);
       queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
+      queryClient.invalidateQueries({ queryKey: ['stores'] });
     } catch (error) {
       console.error('一括保存に失敗しました:', error);
       alert('一括保存に失敗しました。');
@@ -281,6 +282,8 @@ export const OwnerView: React.FC = () => {
 
       batch.update(doc(db, 'stores', sid), { publicMenu: richPublicMenu });
       await batch.commit();
+      queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
+      queryClient.invalidateQueries({ queryKey: ['stores'] });
     } catch (error) {
       console.error('Error toggling active status:', error);
       queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
@@ -310,6 +313,8 @@ export const OwnerView: React.FC = () => {
 
       batch.update(doc(db, 'stores', sid), { publicMenu: richPublicMenu });
       await batch.commit();
+      queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
+      queryClient.invalidateQueries({ queryKey: ['stores'] });
     } catch (error) {
       console.error('Error deleting wine:', error);
       queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
@@ -352,6 +357,8 @@ export const OwnerView: React.FC = () => {
 
       batch.update(doc(db, 'stores', sid), { publicMenu: richPublicMenu });
       await batch.commit();
+      queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
+      queryClient.invalidateQueries({ queryKey: ['stores'] });
       setShowAddModal(false);
     } catch (error) {
       console.error('Error adding wine:', error);
@@ -397,6 +404,8 @@ export const OwnerView: React.FC = () => {
 
       batch.update(doc(db, 'stores', sid), { publicMenu: richPublicMenu });
       await batch.commit();
+      queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
+      queryClient.invalidateQueries({ queryKey: ['stores'] });
     } catch (error) {
       console.error('Error toggling featured status:', error);
       queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
@@ -873,6 +882,8 @@ export const OwnerView: React.FC = () => {
                                 batch.update(doc(db, 'stores', sid), { publicMenu: richPublicMenu });
 
                                 await batch.commit();
+                                queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
+                                queryClient.invalidateQueries({ queryKey: ['stores'] });
                                 setEditingWineId(null);
                               } catch (error) {
                                       console.error('Error saving wine changes:', error);

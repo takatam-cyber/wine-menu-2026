@@ -644,6 +644,7 @@ export const AdminView: React.FC = () => {
     try {
       await deleteDoc(doc(db, 'stores', selectedStoreId, 'inventory', compositeId));
       queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
+      queryClient.invalidateQueries({ queryKey: ['stores'] });
       setSelectedWines(prev => prev.filter(w => w.id !== wineId));
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `stores/${selectedStoreId}/inventory/${compositeId}`);
