@@ -137,7 +137,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
         </div>
       </div>
      
-      {/* メインリスト領域（横スクロール overflow-x-auto および table 構造を完全廃止） */}
+      {/* メインリスト領域 */}
       <div className="p-4 md:p-6 space-y-4">
         {/* PC表示用のグリッドヘッダー（mdサイズ以上でのみ表示） */}
         <div className="hidden md:grid md:grid-cols-12 gap-4 px-6 py-2 text-xs font-extrabold text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100">
@@ -156,7 +156,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
           return (
             <div
               key={wine.id}
-              className={`bg-white p-4 md:p-6 rounded-2xl border border-slate-100 md:grid md:grid-cols-12 flex flex-col items-center gap-4 transition-all shadow-sm ${
+              className={`bg-white p-4 md:p-6 rounded-2xl border border-slate-100 md:grid md:grid-cols-12 flex flex-col items-center gap-4 transition-all shadow-sm group ${
                 !wine.visible ? 'opacity-60 bg-slate-50/50' : 'hover:border-slate-300'
               }`}
             >
@@ -173,9 +173,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                 >
                   <Sparkles className={`w-4 h-4 ${wine.isFeatured ? 'fill-current' : ''}`} />
                 </button>
-                {/* ★バグ根治：min-w-0 flex-1 を付与することでインナーFlexの押し潰しをシャットアウト */}
                 <div className="min-w-0 flex-1">
-                  {/* ★バグ根治：flex-wrap を持たせ、Featuredバッジに shrink-0 を強制してワイン名を絶対縦書きにさせない */}
                   <div className="flex flex-wrap items-center gap-2 mb-1 w-full min-w-0">
                     <span className="font-bold text-slate-800 text-sm md:text-base leading-snug break-words">
                       {wine.name_jp}
@@ -200,6 +198,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                   <input
                     type="number"
                     defaultValue={wine.cost}
+                    key={`cost-${wine.id}-${wine.cost}`}
                     onBlur={(e) => {
                       const val = parseInt(e.target.value) || 0;
                       if (val !== wine.cost) {
@@ -223,6 +222,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                   <input
                     type="number"
                     defaultValue={wine.price_bottle}
+                    key={`bottle-${wine.id}-${wine.price_bottle}`}
                     onBlur={(e) => {
                       const val = parseInt(e.target.value) || 0;
                       if (val !== wine.price_bottle) {
@@ -251,6 +251,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                     <input
                       type="number"
                       defaultValue={wine.price_glass}
+                      key={`glass-${wine.id}-${wine.price_glass}`}
                       onBlur={(e) => {
                         const val = parseInt(e.target.value) || 0;
                         if (val !== wine.price_glass) {
@@ -276,6 +277,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                     <input
                       type="number"
                       defaultValue={wine.glasses_per_bottle || 6}
+                      key={`gpb-${wine.id}-${wine.glasses_per_bottle}`}
                       onBlur={(e) => {
                         const val = parseInt(e.target.value) || 6;
                         if (val !== wine.glasses_per_bottle) {
@@ -318,7 +320,8 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                   <input
                      placeholder="プロモラベル..."
                      className="text-xs bg-slate-50 border border-slate-200 rounded-md px-2 py-1 outline-none focus:border-brand-wine w-24"
-                     value={wine.promoLabel || ''}
+                     defaultValue={wine.promoLabel || ''}
+                     key={`promo-mobile-${wine.id}-${wine.promoLabel || ''}`}
                      onBlur={(e) => {
                        const val = e.target.value;
                        if (val !== wine.promoLabel) {
@@ -337,7 +340,8 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                   <input
                      placeholder="おすすめラベル..."
                      className="text-[11px] bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 outline-none focus:border-brand-wine w-24"
-                     value={wine.promoLabel || ''}
+                     defaultValue={wine.promoLabel || ''}
+                     key={`promo-desktop-${wine.id}-${wine.promoLabel || ''}`}
                      onBlur={(e) => {
                        const val = e.target.value;
                        if (val !== wine.promoLabel) {

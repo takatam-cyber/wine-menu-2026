@@ -128,8 +128,9 @@ export const CatalogSelector: React.FC<CatalogSelectorProps> = ({
     return result.sort((a, b) => {
       const aId = a.id;
       const bId = b.id;
-      const aSelected = selectedWines.some(sw => sw.id === aId);
-      const bSelected = selectedWines.some(sw => sw.id === bId);
+      // 🚨 ID Type Conflict Resolution: Compare pureIds to bypass composite prefixes (e.g., PIEROTH_123)
+      const aSelected = selectedWines.some(sw => sw.pureId === (a.pureId || aId));
+      const bSelected = selectedWines.some(sw => sw.pureId === (b.pureId || bId));
       
       if (aSelected && !bSelected) return 1;
       if (!aSelected && bSelected) return -1;
@@ -334,7 +335,8 @@ export const CatalogSelector: React.FC<CatalogSelectorProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
                 <AnimatePresence mode="popLayout">
                   {currentItems.map(wine => {
-                    const isAlreadySelected = selectedWines.some(sw => sw.id === wine.id);
+                    // 🚨 ID Type Conflict Resolution: Compare pureIds to bypass composite prefixes (e.g., PIEROTH_123)
+                    const isAlreadySelected = selectedWines.some(sw => sw.pureId === (wine.pureId || wine.id));
                     const isChecked = selectedMasterIds.includes(wine.id);
                     return (
                       <motion.div 
@@ -371,6 +373,7 @@ export const CatalogSelector: React.FC<CatalogSelectorProps> = ({
                               src={`/api/proxy-image?url=${encodeURIComponent(wine.image_url)}`} 
                               alt="" 
                               loading="lazy"
+                              referrerPolicy="no-referrer"
                               className={`h-full object-contain transition-all duration-700 ${isAlreadySelected ? 'grayscale opacity-30 blur-[0.5px]' : 'group-hover:scale-110 drop-shadow-luxury animate-float-slow'}`} 
                             />
                             {isChecked && (
@@ -548,4 +551,3 @@ export const CatalogSelector: React.FC<CatalogSelectorProps> = ({
     </div>
   );
 };
-

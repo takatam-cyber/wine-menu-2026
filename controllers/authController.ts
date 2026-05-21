@@ -36,8 +36,15 @@ export const syncClaims = async (req: AuthenticatedRequest, res: Response) => {
       repId = data?.repId || null;
     }
 
-    if (email && (email.endsWith("@pieroth.jp") || email === "takatam40725@gmail.com")) {
+    const isSecureDomain = email && (email.endsWith("@pieroth.jp") || email === "takatam40725@gmail.com");
+
+    if (isSecureDomain) {
       role = "admin";
+    } else {
+      // 🚨 Security Hardening: Only grant admin claims if the email domain matches our secure criteria
+      if (role === "admin") {
+        role = "owner"; // Downgrade admin attempts for non-secure domains
+      }
     }
 
     await authAdmin.setCustomUserClaims(uid, { role, storeId, repId });

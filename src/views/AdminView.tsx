@@ -238,9 +238,13 @@ export const AdminView: React.FC = () => {
 
   const syncPublicMenuWithDocs = async (storeId: string, updatedWines: WineMaster[]) => {
     try {
+      // Create rich menu mapped with proper projection logic, filter only displays and actives
       const richPublicMenu = updatedWines
         .filter(w => w.visible !== false && w.isActive !== false)
-        .map(projectWineForPublic);
+        .map(w => {
+          const compId = getWineDocId(w);
+          return projectWineForPublic({ ...w, id: compId, pureId: w.pureId || w.id });
+        });
 
       await updateDoc(doc(db, 'stores', storeId), {
         publicMenu: richPublicMenu,
@@ -306,14 +310,20 @@ export const AdminView: React.FC = () => {
     }
 
     if (!wine) {
-      alert('ワインが見つかりません。候補リストから正しい銘柄（ID）を選択してください。');
+      // 🚨 User Feedback Alert for unmatched wine code search (Bug 5.2 requirement)
+      alert('該当するワインコードが見つかりません。候補リストから選択してください。');
       return;
     }
 
     const compositeId = getWineDocId(wine);
-    const alreadyExists = selectedWines.some(sw => getWineDocId(sw) === compositeId);
+    const alreadyExists = selectedWines.some(sw => sw.pureId === (wine?.pureId || wine?.id));
 
-    if (selectedStoreId && !alreadyExists) {
+    if (alreadyExists) {
+      alert('このワインは既にメニューに登録されています。');
+      return;
+    }
+
+    if (selectedStoreId) {
       const allowed = selectedStore?.allowedSuppliers?.map(s => s.toUpperCase());
       const wineSupplier = (wine.supplier || 'PIEROTH').toUpperCase();
       
@@ -340,7 +350,7 @@ export const AdminView: React.FC = () => {
         
         await setDoc(doc(db, 'stores', selectedStoreId, 'inventory', compositeId), newInventoryItem);
 
-        // 即座にお客用(publicMenu)を同期
+        // 即座にお客用(publicMenu)を同期 (Bug 1 Sync issue fixed)
         const currentWinesList = [...selectedWines];
         const fullyProjectedWine = {
           ...wine,
@@ -403,7 +413,7 @@ export const AdminView: React.FC = () => {
         await batch.commit();
       }
 
-      // 既存リストにバルク追加分をマージし、publicMenu を即時同期
+      // 既存リストにバルク追加分をマージし、publicMenu を即時同期 (Bug 1 Bulk additions Sync issue fixed)
       const newWinesToAppend = winesToAdd.map(wine => {
         const compositeId = getWineDocId(wine);
         return {
@@ -422,7 +432,7 @@ export const AdminView: React.FC = () => {
       });
       const mergedList = [...selectedWines];
       newWinesToAppend.forEach(nw => {
-        if (!mergedList.some(sw => getWineDocId(sw) === nw.id)) {
+        if (!mergedList.some(sw => sw.pureId === nw.pureId)) {
           mergedList.push(nw);
         }
       });
