@@ -1,7 +1,4 @@
-// ============================================================================
-// Pieroth Smart Menu Engine - 営業統括・システム管理者用ダッシュボードビュー
-// ============================================================================
-
+// src/views/AdminView.tsx
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { WineMaster, Store, extractPureId } from '../types';
 import { useWines } from '../lib/WineContext';
@@ -19,7 +16,7 @@ import { Plus, Database, Upload, Eye, Save, Settings, Edit2, Shield, Wine, Trash
 import { motion, AnimatePresence } from 'motion/react';
 import { useQueryClient } from '@tanstack/react-query';
 
-// 管理画面用分割コンポーネントおよびユーティリティ
+// New Components and Utils
 import { parseWineCSV } from '../lib/csv-parser';
 import { StoreGrid } from '../components/admin/StoreGrid';
 import { InventoryManager } from '../components/admin/InventoryManager';
@@ -30,9 +27,6 @@ import { CatalogSelector } from '../components/admin/CatalogSelector';
 
 const PRODUCTION_DOMAIN = import.meta.env.VITE_APP_DOMAIN || "";
 
-/**
- * 環境に応じたベースURLの動的解決ヘルパー
- */
 const getBaseUrl = () => {
   if (typeof window === 'undefined') return '';
   const origin = window.location.origin;
@@ -42,18 +36,12 @@ const getBaseUrl = () => {
   return origin;
 };
 
-/**
- * サプライヤーコードを刻んだ一貫性のある複合IDビルダー
- */
 const getWineDocId = (wine: { id: string; supplier?: string; pureId?: string }) => {
   const pure = extractPureId(wine.pureId || wine.id, wine.supplier);
   const supplier = (wine.supplier || 'PIEROTH').toUpperCase();
   return `${supplier}_${pure}`;
 };
 
-/**
- * 顧客配信用軽量オブジェクト（スナップショット用）のマッピングプロジェクション
- */
 const projectWineForPublic = (w: any) => ({
   id: getWineDocId(w),
   pureId: extractPureId(w.pureId || w.id, w.supplier),
@@ -104,7 +92,6 @@ export const AdminView: React.FC = () => {
   const { user } = useWines();
   const queryClient = useQueryClient();
   
-  // 無限スクロール対応の店舗一覧・マスターカタログクエリバインド
   const { 
     data: storesData, 
     fetchNextPage: fetchNextStores, 
@@ -119,16 +106,17 @@ export const AdminView: React.FC = () => {
 
   const [masterSearchTerm, setMasterSearchTerm] = useState('');
 
-  // ページング集約用メモ化配列
   const stores = useMemo(() => storesData?.pages.flatMap(page => page.data) || [], [storesData]);
-  const wines = useMemo(() => winesMasterData?.pages.flatMap(page => page.data) || [], [winesMasterData]);
+  
+  const wines = useMemo(() => {
+    return winesMasterData?.pages.flatMap(page => page.data) || [];
+  }, [winesMasterData]);
 
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
   const { data: inventoryData } = useInventoryQuery(selectedStoreId);
 
   const [selectedWines, setSelectedWines] = useState<WineMaster[]>([]);
 
-  // 選択店舗切り替え時のローカル在庫同期
   useEffect(() => {
     if (inventoryData?.inventory && selectedStoreId === inventoryData.store?.id) {
       setSelectedWines(inventoryData.inventory);
@@ -137,7 +125,6 @@ export const AdminView: React.FC = () => {
     }
   }, [selectedStoreId, inventoryData?.inventory]);
 
-  // ストアフィルター検索用ステート
   const [storeSearchTerm, setStoreSearchTerm] = useState('');
   const [selectedCuisineFilter, setSelectedCuisineFilter] = useState('all');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
@@ -162,7 +149,6 @@ export const AdminView: React.FC = () => {
     });
   }, [stores, storeSearchTerm, selectedCuisineFilter, selectedStatusFilter]);
 
-  // モーダル・インポート制御用ステート
   const [searchId, setSearchId] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const [importStatus, setImportStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
@@ -249,9 +235,6 @@ export const AdminView: React.FC = () => {
 
   const selectedStore = stores.find(s => s.id === selectedStoreId);
 
-  /**
-   * 【一貫性注入戦略】Expressキャッシュに直接最新状態をインジェクションする完全同期関数
-   */
   const syncPublicMenuWithDocs = async (storeId: string, updatedWines: WineMaster[]) => {
     try {
       const richPublicMenu = updatedWines
@@ -261,41 +244,19 @@ export const AdminView: React.FC = () => {
           return projectWineForPublic({ ...w, id: compId, pureId: w.pureId || w.id });
         });
 
-      // Firestore の親ドキュメント非正規化フィールドをアトミック更新
       await updateDoc(doc(db, 'stores', storeId), {
         publicMenu: richPublicMenu,
         updatedAt: new Date().toISOString()
       });
       
-      // 【バグ修正】: 営業がワインを追加・トグルした際の先祖返りを防ぐため、確定BODYを乗せて即時インメモリ・アップサート
-      const targetStore = stores.find(s => s.id === storeId) || selectedStore;
-      await fetch(`/api/menu/${storeId}/invalidate`, { 
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          store: {
-            id: storeId,
-            name: targetStore?.name,
-            address: targetStore?.address,
-            cuisine_type: targetStore?.cuisine_type,
-            hasAiSommelier: targetStore?.hasAiSommelier ?? true,
-            hidePairingFilter: targetStore?.hidePairingFilter || false,
-            hideWinePairing: targetStore?.hideWinePairing || false,
-            budgetTiers: targetStore?.budgetTiers || null
-          },
-          menu: richPublicMenu
-        })
-      }).catch(() => {});
+      fetch(`/api/menu/${storeId}/invalidate`, { method: 'POST' }).catch(() => {});
 
       queryClient.invalidateQueries({ queryKey: ['publicMenu', storeId] });
     } catch (e) {
-      console.error("Failed to sync publicMenu payload:", e);
+      console.error("Failed to sync publicMenu:", e);
     }
   };
 
-  /**
-   * 個別ワイン設定変更のオートセーブインジェクション
-   */
   const handleUpdateWineItem = async (wineId: string, updatedFields: Partial<WineMaster>) => {
     if (!selectedStoreId) return;
     
@@ -338,9 +299,6 @@ export const AdminView: React.FC = () => {
     }
   };
 
-  /**
-   * 単一ワインコード検索追加
-   */
   const handleAddWine = async (wineId?: string) => {
     const idToUse = wineId || searchId;
     let wine = wines.find(w => w.id === idToUse);
@@ -413,9 +371,6 @@ export const AdminView: React.FC = () => {
     }
   };
 
-  /**
-   * カタログからのバルクセグメント追加
-   */
   const handleBulkAddWines = async () => {
     if (!selectedStoreId || selectedMasterIds.length === 0) return;
     
@@ -486,7 +441,7 @@ export const AdminView: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
       queryClient.invalidateQueries({ queryKey: ['stores'] });
       
-      setImportStatus({ type: 'success', message: `${selectedMasterIds.length}件のワインを追加しました` });
+      setImportStatus({ type: 'success', message: `${selectedMasterIds.length}件 of ワインを追加しました` });
       setShowCatalogSelection(false);
       setSelectedMasterIds([]);
     } catch (error) {
@@ -630,9 +585,6 @@ export const AdminView: React.FC = () => {
     }
   };
 
-  /**
-   * CSV一括インポート
-   */
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -708,7 +660,10 @@ export const AdminView: React.FC = () => {
           };
           
           if (existingIdx !== -1) {
-            mergedWinesList[existingIdx] = { ...mergedWinesList[existingIdx], ...newProjectedItem };
+            mergedWinesList[existingIdx] = {
+              ...mergedWinesList[existingIdx],
+              ...newProjectedItem
+            };
           } else {
             mergedWinesList.push(newProjectedItem as WineMaster);
           }
@@ -716,6 +671,7 @@ export const AdminView: React.FC = () => {
 
         setSelectedWines(mergedWinesList);
         await syncPublicMenuWithDocs(selectedStoreId, mergedWinesList);
+
         queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
       }
 
@@ -729,9 +685,6 @@ export const AdminView: React.FC = () => {
     }
   };
 
-  /**
-   * 管理者セラー画面の一括保存処理（インメモリ直接注入同期対応）
-   */
   const handleSaveInventory = async () => {
     if (!selectedStoreId) return;
     try {
@@ -774,24 +727,7 @@ export const AdminView: React.FC = () => {
         updatedAt: new Date().toISOString()
       });
 
-      // 【一貫性注入戦略】一括保存時もExpressのインメモリ空間に最新カーネル状態を直接マージ
-      await fetch(`/api/menu/${selectedStoreId}/invalidate`, { 
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          store: {
-            id: selectedStoreId,
-            name: selectedStore?.name,
-            address: selectedStore?.address,
-            cuisine_type: selectedStore?.cuisine_type,
-            hasAiSommelier: selectedStore?.hasAiSommelier ?? true,
-            hidePairingFilter: selectedStore?.hidePairingFilter || false,
-            hideWinePairing: selectedStore?.hideWinePairing || false,
-            budgetTiers: selectedStore?.budgetTiers || null
-          },
-          menu: richPublicMenu
-        })
-      }).catch(() => {});
+      fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
 
       queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
       queryClient.invalidateQueries({ queryKey: ['stores'] });
@@ -801,9 +737,6 @@ export const AdminView: React.FC = () => {
     }
   };
 
-  /**
-   * 在庫ワインの単一削除
-   */
   const handleDeleteWine = async (wineId: string) => {
     if (!selectedStoreId || !window.confirm('このワインをメニューから削除しますか？')) return;
     const wine = selectedWines.find(w => w.id === wineId);
@@ -828,10 +761,16 @@ export const AdminView: React.FC = () => {
     <AnimatePresence>
       {isEditingMaster && editingMasterWine && (
         <motion.div
-          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
           className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
         >
-          <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} className="bg-white rounded-[2rem] shadow-2xl w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh]">
+          <motion.div
+            initial={{ scale: 0.95, y: 20 }}
+            animate={{ scale: 1, y: 0 }}
+            className="bg-white rounded-[2rem] shadow-2xl w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh]"
+          >
             <div className="p-8 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h3 className="serif text-2xl text-slate-900">マスター銘柄編集</h3>
@@ -846,45 +785,100 @@ export const AdminView: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="md:col-span-1">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">ワイン名称 (日本語)</label>
-                  <input type="text" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine" value={editMasterData.name_jp || ''} onChange={e => setEditMasterData({...editMasterData, name_jp: e.target.value})} />
+                  <input 
+                    type="text"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
+                    value={editMasterData.name_jp || ''}
+                    onChange={e => setEditMasterData({...editMasterData, name_jp: e.target.value})}
+                  />
                 </div>
                 <div className="md:col-span-1">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">Wine Name (English)</label>
-                  <input type="text" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine" value={editMasterData.name_en || ''} onChange={e => setEditMasterData({...editMasterData, name_en: e.target.value})} />
+                  <input 
+                    type="text"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
+                    value={editMasterData.name_en || ''}
+                    onChange={e => setEditMasterData({...editMasterData, name_en: e.target.value})}
+                  />
                 </div>
                 <div className="md:col-span-1">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">国 (日本語)</label>
-                  <input type="text" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine" value={editMasterData.country || ''} onChange={e => setEditMasterData({...editMasterData, country: e.target.value})} />
+                  <input 
+                    type="text"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
+                    value={editMasterData.country || ''}
+                    onChange={e => setEditMasterData({...editMasterData, country: e.target.value})}
+                  />
                 </div>
                 <div className="md:col-span-1">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">Country (English)</label>
-                  <input type="text" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine" value={editMasterData.country_en || ''} onChange={e => setEditMasterData({...editMasterData, country_en: e.target.value})} />
+                  <input 
+                    type="text"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
+                    value={editMasterData.country_en || ''}
+                    onChange={e => setEditMasterData({...editMasterData, country_en: e.target.value})}
+                  />
                 </div>
                 <div className="md:col-span-1">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">主要品種 (日本語)</label>
-                  <input type="text" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine" value={editMasterData.grape || ''} onChange={e => setEditMasterData({...editMasterData, grape: e.target.value})} />
+                  <input 
+                    type="text"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
+                    value={editMasterData.grape || ''}
+                    onChange={e => setEditMasterData({...editMasterData, grape: e.target.value})}
+                  />
                 </div>
                 <div className="md:col-span-1">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">Grape (English)</label>
-                  <input type="text" className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine" value={editMasterData.grape_en || ''} onChange={e => setEditMasterData({...editMasterData, grape_en: e.target.value})} />
+                  <input 
+                    type="text"
+                    className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
+                    value={editMasterData.grape_en || ''}
+                    onChange={e => setEditMasterData({...editMasterData, grape_en: e.target.value})}
+                  />
                 </div>
                 <div className="md:col-span-2">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">参考価格 (ボトル)</label>
-                  <input type="number" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine" value={editMasterData.price_bottle || 0} onChange={e => setEditMasterData({...editMasterData, price_bottle: parseInt(e.target.value) || 0})} />
+                  <input 
+                    type="number"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
+                    value={editMasterData.price_bottle || 0}
+                    onChange={e => setEditMasterData({...editMasterData, price_bottle: parseInt(e.target.value) || 0})}
+                  />
                 </div>
               </div>
               <div>
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">AIソムリエ解説文 (日本語)</label>
-                <textarea rows={3} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine resize-none mb-4" value={editMasterData.ai_explanation || ''} onChange={e => setEditMasterData({...editMasterData, ai_explanation: e.target.value})} />
+                <textarea 
+                  rows={3}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine resize-none mb-4"
+                  value={editMasterData.ai_explanation || ''}
+                  onChange={e => setEditMasterData({...editMasterData, ai_explanation: e.target.value})}
+                />
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">AI Sommelier Explanation (English)</label>
-                <textarea rows={3} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine resize-none" value={editMasterData.ai_explanation_en || ''} onChange={e => setEditMasterData({...editMasterData, ai_explanation_en: e.target.value})} />
+                <textarea 
+                  rows={3}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine resize-none"
+                  value={editMasterData.ai_explanation_en || ''}
+                  onChange={e => setEditMasterData({...editMasterData, ai_explanation_en: e.target.value})}
+                />
                 <p className="text-xs text-slate-400 mt-2 font-medium italic">※この説明は全店舗のメニューに共通して反映されます。</p>
               </div>
             </div>
 
             <div className="p-8 border-t border-slate-100 flex justify-end gap-3 bg-slate-50/50">
-              <button onClick={() => setIsEditingMaster(false)} className="px-6 py-3 text-xs font-bold uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-all">キャンセル</button>
-              <button onClick={handleUpdateMaster} className="px-10 py-3 bg-brand-wine text-white rounded-full text-xs font-bold uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-lg">マスターを更新</button>
+              <button 
+                onClick={() => setIsEditingMaster(false)}
+                className="px-6 py-3 text-xs font-bold uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-all"
+              >
+                キャンセル
+              </button>
+              <button 
+                onClick={handleUpdateMaster}
+                className="px-10 py-3 bg-brand-wine text-white rounded-full text-xs font-bold uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-lg"
+              >
+                マスターを更新
+              </button>
             </div>
           </motion.div>
         </motion.div>
@@ -912,12 +906,26 @@ export const AdminView: React.FC = () => {
             <p className="text-slate-400 text-xs uppercase tracking-[0.4em] font-bold text-center md:text-left">Sales Representative: {user?.name} • Total Stores: {stores.length}</p>
           </div>
           <div className="flex flex-col sm:flex-row gap-3 md:gap-4 px-4 md:px-0">
-            <button onClick={handleCreateStore} className="flex items-center justify-center gap-2 px-6 md:px-8 py-3 bg-brand-wine text-white rounded-full text-xs font-bold uppercase tracking-widest hover:scale-105 transition-all shadow-md active:scale-95 w-full sm:w-auto">
-              <Plus className="w-5 h-5" /> 新規店舗を開拓
+            <button
+               onClick={handleCreateStore}
+               className="flex items-center justify-center gap-2 px-6 md:px-8 py-3 bg-brand-wine text-white rounded-full text-xs font-bold uppercase tracking-widest hover:scale-105 transition-all shadow-md active:scale-95 w-full sm:w-auto"
+            >
+              <Plus className="w-5 h-5" />
+              新規店舗を開拓
             </button>
-            <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".csv" className="hidden" />
-            <button onClick={() => fileInputRef.current?.click()} className="flex items-center justify-center gap-2 px-6 md:px-8 py-3 bg-white border-2 border-slate-200 rounded-full text-xs text-slate-600 font-bold uppercase tracking-widest hover:border-brand-wine hover:text-brand-wine transition-all shadow-sm w-full sm:w-auto">
-              <Upload className="w-5 h-5" /> マスター更新
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileUpload}
+              accept=".csv"
+              className="hidden"
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center justify-center gap-2 px-6 md:px-8 py-3 bg-white border-2 border-slate-200 rounded-full text-xs text-slate-600 font-bold uppercase tracking-widest hover:border-brand-wine hover:text-brand-wine transition-all shadow-sm w-full sm:w-auto"
+            >
+              <Upload className="w-5 h-5" />
+              マスター更新
             </button>
           </div>
         </div>
@@ -929,11 +937,21 @@ export const AdminView: React.FC = () => {
             <div className="flex flex-col lg:flex-row gap-6 items-center">
               <div className="relative flex-1 w-full group">
                 <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-brand-wine transition-colors" />
-                <input type="text" placeholder="店舗名・住所で検索..." value={storeSearchTerm} onChange={(e) => setStoreSearchTerm(e.target.value)} className="w-full pl-14 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm focus:bg-white focus:border-brand-wine outline-none transition-all shadow-inner focus:shadow-luxury-soft" />
+                <input 
+                  type="text"
+                  placeholder="店舗名・住所で検索..."
+                  value={storeSearchTerm}
+                  onChange={(e) => setStoreSearchTerm(e.target.value)}
+                  className="w-full pl-14 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm focus:bg-white focus:border-brand-wine outline-none transition-all shadow-inner focus:shadow-luxury-soft"
+                />
               </div>
               <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto">
                 <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl border border-slate-100">
-                  <select value={selectedCuisineFilter} onChange={(e) => setSelectedCuisineFilter(e.target.value)} className="bg-transparent px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 outline-none cursor-pointer hover:text-brand-wine transition-colors">
+                  <select 
+                    value={selectedCuisineFilter}
+                    onChange={(e) => setSelectedCuisineFilter(e.target.value)}
+                    className="bg-transparent px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 outline-none cursor-pointer hover:text-brand-wine transition-colors"
+                  >
                     <option value="all">すべての料理</option>
                     {cuisineTypes.filter(t => t !== 'all').map(type => (
                       <option key={type} value={type}>{type}</option>
@@ -941,7 +959,11 @@ export const AdminView: React.FC = () => {
                   </select>
                 </div>
                 <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl border border-slate-100">
-                  <select value={selectedStatusFilter} onChange={(e) => setSelectedStatusFilter(e.target.value as any)} className="bg-transparent px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 outline-none cursor-pointer hover:text-brand-wine transition-colors">
+                  <select 
+                    value={selectedStatusFilter}
+                    onChange={(e) => setSelectedStatusFilter(e.target.value as any)}
+                    className="bg-transparent px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 outline-none cursor-pointer hover:text-brand-wine transition-colors"
+                  >
                     <option value="all">すべての状態</option>
                     <option value="active">稼動中</option>
                     <option value="inactive">停止中</option>
@@ -958,19 +980,31 @@ export const AdminView: React.FC = () => {
 
         {showMasterCatalog ? (
           <MasterCatalog 
-            wines={wines} masterSearchTerm={masterSearchTerm} onSearchMaster={handleSearchMaster}
-            isEditingMaster={isEditingMaster} editingMasterWine={editingMasterWine} editMasterData={editMasterData}
-            setEditMasterData={setEditMasterData} onStartEditingMaster={startEditingMaster} onUpdateMaster={handleUpdateMaster}
+            wines={wines}
+            masterSearchTerm={masterSearchTerm}
+            onSearchMaster={handleSearchMaster}
+            isEditingMaster={isEditingMaster}
+            editingMasterWine={editingMasterWine}
+            editMasterData={editMasterData}
+            setEditMasterData={setEditMasterData}
+            onStartEditingMaster={startEditingMaster}
+            onUpdateMaster={handleUpdateMaster}
             onCancelEditMaster={() => setIsEditingMaster(false)}
           />
         ) : selectedStoreId ? (
           <div className="space-y-8 animate-in fade-in duration-500">
             <div className="flex items-center gap-4 mb-6">
-              <button onClick={() => setSelectedStoreId(null)} className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-full text-xs font-bold uppercase tracking-widest hover:border-brand-wine hover:text-brand-wine transition-all flex items-center gap-2">
-                <ChevronLeft className="w-4 h-4" /> 店舗一覧へ戻る
+              <button 
+                onClick={() => setSelectedStoreId(null)}
+                className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-full text-xs font-bold uppercase tracking-widest hover:border-brand-wine hover:text-brand-wine transition-all flex items-center gap-2"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                店舗一覧へ戻る
               </button>
               <h2 className="serif text-2xl md:text-3xl text-slate-900">{selectedStore?.name}</h2>
-              <span className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full ${selectedStore?.isActive ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-red-50 text-red-600 border border-red-100'}`}>{selectedStore?.isActive ? '稼働中' : '停止中'}</span>
+              <span className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full ${selectedStore?.isActive ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-red-50 text-red-600 border border-red-100'}`}>
+                {selectedStore?.isActive ? '稼働中' : '停止中'}
+              </span>
             </div>
 
             <StoreAnalytics selectedWines={selectedWines} />
@@ -978,11 +1012,21 @@ export const AdminView: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <div className="lg:col-span-2">
                 <InventoryManager 
-                  selectedStore={selectedStore} selectedStoreId={selectedStoreId} selectedWines={selectedWines}
-                  setSelectedWines={setSelectedWines} masterWines={wines} searchId={searchId} setSearchId={setSearchId}
-                  handleAddWine={handleAddWine} onShowCatalogSelection={() => setShowCatalogSelection(true)}
-                  onFileUpload={handleFileUpload} onSaveInventory={handleSaveInventory} onDeleteWine={handleDeleteWine}
-                  fileInputRef={fileInputRef} hasMoreWines={hasMoreWinesMaster} onLoadMoreWines={handleLoadMoreWines}
+                  selectedStore={selectedStore}
+                  selectedStoreId={selectedStoreId}
+                  selectedWines={selectedWines}
+                  setSelectedWines={setSelectedWines}
+                  masterWines={wines}
+                  searchId={searchId}
+                  setSearchId={setSearchId}
+                  handleAddWine={handleAddWine}
+                  onShowCatalogSelection={() => setShowCatalogSelection(true)}
+                  onFileUpload={handleFileUpload}
+                  onSaveInventory={handleSaveInventory}
+                  onDeleteWine={handleDeleteWine}
+                  fileInputRef={fileInputRef}
+                  hasMoreWines={hasMoreWinesMaster}
+                  onLoadMoreWines={handleLoadMoreWines}
                   onUpdateWineItem={handleUpdateWineItem}
                 />
               </div>
@@ -994,32 +1038,83 @@ export const AdminView: React.FC = () => {
                   </div>
                   <div>
                     <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-1">店名</label>
-                    <input type="text" value={isEditingStore ? editStoreData.name : selectedStore?.name} onChange={(e) => isEditingStore && setEditStoreData({...editStoreData, name: e.target.value})} disabled={!isEditingStore} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-brand-wine disabled:opacity-70 disabled:bg-slate-100" />
+                    <input 
+                      type="text"
+                      value={isEditingStore ? editStoreData.name : selectedStore?.name}
+                      onChange={(e) => isEditingStore && setEditStoreData({...editStoreData, name: e.target.value})}
+                      disabled={!isEditingStore}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-brand-wine disabled:opacity-70 disabled:bg-slate-100"
+                    />
                   </div>
                   <div>
                     <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-1">料理カテゴリー</label>
-                    <input type="text" value={isEditingStore ? editStoreData.cuisine_type : selectedStore?.cuisine_type} onChange={(e) => isEditingStore && setEditStoreData({...editStoreData, cuisine_type: e.target.value})} disabled={!isEditingStore} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-brand-wine disabled:opacity-70 disabled:bg-slate-100" />
+                    <input 
+                      type="text"
+                      value={isEditingStore ? editStoreData.cuisine_type : selectedStore?.cuisine_type}
+                      onChange={(e) => isEditingStore && setEditStoreData({...editStoreData, cuisine_type: e.target.value})}
+                      disabled={!isEditingStore}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-brand-wine disabled:opacity-70 disabled:bg-slate-100"
+                    />
                   </div>
                   <div>
                     <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-1">住所</label>
-                    <input type="text" value={isEditingStore ? editStoreData.address : selectedStore?.address} onChange={(e) => isEditingStore && setEditStoreData({...editStoreData, address: e.target.value})} disabled={!isEditingStore} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-brand-wine disabled:opacity-70 disabled:bg-slate-100" />
+                    <input 
+                      type="text"
+                      value={isEditingStore ? editStoreData.address : selectedStore?.address}
+                      onChange={(e) => isEditingStore && setEditStoreData({...editStoreData, address: e.target.value})}
+                      disabled={!isEditingStore}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-brand-wine disabled:opacity-70 disabled:bg-slate-100"
+                    />
                   </div>
                   <div className="flex items-center justify-between pt-4 border-t border-slate-100">
                     <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">公開ステータス</span>
-                    <button onClick={() => isEditingStore && setEditStoreData({...editStoreData, isActive: !editStoreData.isActive})} disabled={!isEditingStore} className={`w-12 h-6 rounded-full transition-all relative disabled:opacity-50 ${(isEditingStore ? editStoreData.isActive : selectedStore?.isActive) ? 'bg-green-500' : 'bg-slate-300'}`}><div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${(isEditingStore ? editStoreData.isActive : selectedStore?.isActive) ? 'left-7' : 'left-1'}`} /></button>
+                    <button 
+                      onClick={() => isEditingStore && setEditStoreData({...editStoreData, isActive: !editStoreData.isActive})}
+                      disabled={!isEditingStore}
+                      className={`w-12 h-6 rounded-full transition-all relative disabled:opacity-50 ${
+                        (isEditingStore ? editStoreData.isActive : selectedStore?.isActive) 
+                          ? 'bg-green-500' 
+                          : 'bg-slate-300'
+                      }`}
+                    >
+                      <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${
+                        (isEditingStore ? editStoreData.isActive : selectedStore?.isActive) 
+                          ? 'left-7' 
+                          : 'left-1'
+                      }`} />
+                    </button>
                   </div>
                   <div className="pt-4 flex gap-2">
                     {isEditingStore ? (
                       <>
-                        <button onClick={() => setIsEditingStore(false)} className="flex-1 py-2 text-xs font-bold uppercase tracking-widest text-slate-500 hover:bg-slate-50 rounded-xl transition-all">キャンセル</button>
-                        <button onClick={handleUpdateStore} className="flex-1 py-2 bg-brand-wine text-white text-xs font-bold uppercase tracking-widest rounded-xl hover:shadow-lg hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2"><Save className="w-3.5 h-3.5" /> 保存</button>
+                        <button 
+                          onClick={() => setIsEditingStore(false)}
+                          className="flex-1 py-2 text-xs font-bold uppercase tracking-widest text-slate-500 hover:bg-slate-50 rounded-xl transition-all"
+                        >
+                          キャンセル
+                        </button>
+                        <button 
+                          onClick={handleUpdateStore}
+                          className="flex-1 py-2 bg-brand-wine text-white text-xs font-bold uppercase tracking-widest rounded-xl hover:shadow-lg hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2"
+                        >
+                          <Save className="w-3.5 h-3.5" /> 保存
+                        </button>
                       </>
                     ) : (
-                      <button onClick={() => { setEditStoreData(selectedStore || {}); setIsEditingStore(true); }} className="w-full py-2 bg-slate-100 text-brand-wine text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-brand-wine hover:text-white transition-all flex items-center justify-center gap-2"><Edit2 className="w-3.5 h-3.5" /> 店舗情報を編集</button>
+                      <button 
+                        onClick={() => {
+                          setEditStoreData(selectedStore || {});
+                          setIsEditingStore(true);
+                        }}
+                        className="w-full py-2 bg-slate-100 text-brand-wine text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-brand-wine hover:text-white transition-all flex items-center justify-center gap-2"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" /> 店舗情報を編集
+                      </button>
                     )}
                   </div>
                 </div>
 
+                {/* QR Code and Customer Menu Card */}
                 <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
                   <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
                     <QrCode className="text-brand-wine w-5 h-5" />
@@ -1029,41 +1124,81 @@ export const AdminView: React.FC = () => {
                   {selectedStoreId ? (
                     <div className="flex flex-col items-center gap-4 py-2">
                       <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-center shadow-inner">
-                        <img src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(`${getBaseUrl() || window.location.origin}/?storeId=${selectedStoreId}`)}`} alt="Store QR Code" className="w-36 h-36 object-contain" />
+                        {/* バグ修正：QRコードとリンクのURLを正しいルーティングに合わせて修正 */}
+                        <img 
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(`${getBaseUrl() || window.location.origin}/menu/${selectedStoreId}`)}`} 
+                          alt="Store QR Code" 
+                          className="w-36 h-36 object-contain"
+                        />
                       </div>
-                      <p className="text-[11px] text-slate-400 text-center leading-relaxed">このQRコードを印刷して店内に掲示し、お客様がマイスマホでスキャンできるようにしてください。</p>
+                      
+                      <p className="text-[11px] text-slate-400 text-center leading-relaxed">
+                        このQRコードを印刷して店内に掲示し、お客様がマイスマホでスキャンできるようにしてください。
+                      </p>
+
                       <div className="w-full flex flex-col gap-2">
-                        <button onClick={() => window.open(`${getBaseUrl() || window.location.origin}/?storeId=${selectedStoreId}`, '_blank')} className="w-full py-3 bg-brand-wine text-white text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-brand-wine/90 hover:shadow-lg transition-all flex items-center justify-center gap-2"><ExternalLink className="w-4 h-4" /> お客用メニューを開く</button>
+                        {/* バグ修正：リンクのURLを正しいルーティングに合わせて修正 */}
+                        <button 
+                          onClick={() => window.open(`${getBaseUrl() || window.location.origin}/menu/${selectedStoreId}`, '_blank')}
+                          className="w-full py-3 bg-brand-wine text-white text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-brand-wine/90 hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                        >
+                          <ExternalLink className="w-4 h-4" /> お客用メニューを開く
+                        </button>
+                        
                         <div className="text-center">
-                          <span className="text-[9px] font-mono select-all break-all text-slate-400 text-center block max-w-full overflow-hidden truncate">{`getBaseUrl() || window.location.origin/?storeId=${selectedStoreId}`}</span>
+                          {/* バグ修正：リンクのURLを正しいルーティングに合わせて修正 */}
+                          <span className="text-[9px] font-mono select-all break-all text-slate-400 text-center block max-w-full overflow-hidden truncate">
+                            {`${getBaseUrl() || window.location.origin}/menu/${selectedStoreId}`}
+                          </span>
                         </div>
                       </div>
                     </div>
                   ) : (
-                    <p className="text-xs text-slate-400 py-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">店舗を選択すると、QRコードとメニューURLが生成されます。</p>
+                    <p className="text-xs text-slate-400 py-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                      店舗を選択すると、QRコードとメニューURLが生成されます。
+                    </p>
                   )}
                 </div>
 
                 <OwnerAccountForm 
-                  selectedStore={selectedStore} ownerEmail={ownerEmail} setOwnerEmail={setOwnerEmail}
-                  ownerPassword={ownerPassword} setOwnerPassword={setOwnerPassword} isCreatingOwner={isCreatingOwner}
-                  isEditingOwner={isEditingOwner} onHandleCreateOwner={handleCreateOwner} showOwnerForm={showOwnerForm}
-                  setShowOwnerForm={setShowOwnerForm} onToggleEditMode={toggleOwnerEditMode}
+                  selectedStore={selectedStore}
+                  ownerEmail={ownerEmail}
+                  setOwnerEmail={setOwnerEmail}
+                  ownerPassword={ownerPassword}
+                  setOwnerPassword={setOwnerPassword}
+                  isCreatingOwner={isCreatingOwner}
+                  isEditingOwner={isEditingOwner}
+                  onHandleCreateOwner={handleCreateOwner}
+                  showOwnerForm={showOwnerForm}
+                  setShowOwnerForm={setShowOwnerForm}
+                  onToggleEditMode={toggleOwnerEditMode}
                 />
               </div>
             </div>
             
             <CatalogSelector 
-              isOpen={showCatalogSelection} onClose={() => setShowCatalogSelection(false)} selectedStore={selectedStore}
-              wines={wines} masterSearchTerm={masterSearchTerm} setMasterSearchTerm={setMasterSearchTerm}
-              selectedWines={selectedWines} selectedMasterIds={selectedMasterIds} toggleMasterSelection={toggleMasterSelection}
-              handleBulkAddWines={handleBulkAddWines} hasMoreWines={hasMoreWinesMaster} onLoadMoreWines={handleLoadMoreWines}
+              isOpen={showCatalogSelection}
+              onClose={() => setShowCatalogSelection(false)}
+              selectedStore={selectedStore}
+              wines={wines}
+              masterSearchTerm={masterSearchTerm}
+              setMasterSearchTerm={setMasterSearchTerm}
+              selectedWines={selectedWines}
+              selectedMasterIds={selectedMasterIds}
+              toggleMasterSelection={toggleMasterSelection}
+              handleBulkAddWines={handleBulkAddWines}
+              hasMoreWines={hasMoreWinesMaster}
+              onLoadMoreWines={handleLoadMoreWines}
             />
           </div>
         ) : (
           <StoreGrid 
-            stores={filteredStores} hasMoreStores={hasMoreStores} onLoadMoreStores={handleLoadMoreStores}
-            onCreateStore={handleCreateStore} onDeleteStore={handleDeleteStore} onSelectStore={setSelectedStoreId}
+            stores={filteredStores}
+            hasMoreStores={hasMoreStores}
+            onLoadMoreStores={handleLoadMoreStores}
+            onCreateStore={handleCreateStore}
+            onDeleteStore={handleDeleteStore}
+            onSelectStore={setSelectedStoreId}
           />
         )}
 
