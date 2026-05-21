@@ -178,7 +178,8 @@ export const OwnerView: React.FC = () => {
       });
 
       if (editStoreData.name !== store?.name) {
-        await updateDoc(doc(db, 'users', user.uid), {
+        // 【デプロイエラー回避】ユーザーが存在する場合のみ安全に更新
+        await updateDoc(doc(db, 'users', user!.uid), {
           name: editStoreData.name
         });
       }
@@ -448,6 +449,15 @@ export const OwnerView: React.FC = () => {
     }
   };
 
+  if (inventoryLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full py-24 gap-4">
+        <Loader2 className="w-8 h-8 animate-spin text-brand-gold-dark" />
+        <p className="text-brand-gold-dark/60 text-xs font-bold uppercase tracking-widest">セラーを読み込み中...</p>
+      </div>
+    );
+  }
+
   return (
     <div id="owner-view" className="max-w-4xl lg:max-w-7xl mx-auto px-4 py-8 md:py-12 space-y-8 animate-in fade-in duration-700">
       <header className="flex flex-col md:flex-row md:items-start justify-between gap-6">
@@ -475,7 +485,6 @@ export const OwnerView: React.FC = () => {
 
       <StoreAnalytics selectedWines={selectedWines} />
 
-      {/* 【レイアウト変更】左2/3を在庫管理、右1/3を設定・QRコードエリアとして統合 */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
           <InventoryManager 
@@ -499,7 +508,6 @@ export const OwnerView: React.FC = () => {
         </div>
         
         <div className="space-y-6">
-          {/* 1. 基本情報・カスタマイズ設定カード */}
           <div className="bg-black/40 p-6 rounded-3xl border border-brand-gold/20 shadow-luxury space-y-4">
             <div className="flex items-center gap-2 mb-2">
               <Settings className="text-brand-gold w-5 h-5" />
@@ -577,7 +585,7 @@ export const OwnerView: React.FC = () => {
                 <input 
                   type="text"
                   placeholder="5000, 10000, 20000"
-                  value={isEditingStore ? editStoreData.budgetTiers?.join(', ') : store?.budgetTiers?.join(', ') || ''}
+                  value={isEditingStore ? (editStoreData.budgetTiers?.join(', ') || '') : (store?.budgetTiers?.join(', ') || '')}
                   onChange={e => {
                     if (isEditingStore) {
                       const tiers = e.target.value.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
@@ -620,7 +628,6 @@ export const OwnerView: React.FC = () => {
             </div>
           </div>
 
-          {/* 2. QRコード & お客様メニューカード */}
           <div className="bg-black/40 p-6 rounded-3xl border border-brand-gold/20 shadow-luxury space-y-4">
             <div className="flex items-center gap-2 border-b border-brand-gold/10 pb-3">
               <QrCode className="text-brand-gold w-5 h-5" />
