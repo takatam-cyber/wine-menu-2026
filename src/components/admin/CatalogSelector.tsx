@@ -1,3 +1,4 @@
+// src/components/admin/CatalogSelector.tsx
 import React, { useState, useMemo, useEffect } from 'react';
 import { WineMaster, Store } from '../../types';
 import { Search, X, CheckCircle2, ChevronLeft, ChevronRight, Filter, Wine, Info } from 'lucide-react';
@@ -40,24 +41,27 @@ export const CatalogSelector: React.FC<CatalogSelectorProps> = ({
   const [selectedCountries, setSelectedCountries] = useState<Set<string>>(new Set());
   const [selectedColors, setSelectedColors] = useState<Set<string>>(new Set());
   const [priceRange, setPriceRange] = useState<string | null>(null);
+  
+  // 【新機能】Sort State
+  const [sortBy, setSortBy] = useState<'name_asc' | 'price_desc' | 'price_asc'>('name_asc');
+
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20; 
 
   // Reset logic
   useEffect(() => {
     setCurrentPage(1);
-    // Clear sub-filters when switching top-level tabs to avoid confusion
     setSelectedSuppliers(new Set());
     setSelectedCountries(new Set());
     setSelectedColors(new Set());
     setPriceRange(null);
+    setSortBy('name_asc');
   }, [activeTab]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [masterSearchTerm, selectedSuppliers, selectedCountries, selectedColors, priceRange]);
+  }, [masterSearchTerm, selectedSuppliers, selectedCountries, selectedColors, priceRange, sortBy]);
 
-  // Extract facets from current wines (split by tab)
   const tabWines = useMemo(() => {
     return wines.filter(w => {
       const s = (w.supplier || 'PIEROTH').toUpperCase();
@@ -83,7 +87,6 @@ export const CatalogSelector: React.FC<CatalogSelectorProps> = ({
     };
   }, [tabWines]);
 
-  // Search matching logic optimized
   const matchesKeyword = (w: WineMaster, term: string) => {
     if (!term) return true;
     const t = term.toLowerCase();
@@ -98,48 +101,41 @@ export const CatalogSelector: React.FC<CatalogSelectorProps> = ({
     );
   };
 
-  // Combined Filtered List
   const filteredWines = useMemo(() => {
     let result = tabWines.filter(w => {
-      // Keyword search
       if (!matchesKeyword(w, masterSearchTerm)) return false;
-
-      // Supplier sub-filter (only relevant for 'OTHER' tab)
       if (activeTab === 'OTHER' && selectedSuppliers.size > 0 && !selectedSuppliers.has(w.supplier || '')) return false;
-
-      // Country filter
       if (selectedCountries.size > 0 && !selectedCountries.has(w.country)) return false;
-
-      // Color filter
       if (selectedColors.size > 0 && !selectedColors.has(w.color)) return false;
-
-      // Price filter
       if (priceRange) {
         const p = w.price_bottle || 0;
         if (priceRange === 'low' && p > 5000) return false;
         if (priceRange === 'mid' && (p <= 5000 || p > 10000)) return false;
         if (priceRange === 'high' && p <= 10000) return false;
       }
-
       return true;
     });
 
-    // Sorting: Selected at the bottom, then by name
+    // 【新機能】Sorting logic
     return result.sort((a, b) => {
       const aId = a.id;
       const bId = b.id;
-      // 🚨 ID Type Conflict Resolution: Compare pureIds to bypass composite prefixes (e.g., PIEROTH_123)
       const aSelected = selectedWines.some(sw => sw.pureId === (a.pureId || aId));
       const bSelected = selectedWines.some(sw => sw.pureId === (b.pureId || bId));
       
       if (aSelected && !bSelected) return 1;
       if (!aSelected && bSelected) return -1;
       
+      if (sortBy === 'price_asc') {
+        return (a.price_bottle || 0) - (b.price_bottle || 0);
+      }
+      if (sortBy === 'price_desc') {
+        return (b.price_bottle || 0) - (a.price_bottle || 0);
+      }
       return (a.name_jp || '').localeCompare(b.name_jp || '');
     });
-  }, [tabWines, masterSearchTerm, selectedSuppliers, selectedCountries, selectedColors, priceRange, selectedWines, activeTab]);
+  }, [tabWines, masterSearchTerm, selectedSuppliers, selectedCountries, selectedColors, priceRange, selectedWines, activeTab, sortBy]);
 
-  // Pagination
   const totalPages = Math.ceil(filteredWines.length / itemsPerPage);
   const currentItems = filteredWines.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
@@ -159,7 +155,6 @@ export const CatalogSelector: React.FC<CatalogSelectorProps> = ({
         animate={{ opacity: 1, y: 0, scale: 1 }}
         className="bg-white rounded-[2rem] md:rounded-[40px] w-full max-w-[1200px] h-full md:h-[90vh] flex flex-col overflow-hidden shadow-2xl relative"
       >
-        {/* Header */}
         <div className="p-6 md:px-12 md:py-8 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
           <div>
             <h2 className="serif text-2xl md:text-4xl text-slate-900 tracking-tight">ワインカタログ</h2>
@@ -180,17 +175,29 @@ export const CatalogSelector: React.FC<CatalogSelectorProps> = ({
         </div>
 
         <div className="flex flex-1 overflow-hidden bg-white">
-          {/* Left Panel: Faceted Sidebar - Luxury Styling */}
           <aside className="w-72 border-r border-slate-100 bg-slate-50/30 p-8 overflow-y-auto hidden lg:block custom-scrollbar">
             <div className="flex items-center gap-3 text-brand-wine mb-10">
               <div className="p-2 bg-brand-wine/5 rounded-xl">
                 <Filter className="w-5 h-5" />
               </div>
-              <span className="text-xs font-black uppercase tracking-[0.2em]">ファセット検索</span>
+              <span className="text-xs font-black uppercase tracking-[0.2em]">絞り込み・ソート</span>
             </div>
 
             <div className="space-y-10">
-              {/* Supplier Filter (Tab Specific) */}
+              {/* 【新機能】並び替え（ソート機能） */}
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block mb-5 border-b border-slate-100 pb-2">並び替え</label>
+                <select 
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as any)}
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-600 outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/20 transition-all cursor-pointer shadow-sm"
+                >
+                  <option value="name_asc">名前順 (A-Z)</option>
+                  <option value="price_desc">参考価格が高い順</option>
+                  <option value="price_asc">参考価格が安い順</option>
+                </select>
+              </div>
+
               {activeTab === 'OTHER' && facets.suppliers.length > 0 && (
                 <div className="animate-in fade-in slide-in-from-left-2 duration-500">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block mb-5 border-b border-slate-100 pb-2">インポーター</label>
@@ -217,7 +224,6 @@ export const CatalogSelector: React.FC<CatalogSelectorProps> = ({
                 </div>
               )}
 
-              {/* Color Filter */}
               <div>
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block mb-5 border-b border-slate-100 pb-2">ワインの色</label>
                 <div className="grid grid-cols-2 gap-2">
@@ -237,7 +243,6 @@ export const CatalogSelector: React.FC<CatalogSelectorProps> = ({
                 </div>
               </div>
 
-              {/* Price Range Filter */}
               <div>
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block mb-5 border-b border-slate-100 pb-2">価格帯</label>
                 <div className="grid gap-1.5">
@@ -262,7 +267,6 @@ export const CatalogSelector: React.FC<CatalogSelectorProps> = ({
                 </div>
               </div>
 
-              {/* Country Filter - Scrollable Area */}
               <div>
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block mb-5 border-b border-slate-100 pb-2">生産国</label>
                 <div className="grid gap-1 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
@@ -287,11 +291,8 @@ export const CatalogSelector: React.FC<CatalogSelectorProps> = ({
             </div>
           </aside>
 
-          {/* Right Panel: Main Grid Area */}
           <main className="flex-1 flex flex-col bg-slate-50/20 overflow-hidden">
-            {/* Top Controls Area */}
             <div className="p-8 bg-white border-b border-slate-100 shrink-0 space-y-8">
-              {/* Tab Selector - Unified Styling */}
               <div className="flex bg-slate-100/50 p-1.5 rounded-2xl w-full max-w-2xl mx-auto border border-slate-100">
                 <button 
                   onClick={() => setActiveTab('PIEROTH')}
@@ -328,14 +329,12 @@ export const CatalogSelector: React.FC<CatalogSelectorProps> = ({
               </div>
             </div>
 
-            {/* List area */}
             <div className="flex-1 overflow-y-auto p-8 relative custom-scrollbar">
               <div id="catalog-scroll-top" className="absolute top-0" />
               
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
                 <AnimatePresence mode="popLayout">
                   {currentItems.map(wine => {
-                    // 🚨 ID Type Conflict Resolution: Compare pureIds to bypass composite prefixes (e.g., PIEROTH_123)
                     const isAlreadySelected = selectedWines.some(sw => sw.pureId === (wine.pureId || wine.id));
                     const isChecked = selectedMasterIds.includes(wine.id);
                     return (
@@ -412,7 +411,6 @@ export const CatalogSelector: React.FC<CatalogSelectorProps> = ({
                 </AnimatePresence>
               </div>
 
-              {/* No Results or Load More */}
               {filteredWines.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-20 text-slate-400">
                   <Search className="w-12 h-12 mb-4 opacity-20" />
@@ -432,7 +430,6 @@ export const CatalogSelector: React.FC<CatalogSelectorProps> = ({
               )}
             </div>
 
-            {/* Pagination Controls - Luxury Styling */}
             {totalPages > 1 && (
               <div className="p-8 md:px-12 border-t border-slate-100 bg-white flex flex-col md:flex-row items-center justify-between shrink-0 gap-6">
                 <div className="flex flex-col items-center md:items-start">
@@ -502,9 +499,7 @@ export const CatalogSelector: React.FC<CatalogSelectorProps> = ({
           </main>
         </div>
 
-        {/* Footer / Action */}
         <div className="p-8 md:px-12 border-t border-slate-100 bg-white flex flex-col md:flex-row items-center justify-between gap-6 shrink-0 relative">
-          {/* Progress bar for selection */}
           {selectedMasterIds.length > 0 && (
             <div className="absolute top-0 left-0 h-1 bg-brand-wine/20 w-full overflow-hidden">
               <motion.div 
