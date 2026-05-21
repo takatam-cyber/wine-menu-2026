@@ -3,56 +3,40 @@ service cloud.firestore {
   match /databases/{database}/documents {
     
     // --- Helpers ---
-    function isSignedIn() {
-      return request.auth != null;
-    }
-    
-    function authUid() {
-      return request.auth.uid;
-    }
-    
-    function isOwnerOf(userId) {
-      return isSignedIn() && authUid() == userId;
-    }
-
-    function isAdmin() {
-      return isSignedIn() && request.auth.token.role == 'admin';
-    }
-
-    function isRep() {
-      return isAdmin() || (isSignedIn() && request.auth.token.role == 'rep');
-    }
-
-    function isOwner() {
-      return isAdmin() || (isSignedIn() && request.auth.token.role == 'owner');
-    }
+    function isSignedIn() { return request.auth != null; }
+    function authUid() { return request.auth.uid; }
+    function isOwnerOf(userId) { return isSignedIn() && authUid() == userId; }
+    function isAdmin() { return isSignedIn() && request.auth.token.role == 'admin'; }
+    function isRep() { return isAdmin() || (isSignedIn() && request.auth.token.role == 'rep'); }
+    function isOwner() { return isAdmin() || (isSignedIn() && request.auth.token.role == 'owner'); }
 
     // --- 1. User Profiles ---
     match /users/{userId} {
-      allow read, write: if isOwnerOf(userId) || isAdmin();
-      allow read: if isRep();
+      allow read: if isOwnerOf(userId) || isAdmin() || isRep();
+      allow create: if isOwnerOf(userId) || isAdmin();
+      // 【バグ修正】特権昇格を防ぐため、ユーザー自身は role, storeId, repId などの重要フィールドを変更できないよう制限
+      allow update: if isAdmin() || (isOwnerOf(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'storeId', 'repId', 'uid']));
+      allow delete: if isAdmin();
     }
 
     // --- 2. Stores ---
     match /stores/{storeId} {
-      // REQUIRE authentication for get to comply with professional security standards.
-      // NOTE: For best security, sensitive data like "owner_api_key" should be stored in 
-      // a separate, restrictive subcollection (e.g. stores/{storeId}/private/config) 
-      // where read is restricted to Admin/Owner only.
       allow get: if isSignedIn(); 
       allow list: if isSignedIn();
       allow create: if isRep();
-      allow update, delete: if isAdmin() || (isSignedIn() && (
-                    (request.auth.token.role == 'rep' && resource.data.repId == authUid()) || 
-                    (request.auth.token.role == 'owner' && (request.auth.token.storeId == storeId || resource.data.ownerId == authUid()))
-      ));
+      allow update: if isAdmin() ||
+        (isSignedIn() && (
+          (request.auth.token.role == 'rep' && resource.data.repId == authUid()) || 
+          (request.auth.token.role == 'owner' && (request.auth.token.storeId == storeId || resource.data.ownerId == authUid()))
+        ));
+      // 【バグ修正】オーナーによる誤操作・悪意ある店舗削除を防止。削除はAdminと担当営業（Rep）のみ可能に。
+      allow delete: if isAdmin() || (isSignedIn() && request.auth.token.role == 'rep' && resource.data.repId == authUid());
 
       match /inventory/{wineId} {
         allow read: if true;
-        allow write: if isAdmin() || (isSignedIn() && (
-          // ZERO-READ OPTIMIZATION for Owner: Directly allow write access without get() bills
+        allow write: if isAdmin() ||
+        (isSignedIn() && (
           (request.auth.token.role == 'owner' && request.auth.token.storeId == storeId) ||
-          // Safe verification for rep avoiding auth token missing claims
           (request.auth.token.role == 'rep' && get(/databases/$(database)/documents/stores/$(storeId)).data.repId == authUid())
         ));
       }
