@@ -182,7 +182,13 @@ export const CustomerView: React.FC = () => {
   const store = menuData?.store || null;
   const inventory = menuData?.menu || [];
 
-  const getProxyUrl = (url: string) => `/api/proxy-image?url=${encodeURIComponent(url)}`;
+  const getProxyUrl = (url: string) => {
+    if (!url || typeof url !== 'string' || !url.trim().startsWith('http')) {
+      // Return a transparent 1x1 fallback GIF to prevent any network or MIME type errors
+      return 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
+    }
+    return `/api/proxy-image?url=${encodeURIComponent(url)}`;
+  };
 
   interface FilterOption {
     id: string;
@@ -732,8 +738,12 @@ export const CustomerView: React.FC = () => {
                               <div className="absolute inset-0 opacity-5 bg-[url('https://www.transparenttextures.com/patterns/handmade-paper.png')] rounded-[3rem]" />
                               <div className="w-32 h-40 bg-white flex items-center justify-center p-4 rounded-[2rem] relative border border-brand-gold/20 shadow-xl group-hover:border-brand-gold/50 transition-all overflow-hidden shrink-0">
                                 <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]" />
-                                {/* 【バグ修正】 空の画像URLに対する400エラーを防ぐ */}
-                                {wine.image_url && <img src={getProxyUrl(wine.image_url)} alt="" loading="lazy" className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-1000 ease-out drop-shadow-2xl" />}
+                                {/* 【バグ修正】 空の画像URLに対する400エラーを防ぎ、シルエットアイコンへ上品にフォールバック */}
+                                {wine.image_url ? (
+                                  <img src={getProxyUrl(wine.image_url)} alt="" loading="lazy" className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-1000 ease-out drop-shadow-2xl" />
+                                ) : (
+                                  <Wine className="w-12 h-12 text-brand-gold/35" strokeWidth={0.5} />
+                                )}
                                 <div className="absolute top-2 left-2 flex flex-col gap-1">
                                     {(currentLang === 'ja' ? wine.pairing : (wine.pairing_en || wine.pairing))?.includes('肉') && <div className="p-1.5 bg-brand-wine/10 rounded-full text-brand-wine"><Beef className="w-3 h-3" /></div>}
                                     {(currentLang === 'ja' ? wine.pairing : (wine.pairing_en || wine.pairing))?.includes('魚') && <div className="p-1.5 bg-brand-wine/10 rounded-full text-brand-wine"><Fish className="w-3 h-3" /></div>}
@@ -837,8 +847,12 @@ export const CustomerView: React.FC = () => {
                         className="group cursor-pointer flex gap-5 border border-transparent border-b-brand-wine/5 p-4 hover:bg-brand-gold/[0.02] transition-all duration-300 relative overflow-hidden"
                       >
                         <div className="w-24 h-28 bg-white/50 backdrop-blur-sm flex items-center justify-center p-3 rounded-2xl relative border border-brand-gold/10 shadow-sm group-hover:border-brand-gold/30 transition-all shrink-0">
-                        {/* 【バグ修正】 空の画像URLに対する400エラーを防ぐ */}
-                        {wine.image_url && <img src={getProxyUrl(wine.image_url)} alt="" loading="lazy" className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-700" />}
+                        {/* 【バグ修正】 空の画像URLに対する400エラーを防ぎ、シルエットアイコンへ上品にフォールバック */}
+                        {wine.image_url ? (
+                          <img src={getProxyUrl(wine.image_url)} alt="" loading="lazy" className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-700" />
+                        ) : (
+                          <Wine className="w-8 h-8 text-brand-gold/30" strokeWidth={0.5} />
+                        )}
                         </div>
                         <div className="flex-1 flex flex-col justify-center gap-0.5">
                 <div className="flex items-center gap-1.5 mb-1">
@@ -1104,8 +1118,12 @@ export const CustomerView: React.FC = () => {
                   <div className="text-center pt-4">
                     <div className="w-full aspect-square md:aspect-[4/5] bg-brand-dark/40 border border-brand-gold/20 rounded-3xl mb-8 flex items-center justify-center p-8 relative shadow-inner group overflow-hidden">
                       <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,rgba(184,134,11,0.25),transparent_70%)]" />
-                      {/* 【バグ修正】 空の画像URLに対する400エラーを防ぐ */}
-                      {selectedWine.image_url && <img src={getProxyUrl(selectedWine.image_url)} alt="" loading="lazy" className="h-full object-contain relative z-10 transition-transform duration-2000 group-hover:scale-105" />}
+                      {/* 【バグ修正】 空の画像URLに対する400エラーを防ぎ、シルエットアイコンへ上品にフォールバック */}
+                      {selectedWine.image_url ? (
+                        <img src={getProxyUrl(selectedWine.image_url)} alt="" loading="lazy" className="h-full object-contain relative z-10 transition-transform duration-2000 group-hover:scale-105" />
+                      ) : (
+                        <Wine className="w-20 h-20 text-brand-gold/25 relative z-10 animate-pulse" strokeWidth={0.5} />
+                      )}
                     </div>
                     <h2 className="serif text-3xl md:text-5xl text-brand-gold-dark mb-3 tracking-tight leading-tight">
                       {currentLang === 'ja' ? selectedWine.name_jp : (selectedWine.name_en || selectedWine.name_jp)}
