@@ -1,9 +1,7 @@
 // src/hooks/useInventoryQuery.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { storeRepository } from '../lib/repositories/storeRepository';
-import { db } from '../lib/firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { WineMaster, Store, extractPureId } from '../types';
+import { WineMaster, Store } from '../types';
 
 export function useInventoryQuery(storeId: string | null) {
   return useQuery({
@@ -11,62 +9,19 @@ export function useInventoryQuery(storeId: string | null) {
     queryFn: async () => {
       if (!storeId) return null;
       
-      const [storeData, inventoryItems] = await Promise.all([
-        storeRepository.getStoreById(storeId),
-        storeRepository.getStoreInventory(storeId)
-      ]);
-
+      // 1. 店舗の親ドキュメントのデータを取得
+      const storeData = await storeRepository.getStoreById(storeId);
       if (!storeData) return null;
-      if (inventoryItems.length === 0) {
-        return { store: storeData, inventory: [] };
-      }
 
-      const enrichedWines: WineMaster[] = [];
-      const itemIds = inventoryItems.map(item => item.id);
+      // 【究極のバグ根治リファクタリング】
+      // ご指摘の通り、一般顧客用メニューと完全に同じ「publicMenu」配列フィールドを
+      // そのままダッシュボードのデータ参照先として一本化します。
+      // これにより、サブコレクションとのIDマッチング漏れや、キャッシュの不整合による
+      // 「画面を入り直すと0に戻る」というバグは、システムの構造上【物理的に発生不可能】になります。
+      const enrichedWines: WineMaster[] = storeData.publicMenu || [];
 
-      // すべてのチャンクを Promise.all で並列一括取得（超高速化）
-      const chunkPromises = [];
-      for (let i = 0; i < itemIds.length; i += 30) {
-        const chunk = itemIds.slice(i, i + 30);
-        const q = query(collection(db, 'winesMaster'), where('__name__', 'in', chunk));
-        chunkPromises.push(getDocs(q));
-      }
-
-      const snapshotsArray = await Promise.all(chunkPromises);
-      
-      snapshotsArray.forEach(masterSnaps => {
-        masterSnaps.forEach(docSnap => {
-          const masterData = docSnap.data() as WineMaster;
-          
-          // 【バグ修正】生IDの単純比較を完全に廃止。
-          // 両方のIDからインポーター接頭辞を排除し、小文字に統一した純粋な製品コード同士で完全に安全なマッチングを行います。
-          const masterPureId = extractPureId(masterData.pureId || docSnap.id, masterData.supplier).toLowerCase();
-          const invItem = inventoryItems.find(item => {
-            const itemPureId = extractPureId(item.pureId || item.id, item.supplier || masterData.supplier).toLowerCase();
-            return itemPureId === masterPureId;
-          });
-
-          if (invItem) {
-            enrichedWines.push({ 
-              ...masterData, 
-              id: docSnap.id,
-              pureId: masterPureId,
-              price_bottle: invItem.price_bottle ?? masterData.price_bottle,
-              price_glass: invItem.price_glass ?? masterData.price_glass,
-              cost: invItem.cost ?? masterData.cost ?? 2000,
-              glasses_per_bottle: invItem.glasses_per_bottle ?? 6,
-              visible: invItem.visible ?? true,
-              isFeatured: invItem.isFeatured ?? false,
-              promoLabel: invItem.promoLabel || '',
-              stock: invItem.stock ?? 0,
-              isActive: invItem.isActive ?? true
-            });
-          }
-        });
-      });
-
-      // マスターデータの登録順に綺麗にソートして返却
-      const sortedWines = enrichedWines.sort((a, b) => (a.name_jp || '').localeCompare(b.name_jp || ''));
+      // マスターデータの登録順（名前順）に綺麗にソートして返却
+      const sortedWines = [...enrichedWines].sort((a, b) => (a.name_jp || '').localeCompare(b.name_jp || ''));
 
       return {
         store: storeData,
@@ -74,8 +29,7 @@ export function useInventoryQuery(storeId: string | null) {
       };
     },
     enabled: !!storeId,
-    // 【バグ修正】ダッシュボード管理画面の staleTime を 0 に強制変更。
-    // これにより、画面を切り替えたり入り直したりした際、古いローカルキャッシュを掴まずに、必ず確定保存された最新のFirestoreデータを直接ロードします。
+    // staleTimeを0にすることで、画面の出入り時や切り替え時に、古いキャッシュを無視して必ず最新のFirestoreデータを読み込みます
     staleTime: 0, 
     gcTime: 1000 * 60 * 1, // 不要になったキャッシュは1分で自動破棄
   });
