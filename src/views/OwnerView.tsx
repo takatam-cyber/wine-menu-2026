@@ -1,5 +1,5 @@
 // ============================================================================
-// Pieroth Smart Menu Engine - 店舗オーナー用メニュー管理ビュー
+// Pieroth Smart Menu Engine - 店舗オーナー用メニュー管理ビュー（バグ修正版）
 // ============================================================================
 
 import React, { useState, useEffect } from 'react';
@@ -65,7 +65,7 @@ export const OwnerView: React.FC = () => {
       const s = (w.supplier || 'PIEROTH').toUpperCase();
       const matchesSupplier = invSupplierFilter === 'all' || s === invSupplierFilter;
       const matchesCountry = invCountryFilter === 'all' || w.country === invCountryFilter;
-      const matchesColor = invColorFilter === 'all' || (w.color || '').toLowerCase() === invColorFilter.toLowerCase();
+      const matchesColor = invColorFilter === 'all() || (w.color || \'\').toLowerCase() === invColorFilter.toLowerCase();
 
       return matchesSearch && matchesSupplier && matchesCountry && matchesColor;
     });
@@ -214,7 +214,7 @@ export const OwnerView: React.FC = () => {
         .filter(w => w.visible !== false && w.isActive !== false)
         .map(projectWineForPublic);
 
-      // 【決定的キャッシュ更新】ローディングのカкつき・再フェッチ遅延を防ぐため、コミット前にフロントキャッシュ状態を確定マージ
+      // フロントキャッシュ状態を確定マージ
       queryClient.setQueryData(['inventory', sid], (old: any) => {
         if (!old) return old;
         return { ...old, inventory: mergedInventory };
@@ -251,7 +251,7 @@ export const OwnerView: React.FC = () => {
         await batch.commit();
       }
 
-      // 【一貫性注入戦略】最新の確定状態をExpressに直接プッシュ（レプリケーションラグによる先祖返りを完全破壊）
+      // 最新の確定状態をExpressに直接プッシュ
       await fetch(`/api/menu/${sid}/invalidate`, { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1091,7 +1091,7 @@ export const OwnerView: React.FC = () => {
             </motion.div>
           </motion.div>
         )}
-      </anims-AnimatePresence>
+      </AnimatePresence>
     </div>
   );
 };
