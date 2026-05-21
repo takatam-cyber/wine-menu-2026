@@ -102,7 +102,10 @@ export const StoreAnalytics: React.FC<StoreAnalyticsProps> = ({ selectedWines })
               <div className="text-[15px] font-medium leading-relaxed border-l-4 border-brand-wine pl-6 text-slate-800 font-serif">
                 "現在のシミュレーション結果により、ワインリストの平均原価率は適正範囲内にあります。プレミアムセグメントの比率をあと12%増やすことで、目標利益への最短ルートが構築可能です。"
               </div>
-              <button className="w-full py-4 rounded-2xl bg-brand-wine text-white text-xs font-bold uppercase tracking-[0.2em] hover:scale-[1.02] transition-all shadow-lg active:scale-95">
+              <button 
+                onClick={() => alert('詳細レポートのPDF出力機能は現在準備中です。次期アップデートをお待ちください。')}
+                className="w-full py-4 rounded-2xl bg-brand-wine text-white text-xs font-bold uppercase tracking-[0.2em] hover:scale-[1.02] transition-all shadow-lg active:scale-95"
+              >
                 詳細レポートを出力
               </button>
             </div>
