@@ -1,3 +1,4 @@
+// src/hooks/useInventoryQuery.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { storeRepository } from '../lib/repositories/storeRepository';
 import { db } from '../lib/firebase';
@@ -23,7 +24,7 @@ export function useInventoryQuery(storeId: string | null) {
       const enrichedWines: WineMaster[] = [];
       const itemIds = inventoryItems.map(item => item.id);
 
-      // 【バグ修正】 直列の await を廃止し、すべてのチャンクを Promise.all で並列一括取得（超高速化）
+      // すべてのチャンクを Promise.all で並列一括取得（超高速化）
       const chunkPromises = [];
       for (let i = 0; i < itemIds.length; i += 30) {
         const chunk = itemIds.slice(i, i + 30);
@@ -36,12 +37,19 @@ export function useInventoryQuery(storeId: string | null) {
       snapshotsArray.forEach(masterSnaps => {
         masterSnaps.forEach(docSnap => {
           const masterData = docSnap.data() as WineMaster;
-          const invItem = inventoryItems.find(item => item.id === docSnap.id);
+          
+          // 【バグ修正】生IDの単純比較を廃止し、extractPureIdで純粋なコード（例: 12345）を取り出して確実にマッチングさせる
+          const masterPureId = extractPureId(masterData.pureId || docSnap.id, masterData.supplier);
+          const invItem = inventoryItems.find(item => {
+            const itemPureId = extractPureId(item.pureId || item.id, item.supplier || masterData.supplier);
+            return itemPureId === masterPureId;
+          });
+
           if (invItem) {
             enrichedWines.push({ 
               ...masterData, 
               id: docSnap.id,
-              pureId: extractPureId(masterData.pureId || docSnap.id, masterData.supplier),
+              pureId: masterPureId,
               price_bottle: invItem.price_bottle ?? masterData.price_bottle,
               price_glass: invItem.price_glass ?? masterData.price_glass,
               cost: invItem.cost ?? masterData.cost ?? 2000,
@@ -65,7 +73,10 @@ export function useInventoryQuery(storeId: string | null) {
       };
     },
     enabled: !!storeId,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    // 【バグ修正】管理画面ダッシュボードのキャッシュ保持時間を0に設定
+    // これにより、店舗画面を出入りした際やリロードした際、古いキャッシュを使わずに必ず最新の数値をFirestoreから取得します
+    staleTime: 0, 
+    gcTime: 1000 * 60 * 1, // 不要になったキャッシュは1分で自動破棄
   });
 }
 
