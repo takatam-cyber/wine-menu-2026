@@ -16,7 +16,6 @@ import { Plus, Database, Upload, Eye, Save, Settings, Edit2, Shield, Wine, Trash
 import { motion, AnimatePresence } from 'motion/react';
 import { useQueryClient } from '@tanstack/react-query';
 
-// New Components and Utils
 import { parseWineCSV } from '../lib/csv-parser';
 import { StoreGrid } from '../components/admin/StoreGrid';
 import { InventoryManager } from '../components/admin/InventoryManager';
@@ -117,6 +116,7 @@ export const AdminView: React.FC = () => {
 
   const [selectedWines, setSelectedWines] = useState<WineMaster[]>([]);
 
+  // 初期ロード時とストア切り替え時のみセット
   useEffect(() => {
     if (inventoryData?.inventory && selectedStoreId === inventoryData.store?.id) {
       setSelectedWines(inventoryData.inventory);
@@ -124,6 +124,23 @@ export const AdminView: React.FC = () => {
       setSelectedWines([]);
     }
   }, [selectedStoreId, inventoryData?.inventory]);
+
+  // 【バグ修正】選択中の店舗をURLと完全に同期する
+  useEffect(() => {
+    if (selectedStoreId) {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('storeId') !== selectedStoreId) {
+        url.searchParams.set('storeId', selectedStoreId);
+        window.history.replaceState({}, '', url.toString());
+      }
+    } else {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has('storeId')) {
+        url.searchParams.delete('storeId');
+        window.history.replaceState({}, '', url.toString());
+      }
+    }
+  }, [selectedStoreId]);
 
   const [storeSearchTerm, setStoreSearchTerm] = useState('');
   const [selectedCuisineFilter, setSelectedCuisineFilter] = useState('all');
@@ -250,14 +267,13 @@ export const AdminView: React.FC = () => {
       });
       
       fetch(`/api/menu/${storeId}/invalidate`, { method: 'POST' }).catch(() => {});
-
-      queryClient.invalidateQueries({ queryKey: ['publicMenu', storeId] });
     } catch (e) {
       console.error("Failed to sync publicMenu:", e);
     }
   };
 
-  const handleUpdateWineItem = async (wineId: string, updatedFields: Partial<WineMaster>) => {
+  // 【バグ修正】テキスト入力時はローカルstateのみ更新し、再フェッチによる先祖返りを防ぐ
+  const handleUpdateWineItem = (wineId: string, updatedFields: Partial<WineMaster>, saveImmediately = false) => {
     if (!selectedStoreId) return;
     
     const nextWines = selectedWines.map(w => {
@@ -269,33 +285,35 @@ export const AdminView: React.FC = () => {
 
     setSelectedWines(nextWines);
 
-    const wine = nextWines.find(w => w.id === wineId);
-    if (!wine) return;
+    if (saveImmediately) {
+      const wine = nextWines.find(w => w.id === wineId);
+      if (!wine) return;
 
-    const compositeId = getWineDocId(wine);
-    const itemRef = doc(db, 'stores', selectedStoreId, 'inventory', compositeId);
+      const compositeId = getWineDocId(wine);
+      const itemRef = doc(db, 'stores', selectedStoreId, 'inventory', compositeId);
 
-    try {
-      const docPayload = {
-        id: compositeId,
-        pureId: wine.pureId || wine.id,
-        supplier: (wine.supplier || 'PIEROTH').toUpperCase(),
-        price_bottle: wine.price_bottle ?? 0,
-        price_glass: wine.price_glass ?? 0,
-        cost: wine.cost ?? 0,
-        glasses_per_bottle: wine.glasses_per_bottle ?? 6,
-        visible: wine.visible ?? true,
-        isFeatured: wine.isFeatured ?? false,
-        promoLabel: wine.promoLabel || '',
-        updatedAt: new Date().toISOString()
-      };
-      await setDoc(itemRef, docPayload, { merge: true });
-      await syncPublicMenuWithDocs(selectedStoreId, nextWines);
-
-      queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
-      queryClient.invalidateQueries({ queryKey: ['stores'] });
-    } catch (error) {
-      console.error('Error auto-updating wine inventory item:', error);
+      (async () => {
+        try {
+          const docPayload = {
+            id: compositeId,
+            pureId: wine.pureId || wine.id,
+            supplier: (wine.supplier || 'PIEROTH').toUpperCase(),
+            price_bottle: wine.price_bottle ?? 0,
+            price_glass: wine.price_glass ?? 0,
+            cost: wine.cost ?? 0,
+            glasses_per_bottle: wine.glasses_per_bottle ?? 6,
+            visible: wine.visible ?? true,
+            isFeatured: wine.isFeatured ?? false,
+            promoLabel: wine.promoLabel || '',
+            updatedAt: new Date().toISOString()
+          };
+          await setDoc(itemRef, docPayload, { merge: true });
+          await syncPublicMenuWithDocs(selectedStoreId, nextWines);
+          // 即時保存の時は invalidateQueries を呼ばない（画面のちらつき防止）
+        } catch (error) {
+          console.error('Error auto-updating wine inventory item:', error);
+        }
+      })();
     }
   };
 
@@ -361,10 +379,8 @@ export const AdminView: React.FC = () => {
         const newWinesList = [...currentWinesList, fullyProjectedWine];
         setSelectedWines(newWinesList);
         await syncPublicMenuWithDocs(selectedStoreId, newWinesList);
-
-        queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
-        queryClient.invalidateQueries({ queryKey: ['stores'] });
         setSearchId('');
+        // 【バグ修正】入力キャンセルを防ぐためリフェッチはしない
       } catch (error) {
         handleFirestoreError(error, OperationType.WRITE, docPath);
       }
@@ -437,9 +453,6 @@ export const AdminView: React.FC = () => {
       });
       setSelectedWines(mergedList);
       await syncPublicMenuWithDocs(selectedStoreId, mergedList);
-
-      queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
-      queryClient.invalidateQueries({ queryKey: ['stores'] });
       
       setImportStatus({ type: 'success', message: `${selectedMasterIds.length}件 of ワインを追加しました` });
       setShowCatalogSelection(false);
@@ -671,8 +684,6 @@ export const AdminView: React.FC = () => {
 
         setSelectedWines(mergedWinesList);
         await syncPublicMenuWithDocs(selectedStoreId, mergedWinesList);
-
-        queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
       }
 
       setImportStatus({ type: 'success', message: `${importedWines.length}件の銘柄データをインポートしました` });
@@ -729,6 +740,7 @@ export const AdminView: React.FC = () => {
 
       fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
 
+      // 全て保存完了してから再フェッチをかける
       queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
       queryClient.invalidateQueries({ queryKey: ['stores'] });
       setImportStatus({ type: 'success', message: '全ての在庫・価格データを保存し、公開メニューを更新しました' });
@@ -749,9 +761,6 @@ export const AdminView: React.FC = () => {
       const filteredList = selectedWines.filter(w => getWineDocId(w) !== compositeId);
       setSelectedWines(filteredList);
       await syncPublicMenuWithDocs(selectedStoreId, filteredList);
-
-      queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
-      queryClient.invalidateQueries({ queryKey: ['stores'] });
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `stores/${selectedStoreId}/inventory/${compositeId}`);
     }
@@ -1124,7 +1133,6 @@ export const AdminView: React.FC = () => {
                   {selectedStoreId ? (
                     <div className="flex flex-col items-center gap-4 py-2">
                       <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-center shadow-inner">
-                        {/* バグ修正：QRコードとリンクのURLを正しいルーティングに合わせて修正 */}
                         <img 
                           src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(`${getBaseUrl() || window.location.origin}/menu/${selectedStoreId}`)}`} 
                           alt="Store QR Code" 
@@ -1137,7 +1145,6 @@ export const AdminView: React.FC = () => {
                       </p>
 
                       <div className="w-full flex flex-col gap-2">
-                        {/* バグ修正：リンクのURLを正しいルーティングに合わせて修正 */}
                         <button 
                           onClick={() => window.open(`${getBaseUrl() || window.location.origin}/menu/${selectedStoreId}`, '_blank')}
                           className="w-full py-3 bg-brand-wine text-white text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-brand-wine/90 hover:shadow-lg transition-all flex items-center justify-center gap-2"
@@ -1146,7 +1153,6 @@ export const AdminView: React.FC = () => {
                         </button>
                         
                         <div className="text-center">
-                          {/* バグ修正：リンクのURLを正しいルーティングに合わせて修正 */}
                           <span className="text-[9px] font-mono select-all break-all text-slate-400 text-center block max-w-full overflow-hidden truncate">
                             {`${getBaseUrl() || window.location.origin}/menu/${selectedStoreId}`}
                           </span>
