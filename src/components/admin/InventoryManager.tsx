@@ -1,8 +1,7 @@
 // src/components/admin/InventoryManager.tsx
 import React from 'react';
 import { WineMaster, Store } from '../../types';
-import { Search, Plus, Wine, Upload, Save, Sparkles, Trash2, CheckCircle2, X, Eye, EyeOff } from 'lucide-react';
-import { motion } from 'motion/react';
+import { Plus, Wine, Upload, Save, Sparkles, Trash2 } from 'lucide-react';
 import { calculateProfit, calculateGlassProfit } from '../../lib/profit-calc';
 
 interface InventoryManagerProps {
@@ -49,65 +48,14 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
           </div>
           <h2 className="serif text-xl md:text-2xl text-slate-900">在庫・メニュー管理</h2>
         </div>
+        
         <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
-          <div className="relative flex-1 md:flex-none group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              placeholder="ワイン名、産地、IDでマスターを検索..."
-              value={searchId}
-              onChange={(e) => setSearchId(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAddWine()}
-              className="pl-12 pr-4 py-2 bg-white border border-slate-300 rounded-full text-xs w-full md:w-56 lg:w-80 text-slate-900 outline-none focus:ring-2 focus:ring-brand-wine/10 focus:border-brand-wine transition-all"
-            />
-            
-            {searchId.trim().length > 0 && (() => {
-              const matched = masterWines
-                .filter(w => {
-                  const query = searchId.toLowerCase();
-                  const matchesNameJp = (w.name_jp || '').toLowerCase().includes(query);
-                  const matchesNameEn = (w.name_en || '').toLowerCase().includes(query);
-                  const matchesId = (w.id || '').toLowerCase().includes(query);
-                  const matchesCountry = (w.country || '').toLowerCase().includes(query);
-                  return (matchesNameJp || matchesNameEn || matchesId || matchesCountry) && !selectedWines.some(sw => sw.id === w.id);
-                })
-                .slice(0, 8);
-
-              if (matched.length === 0) return null;
-
-              return (
-                <div className="absolute left-0 right-0 z-[100] mt-2 bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden max-h-64 overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-200">
-                  <div className="px-4 py-2 bg-slate-50 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                    マスターカタログ検索候補 ({matched.length}件)
-                  </div>
-                  {matched.map(w => (
-                    <button
-                      key={w.id}
-                      onClick={() => {
-                        handleAddWine(w.id);
-                        setSearchId('');
-                      }}
-                      className="w-full text-left px-4 py-3 hover:bg-slate-50 border-b border-slate-100/50 flex flex-col gap-0.5 transition-colors group"
-                    >
-                      <div className="flex justify-between items-center">
-                        <span className="font-bold text-xs text-slate-800 group-hover:text-brand-wine transition-colors">{w.name_jp}</span>
-                        <span className="bg-slate-100 text-slate-500 font-mono text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider shrink-0">{w.supplier || 'PIEROTH'}</span>
-                      </div>
-                      <div className="text-[10px] text-slate-400 font-medium">
-                        {w.country || '不明な生産国'} • {w.grape || '不明な品種'} • 通常 ¥{w.price_bottle?.toLocaleString()} • (ID: {w.id})
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              );
-            })()}
-          </div>
+          {/* 【UI刷新】ポップアップカタログを呼び出すメインアクションボタン */}
           <button
-            onClick={() => handleAddWine()}
-            className="bg-brand-gold text-brand-wine p-2 md:p-2.5 rounded-full hover:scale-110 transition-all shadow-md active:scale-95 shrink-0"
-            title="選択したワインをリストに即時追加"
+            onClick={onShowCatalogSelection}
+            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-brand-gold text-brand-wine rounded-xl text-xs font-bold uppercase tracking-widest hover:brightness-110 transition-all shadow-md active:scale-95"
           >
-            <Plus className="w-5 h-5" />
+            <Plus className="w-5 h-5 shrink-0" /> <span className="truncate">マスターから追加</span>
           </button>
          
           <div className="hidden md:block h-6 w-[1px] bg-slate-300 mx-1 md:mx-2"></div>
@@ -142,7 +90,6 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
           <div className="md:col-span-2 text-center">仕入れ原価(税別)</div>
           <div className="md:col-span-2 text-center">ボトル設定</div>
           <div className="md:col-span-2 text-center">グラス設定</div>
-          {/* 【バグ修正】在庫数のカラムを新設 */}
           <div className="md:col-span-1 text-center">在庫数</div>
           <div className="md:col-span-1 text-center">表示状態</div>
           <div className="md:col-span-1 text-right">操作</div>
@@ -158,7 +105,6 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                 !wine.visible ? 'opacity-60 bg-slate-50/50' : 'hover:border-slate-300'
               }`}
             >
-              {/* 1. ワイン銘柄 */}
               <div className="md:col-span-3 flex items-center gap-3 w-full min-w-0">
                 <button
                   onClick={() => {
@@ -188,7 +134,6 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                 </div>
               </div>
 
-              {/* 2. 仕入れ原価 */}
               <div className="md:col-span-2 w-full md:w-auto flex md:flex-col items-center justify-between md:justify-center gap-2 px-1">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest md:hidden">仕入れ原価</span>
                 <div className="flex items-center gap-1">
@@ -205,7 +150,6 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                 </div>
               </div>
 
-              {/* 3. ボトル設定 */}
               <div className="md:col-span-2 w-full md:w-auto flex md:flex-col items-center justify-between md:justify-center gap-2 px-1">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest md:hidden">ボトル価格</span>
                 <div className="flex items-center gap-3">
@@ -225,7 +169,6 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                 </div>
               </div>
 
-              {/* 4. グラス設定 */}
               <div className="md:col-span-2 w-full md:w-auto flex flex-col gap-2 border-t md:border-t-0 pt-2 md:pt-0 border-slate-100">
                 <div className="flex items-center justify-between md:justify-center gap-2">
                   <span className="text-[10px] font-bold text-slate-400 w-8 md:hidden">グラス価格</span>
@@ -262,7 +205,6 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                 </div>
               </div>
 
-              {/* 5. 【バグ修正】在庫数の入力欄を復活 */}
               <div className="md:col-span-1 w-full md:w-auto flex md:flex-col items-center justify-between md:justify-center gap-2 px-1 border-t md:border-t-0 pt-2 md:pt-0 border-slate-100">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest md:hidden">在庫数</span>
                 <input
@@ -276,7 +218,6 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                 />
               </div>
 
-              {/* 6. 表示状態 */}
               <div className="md:col-span-1 w-full md:w-auto flex md:flex-col items-center justify-between md:justify-center gap-2 border-t md:border-t-0 pt-2 md:pt-0 border-slate-100">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest md:hidden">メニュー表示</span>
                 <button
@@ -293,7 +234,6 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                 </button>
               </div>
 
-              {/* 7. 操作 */}
               <div className="md:col-span-1 w-full md:w-auto flex items-center justify-end md:justify-end border-t md:border-t-0 pt-2 md:pt-0 border-slate-100">
                 <div className="md:hidden flex items-center gap-2 mr-auto">
                   <span className="text-[10px] font-bold text-slate-400 uppercase">ラベル:</span>
@@ -330,7 +270,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
         {selectedWines.length === 0 && (
           <div className="px-8 py-24 text-center">
             <Wine className="w-12 h-12 text-slate-200 mx-auto mb-4 animate-bounce" />
-            <p className="font-serif italic text-lg text-slate-400">銘柄を選択、またはCSVを読み込んで開始します</p>
+            <p className="font-serif italic text-lg text-slate-400">「マスターから追加」ボタンでメニューを作りましょう</p>
           </div>
         )}
       </div>
