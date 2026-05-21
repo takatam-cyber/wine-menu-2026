@@ -12,7 +12,7 @@ import {
   orderBy
 } from 'firebase/firestore';
 import { db } from '../firebase';
-import { WineMaster } from '../../types';
+import { WineMaster, extractPureId } from '../../types';
 
 export interface PaginatedResult<T> {
   data: T[];
@@ -35,7 +35,7 @@ export const wineRepository = {
       return { 
         ...docData, 
         id: d.id, 
-        pureId: docData.pureId || docData.id 
+        pureId: extractPureId(docData.pureId || d.id, docData.supplier)
       } as WineMaster;
     });
     const lastVisible = snapshot.docs[snapshot.docs.length - 1] || null;
@@ -62,7 +62,7 @@ export const wineRepository = {
       return { 
         ...docData, 
         id: d.id, 
-        pureId: docData.pureId || docData.id 
+        pureId: extractPureId(docData.pureId || d.id, docData.supplier)
       } as WineMaster;
     });
   },
@@ -74,7 +74,7 @@ export const wineRepository = {
     return { 
       ...docData, 
       id: d.id, 
-      pureId: docData.pureId || docData.id 
+      pureId: extractPureId(docData.pureId || d.id, docData.supplier)
     } as WineMaster;
   }
 };

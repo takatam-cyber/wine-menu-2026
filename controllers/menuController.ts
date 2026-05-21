@@ -159,3 +159,22 @@ export const proxyImage = async (req: Request, res: Response) => {
     res.status(500).send("External imaging failure");
   }
 };
+
+/**
+ * Express-level Cache Invalidator
+ * Triggered by admin / owner modifications to guarantee near-instantaneous state updates.
+ */
+export const invalidateMenuCache = async (req: Request, res: Response) => {
+  try {
+    const { storeId } = req.params;
+    if (storeId) {
+      menuCache.delete(storeId);
+      console.log(`[Cache Invalidation] Purged memory cache for storeId: ${storeId}`);
+    }
+    res.status(200).json({ success: true, message: `Cache successfully purged for storeId: ${storeId}` });
+  } catch (error: any) {
+    console.error("Cache Invalidation Error:", error);
+    res.status(500).json({ error: "Failed to purge menu cache" });
+  }
+};
+

@@ -29,9 +29,15 @@ export const syncClaims = async (req: AuthenticatedRequest, res: Response) => {
     let role = "customer";
     let storeId = null;
     let repId = null;
+    let hasExplicitRole = false;
+
     if (userDoc.exists) {
       const data = userDoc.data();
-      role = data?.role || "customer";
+      const dbRole = data?.role;
+      if (dbRole && dbRole !== "customer") {
+        role = dbRole;
+        hasExplicitRole = true;
+      }
       storeId = data?.storeId || null;
       repId = data?.repId || null;
     }
@@ -39,7 +45,10 @@ export const syncClaims = async (req: AuthenticatedRequest, res: Response) => {
     const isSecureDomain = email && (email.endsWith("@pieroth.jp") || email === "takatam40725@gmail.com");
 
     if (isSecureDomain) {
-      role = "admin";
+      // If no explicit role is stored (or it is just customer), assign admin
+      if (!hasExplicitRole) {
+        role = "admin";
+      }
     } else {
       // 🚨 Security Hardening: Only grant admin claims if the email domain matches our secure criteria
       if (role === "admin") {

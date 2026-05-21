@@ -57,23 +57,35 @@ export const storeRepository = {
     return snapshot.docs.map(d => ({ ...d.data(), id: d.id }));
   },
 
+  async invalidateServerCache(storeId: string): Promise<void> {
+    try {
+      await fetch(`/api/menu/${storeId}/invalidate`, { method: 'POST' });
+    } catch (e) {
+      console.warn('[Cache Invalidation] Failed to contact Express cache buster:', e);
+    }
+  },
+
   async updateStore(storeId: string, data: Partial<Store>): Promise<void> {
     const d = doc(db, 'stores', storeId);
     await updateDoc(d, data);
+    this.invalidateServerCache(storeId).catch(() => {});
   },
 
   async updateInventoryItem(storeId: string, itemId: string, data: any): Promise<void> {
     const d = doc(db, 'stores', storeId, 'inventory', itemId);
     await updateDoc(d, data);
+    this.invalidateServerCache(storeId).catch(() => {});
   },
 
   async deleteInventoryItem(storeId: string, itemId: string): Promise<void> {
     const d = doc(db, 'stores', storeId, 'inventory', itemId);
     await deleteDoc(d);
+    this.invalidateServerCache(storeId).catch(() => {});
   },
 
   async addInventoryItem(storeId: string, itemId: string, data: any): Promise<void> {
     const d = doc(db, 'stores', storeId, 'inventory', itemId);
     await setDoc(d, data);
+    this.invalidateServerCache(storeId).catch(() => {});
   }
 };

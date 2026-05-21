@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { WineMaster, Store } from '../types';
+import { WineMaster, Store, extractPureId } from '../types';
 import { useWines } from '../lib/WineContext';
 import { wineRepository } from '../lib/repositories/wineRepository';
 import { useStoresQuery } from '../hooks/useStoresQuery';
@@ -36,23 +36,21 @@ const getBaseUrl = () => {
 };
 
 const getWineDocId = (wine: { id: string; supplier?: string; pureId?: string }) => {
-  const pure = wine.pureId || wine.id;
+  const pure = extractPureId(wine.pureId || wine.id, wine.supplier);
   const supplier = (wine.supplier || 'PIEROTH').toUpperCase();
-  const supplierPrefix = `${supplier}_`;
-  if (pure.startsWith(supplierPrefix)) return pure;
-  return `${supplierPrefix}${pure}`;
+  return `${supplier}_${pure}`;
 };
 
 const projectWineForPublic = (w: any) => ({
   id: getWineDocId(w),
-  pureId: w.pureId || w.id,
+  pureId: extractPureId(w.pureId || w.id, w.supplier),
   supplier: (w.supplier || 'PIEROTH').toUpperCase(),
   name_jp: w.name_jp,
   name_en: w.name_en,
-  menu_short: '',
-  menu_short_en: '',
-  ai_explanation: '',
-  ai_explanation_en: '',
+  menu_short: w.menu_short || '',
+  menu_short_en: w.menu_short_en || '',
+  ai_explanation: w.ai_explanation || '',
+  ai_explanation_en: w.ai_explanation_en || '',
   country: w.country,
   country_en: w.country_en,
   region: w.region,
@@ -73,8 +71,8 @@ const projectWineForPublic = (w: any) => ({
   complexity: w.complexity || 3,
   finish: w.finish || 3,
   oak: w.oak || 1,
-  aroma_features: '',
-  aroma_features_en: '',
+  aroma_features: w.aroma_features || '',
+  aroma_features_en: w.aroma_features_en || '',
   tags: w.tags || '',
   tags_en: w.tags_en || '',
   pairing: w.pairing || '',
@@ -250,6 +248,12 @@ export const AdminView: React.FC = () => {
         publicMenu: richPublicMenu,
         updatedAt: new Date().toISOString()
       });
+      
+      // Invalidate Express server-side memory cache in real-time
+      fetch(`/api/menu/${storeId}/invalidate`, { method: 'POST' }).catch(() => {});
+
+      // Invalidate React Query customer menu cache
+      queryClient.invalidateQueries({ queryKey: ['publicMenu', storeId] });
     } catch (e) {
       console.error("Failed to sync publicMenu:", e);
     }
@@ -619,6 +623,7 @@ export const AdminView: React.FC = () => {
           winesToAdd = importedWines.filter(w => allowed.includes((w.supplier || 'PIEROTH').toUpperCase()));
         }
 
+        // Create the composite inventory writes with { merge: true } to prevent resetting manual modifications
         for (let i = 0; i < winesToAdd.length; i += CHUNK_SIZE) {
           const chunk = winesToAdd.slice(i, i + CHUNK_SIZE);
           const batch = writeBatch(db);
@@ -637,22 +642,43 @@ export const AdminView: React.FC = () => {
               visible: true,
               updatedAt: new Date().toISOString()
             };
-            batch.set(doc(db, 'stores', selectedStoreId, 'inventory', compositeId), invItem);
+            batch.set(doc(db, 'stores', selectedStoreId, 'inventory', compositeId), invItem, { merge: true });
           });
-          
-          if (i + CHUNK_SIZE >= winesToAdd.length) {
-            const richPublicMenu = winesToAdd
-              .filter(w => w.visible !== false && w.isActive !== false)
-              .map(wine => projectWineForPublic({ ...wine, pureId: wine.id }));
-
-            batch.update(doc(db, 'stores', selectedStoreId), {
-              publicMenu: richPublicMenu,
-              updatedAt: new Date().toISOString()
-            });
-          }
           
           await batch.commit();
         }
+
+        // Construct a safe, merged collection of both existing and new configurations to safeguard menu integrity
+        const mergedWinesList = [...selectedWines];
+        winesToAdd.forEach(wine => {
+          const compositeId = getWineDocId(wine);
+          const existingIdx = mergedWinesList.findIndex(sw => getWineDocId(sw) === compositeId);
+          const newProjectedItem = {
+            ...wine,
+            id: compositeId,
+            pureId: wine.pureId || wine.id,
+            price_bottle: wine.price_bottle || Math.round(wine.cost * 3 / 100) * 100,
+            price_glass: wine.price_glass || 0,
+            glasses_per_bottle: 6,
+            stock: wine.stock || 0,
+            isActive: true,
+            visible: true,
+            updatedAt: new Date().toISOString()
+          };
+          
+          if (existingIdx !== -1) {
+            mergedWinesList[existingIdx] = {
+              ...mergedWinesList[existingIdx],
+              ...newProjectedItem
+            };
+          } else {
+            mergedWinesList.push(newProjectedItem as WineMaster);
+          }
+        });
+
+        // Safe regeneration of non-relational cache schema
+        setSelectedWines(mergedWinesList);
+        await syncPublicMenuWithDocs(selectedStoreId, mergedWinesList);
 
         queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
       }
@@ -708,6 +734,9 @@ export const AdminView: React.FC = () => {
         publicMenu: richPublicMenu,
         updatedAt: new Date().toISOString()
       });
+
+      // Clear the Express in-memory cache to guarantee instant menu updates
+      fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
 
       queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
       queryClient.invalidateQueries({ queryKey: ['stores'] });

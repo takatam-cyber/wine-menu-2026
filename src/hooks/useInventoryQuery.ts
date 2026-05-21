@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { storeRepository } from '../lib/repositories/storeRepository';
 import { db } from '../lib/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
-import { WineMaster, Store } from '../types';
+import { WineMaster, Store, extractPureId } from '../types';
 
 export function useInventoryQuery(storeId: string | null) {
   return useQuery({
@@ -41,7 +41,7 @@ export function useInventoryQuery(storeId: string | null) {
             enrichedWines.push({ 
               ...masterData, 
               id: docSnap.id,
-              pureId: masterData.id || docSnap.id,
+              pureId: extractPureId(masterData.pureId || docSnap.id, masterData.supplier),
               price_bottle: invItem.price_bottle ?? masterData.price_bottle,
               price_glass: invItem.price_glass ?? masterData.price_glass,
               cost: invItem.cost ?? masterData.cost ?? 2000,
@@ -80,6 +80,7 @@ export function useInventoryMutations(storeId: string | null) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory', storeId] });
       queryClient.invalidateQueries({ queryKey: ['stores'] });
+      queryClient.invalidateQueries({ queryKey: ['publicMenu', storeId] });
     }
   });
 
@@ -90,6 +91,7 @@ export function useInventoryMutations(storeId: string | null) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory', storeId] });
+      queryClient.invalidateQueries({ queryKey: ['publicMenu', storeId] });
     }
   });
 
@@ -100,6 +102,7 @@ export function useInventoryMutations(storeId: string | null) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory', storeId] });
+      queryClient.invalidateQueries({ queryKey: ['publicMenu', storeId] });
     }
   });
 
@@ -110,6 +113,7 @@ export function useInventoryMutations(storeId: string | null) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory', storeId] });
+      queryClient.invalidateQueries({ queryKey: ['publicMenu', storeId] });
     }
   });
 

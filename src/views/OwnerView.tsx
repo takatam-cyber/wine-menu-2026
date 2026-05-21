@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { WineMaster, Store } from '../types';
+import { WineMaster, Store, extractPureId } from '../types';
 import { Wine, Camera, MessageSquare, Save, Eye, EyeOff, Loader2, X, Trash2, Plus, Search, Edit2, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
 import { useWines } from '../lib/WineContext';
 import { db } from '../lib/firebase';
@@ -74,11 +74,9 @@ export const OwnerView: React.FC = () => {
   }, [store]);
 
   const getWineDocId = (wine: { id: string; supplier?: string; pureId?: string }) => {
-    const pure = wine.pureId || wine.id;
+    const pure = extractPureId(wine.pureId || wine.id, wine.supplier);
     const supplier = (wine.supplier || 'PIEROTH').toUpperCase();
-    const supplierPrefix = `${supplier}_`;
-    if (pure.startsWith(supplierPrefix)) return pure;
-    return `${supplierPrefix}${pure}`;
+    return `${supplier}_${pure}`;
   };
 
   const [editWineData, setEditWineData] = useState<{
@@ -114,14 +112,14 @@ export const OwnerView: React.FC = () => {
 
   const projectWineForPublic = (w: any) => ({
     id: getWineDocId(w),
-    pureId: w.pureId || w.id,
+    pureId: extractPureId(w.pureId || w.id, w.supplier),
     supplier: (w.supplier || 'PIEROTH').toUpperCase(),
     name_jp: w.name_jp,
     name_en: w.name_en,
-    menu_short: '',
-    menu_short_en: '',
-    ai_explanation: '',
-    ai_explanation_en: '',
+    menu_short: w.menu_short || '',
+    menu_short_en: w.menu_short_en || '',
+    ai_explanation: w.ai_explanation || '',
+    ai_explanation_en: w.ai_explanation_en || '',
     country: w.country,
     country_en: w.country_en,
     region: w.region,
@@ -142,8 +140,8 @@ export const OwnerView: React.FC = () => {
     complexity: w.complexity || 3,
     finish: w.finish || 3,
     oak: w.oak || 1,
-    aroma_features: '',
-    aroma_features_en: '',
+    aroma_features: w.aroma_features || '',
+    aroma_features_en: w.aroma_features_en || '',
     tags: w.tags || '',
     tags_en: w.tags_en || '',
     pairing: w.pairing || '',
@@ -238,12 +236,15 @@ export const OwnerView: React.FC = () => {
           batch.update(doc(db, 'stores', sid), { publicMenu: richPublicMenu });
         }
         await batch.commit();
+        // Invalidate Express web cache
+        fetch(`/api/menu/${sid}/invalidate`, { method: 'POST' }).catch(() => {});
       }
      
       alert('すべてのセラー情報を一括保存しました。');
       setEditingWineId(null);
       queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
       queryClient.invalidateQueries({ queryKey: ['stores'] });
+      queryClient.invalidateQueries({ queryKey: ['publicMenu', sid] });
     } catch (error) {
       console.error('一括保存に失敗しました:', error);
       alert('一括保存に失敗しました。');
@@ -277,8 +278,10 @@ export const OwnerView: React.FC = () => {
 
       batch.update(doc(db, 'stores', sid), { publicMenu: richPublicMenu });
       await batch.commit();
+      fetch(`/api/menu/${sid}/invalidate`, { method: 'POST' }).catch(() => {});
       queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
       queryClient.invalidateQueries({ queryKey: ['stores'] });
+      queryClient.invalidateQueries({ queryKey: ['publicMenu', sid] });
     } catch (error) {
       console.error('Error toggling active status:', error);
       queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
@@ -307,8 +310,10 @@ export const OwnerView: React.FC = () => {
 
       batch.update(doc(db, 'stores', sid), { publicMenu: richPublicMenu });
       await batch.commit();
+      fetch(`/api/menu/${sid}/invalidate`, { method: 'POST' }).catch(() => {});
       queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
       queryClient.invalidateQueries({ queryKey: ['stores'] });
+      queryClient.invalidateQueries({ queryKey: ['publicMenu', sid] });
     } catch (error) {
       console.error('Error deleting wine:', error);
       queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
@@ -350,8 +355,11 @@ export const OwnerView: React.FC = () => {
 
       batch.update(doc(db, 'stores', sid), { publicMenu: richPublicMenu });
       await batch.commit();
+      // Invalidate Express web cache
+      fetch(`/api/menu/${sid}/invalidate`, { method: 'POST' }).catch(() => {});
       queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
       queryClient.invalidateQueries({ queryKey: ['stores'] });
+      queryClient.invalidateQueries({ queryKey: ['publicMenu', sid] });
       setShowAddModal(false);
     } catch (error) {
       console.error('Error adding wine:', error);
@@ -397,8 +405,10 @@ export const OwnerView: React.FC = () => {
 
       batch.update(doc(db, 'stores', sid), { publicMenu: richPublicMenu });
       await batch.commit();
+      fetch(`/api/menu/${sid}/invalidate`, { method: 'POST' }).catch(() => {});
       queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
       queryClient.invalidateQueries({ queryKey: ['stores'] });
+      queryClient.invalidateQueries({ queryKey: ['publicMenu', sid] });
     } catch (error) {
       console.error('Error toggling featured status:', error);
       queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
@@ -875,6 +885,8 @@ export const OwnerView: React.FC = () => {
                                 batch.update(doc(db, 'stores', sid), { publicMenu: richPublicMenu });
 
                                 await batch.commit();
+                                fetch(`/api/menu/${sid}/invalidate`, { method: 'POST' }).catch(() => {});
+                                queryClient.invalidateQueries({ queryKey: ['publicMenu', sid] });
                                 queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
                                 queryClient.invalidateQueries({ queryKey: ['stores'] });
                                 setEditingWineId(null);
