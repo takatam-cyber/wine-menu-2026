@@ -311,7 +311,8 @@ export const AdminView: React.FC = () => {
         setSearchId('');
         
         fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
-        queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
+        // 【バグ修正】ここで再読み込みを行うと未保存の入力が消えるため削除
+        // queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
       } catch (error) {
         handleFirestoreError(error, OperationType.WRITE, docPath);
       }
@@ -360,8 +361,34 @@ export const AdminView: React.FC = () => {
         await batch.commit();
       }
 
+      const newWinesToAppend = winesToAdd.map(wine => {
+        const compositeId = getWineDocId(wine);
+        return {
+          ...wine,
+          id: compositeId,
+          pureId: extractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
+          price_bottle: wine.price_bottle || wine.cost * 3,
+          price_glass: wine.price_glass || Math.round((wine.cost * 3 / 6) / 100) * 100,
+          cost: wine.cost,
+          glasses_per_bottle: 6,
+          stock: 0,
+          isActive: true,
+          visible: true,
+          updatedAt: new Date().toISOString()
+        } as WineMaster;
+      });
+      const mergedList = [...selectedWines];
+      newWinesToAppend.forEach(nw => {
+        if (!mergedList.some(sw => sw.pureId === nw.pureId)) {
+          mergedList.push(nw);
+        }
+      });
+      setSelectedWines(mergedList);
+      
       fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
-      queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
+      // 【バグ修正】ここで再読み込みを行うと未保存の入力が消えるため削除
+      // queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
+      
       setImportStatus({ type: 'success', message: `${selectedMasterIds.length}件のワインを追加しました` });
       setShowCatalogSelection(false);
       setSelectedMasterIds([]);
@@ -521,13 +548,10 @@ export const AdminView: React.FC = () => {
       const importedWines = await parseWineCSV(file);
       const CHUNK_SIZE = 450;
       
-      // 【バグ修正: 課金枠の節約と高速化】
-      // CSV内の重複を排除
       const uniqueMap = new Map<string, WineMaster>();
       importedWines.forEach(w => uniqueMap.set(getWineDocId(w), w));
       const uniqueImportedWines = Array.from(uniqueMap.values());
 
-      // すでにマスターデータに存在するIDのものはスキップ（新規書き込みが必要なものだけ抽出）
       const newMasterWines = uniqueImportedWines.filter(wine => {
         const compositeId = getWineDocId(wine);
         return !wines.some(existingWine => getWineDocId(existingWine) === compositeId);
@@ -556,7 +580,6 @@ export const AdminView: React.FC = () => {
           winesToAdd = winesToAdd.filter(w => allowed.includes((w.supplier || 'PIEROTH').toUpperCase()));
         }
 
-        // 【バグ修正: 課金枠の節約】すでに店舗の在庫に存在するものは再書き込みをスキップ
         const newInventoryWines = winesToAdd.filter(wine => {
           const compositeId = getWineDocId(wine);
           return !selectedWines.some(sw => getWineDocId(sw) === compositeId);
@@ -588,9 +611,9 @@ export const AdminView: React.FC = () => {
           }
           
           fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
-          queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
+          // 【バグ修正】ここで再読み込みを行うと未保存の入力が消えるため削除
+          // queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
 
-          // ローカルの在庫一覧に新規追加分だけを足して即座に画面に表示
           const mergedWinesList = [...selectedWines];
           newInventoryWines.forEach(wine => {
             const compositeId = getWineDocId(wine);
@@ -614,7 +637,7 @@ export const AdminView: React.FC = () => {
 
       setImportStatus({ 
         type: 'success', 
-        message: `${uniqueImportedWines.length}件のCSVデータを処理しました。（新規登録: マスター${newMasterWines.length}件）` 
+        message: `${uniqueImportedWines.length}件のCSVデータを処理しました。（新規マスター登録: ${newMasterWines.length}件）` 
       });
     } catch (error: any) {
       console.error('Import error:', error);
@@ -665,6 +688,7 @@ export const AdminView: React.FC = () => {
 
       fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
 
+      // 一括保存が完了した時だけ、最新のデータベース状態を再読み込みする
       queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
       queryClient.invalidateQueries({ queryKey: ['stores'] });
       setImportStatus({ type: 'success', message: '全ての在庫・価格データを保存しました' });
@@ -681,10 +705,12 @@ export const AdminView: React.FC = () => {
     const compositeId = getWineDocId(wine);
     try {
       await deleteDoc(doc(db, 'stores', selectedStoreId, 'inventory', compositeId));
+      
       const filteredList = selectedWines.filter(w => getWineDocId(w) !== compositeId);
       setSelectedWines(filteredList);
       fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
-      queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
+      // 【バグ修正】ここで再読み込みを行うと未保存の入力が消えるため削除
+      // queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `stores/${selectedStoreId}/inventory/${compositeId}`);
     }
