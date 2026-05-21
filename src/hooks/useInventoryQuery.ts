@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { storeRepository } from '../lib/repositories/storeRepository';
 import { db } from '../lib/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
-import { WineMaster, Store } from '../types';
+import { WineMaster, Store, extractPureId } from '../types';
 
 export function useInventoryQuery(storeId: string | null) {
   return useQuery({
@@ -22,22 +22,18 @@ export function useInventoryQuery(storeId: string | null) {
       }
 
       const enrichedWines: WineMaster[] = [];
-      
-      // サブコレクションから取得したドキュメントIDを大文字に統一
       const upperInventoryItems = inventoryItems.map(item => ({
         ...item,
         id: item.id.toUpperCase()
       }));
 
-      // 【致命的バグの修正】
-      // winesMaster コレクションは「PIEROTH_A1234」のような【複合ID】で保存されています。
-      // 純粋なID（A1234）で検索すると0件になってしまうため、必ず複合IDのまま検索にかけます。
-      const compositeItemIds = upperInventoryItems.map(item => item.id);
+      const pureItemIds = upperInventoryItems.map(item => 
+        extractPureId(item.pureId || item.id, item.supplier || 'PIEROTH').toUpperCase()
+      );
 
       const chunkPromises = [];
-      for (let i = 0; i < compositeItemIds.length; i += 30) {
-        const chunk = compositeItemIds.slice(i, i + 30);
-        // 複合IDで検索するため、マスターデータが100%確実にヒットします
+      for (let i = 0; i < pureItemIds.length; i += 30) {
+        const chunk = pureItemIds.slice(i, i + 30);
         const q = query(collection(db, 'winesMaster'), where('__name__', 'in', chunk));
         chunkPromises.push(getDocs(q));
       }
@@ -49,14 +45,17 @@ export function useInventoryQuery(storeId: string | null) {
           const masterData = docSnap.data() as WineMaster;
           const masterDocId = docSnap.id.toUpperCase();
           
-          // 大文字に統一した複合ID同士で確実に結合
-          const invItem = upperInventoryItems.find(item => item.id === masterDocId);
+          const invItem = upperInventoryItems.find(item => {
+            const itemCompId = extractPureId(item.id, item.supplier || masterData.supplier).toUpperCase();
+            const masterCompId = extractPureId(masterDocId, masterData.supplier).toUpperCase();
+            return itemCompId === masterCompId;
+          });
 
           if (invItem) {
             enrichedWines.push({ 
               ...masterData, 
               id: masterDocId,
-              pureId: invItem.pureId || masterData.pureId || masterDocId,
+              pureId: extractPureId(masterDocId, masterData.supplier).toUpperCase(),
               price_bottle: invItem.price_bottle ?? masterData.price_bottle,
               price_glass: invItem.price_glass ?? masterData.price_glass,
               cost: invItem.cost ?? masterData.cost ?? 2000,
@@ -81,6 +80,8 @@ export function useInventoryQuery(storeId: string | null) {
     enabled: !!storeId,
     staleTime: 0, 
     gcTime: 1000 * 60 * 1,
+    // 【バグ修正】他のタブに移動して戻ってきた時に、入力中の未保存データが消えるのを防ぐ
+    refetchOnWindowFocus: false,
   });
 }
 
