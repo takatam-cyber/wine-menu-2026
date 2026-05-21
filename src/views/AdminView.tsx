@@ -41,52 +41,6 @@ const getWineDocId = (wine: { id: string; supplier?: string; pureId?: string }) 
   return `${supplier}_${pure}`;
 };
 
-const projectWineForPublic = (w: any) => ({
-  id: getWineDocId(w),
-  pureId: extractPureId(w.pureId || w.id, w.supplier).toUpperCase(),
-  supplier: (w.supplier || 'PIEROTH').toUpperCase(),
-  name_jp: w.name_jp,
-  name_en: w.name_en,
-  menu_short: w.menu_short || '',
-  menu_short_en: w.menu_short_en || '',
-  ai_explanation: w.ai_explanation || '',
-  ai_explanation_en: w.ai_explanation_en || '',
-  country: w.country,
-  country_en: w.country_en,
-  region: w.region,
-  region_en: w.region_en,
-  grape: w.grape,
-  grape_en: w.grape_en,
-  color: w.color,
-  color_en: w.color_en,
-  type: w.type,
-  type_en: w.type_en,
-  vintage: w.vintage,
-  alcohol: w.alcohol,
-  sweetness: w.sweetness || 1,
-  body: w.body || 3,
-  acidity: w.acidity || 3,
-  tannins: w.tannins || 3,
-  aroma_intensity: w.aroma_intensity || 3,
-  complexity: w.complexity || 3,
-  finish: w.finish || 3,
-  oak: w.oak || 1,
-  aroma_features: w.aroma_features || '',
-  aroma_features_en: w.aroma_features_en || '',
-  tags: w.tags || '',
-  tags_en: w.tags_en || '',
-  pairing: w.pairing || '',
-  pairing_en: w.pairing_en || '',
-  price_bottle: w.price_bottle,
-  price_glass: w.price_glass,
-  glasses_per_bottle: w.glasses_per_bottle || 6,
-  image_url: w.image_url,
-  isFeatured: w.isFeatured ?? false,
-  promoLabel: w.promoLabel || '',
-  isActive: w.isActive ?? true,
-  updatedAt: new Date().toISOString()
-});
-
 export const AdminView: React.FC = () => {
   const { user } = useWines();
   const queryClient = useQueryClient();
@@ -249,27 +203,6 @@ export const AdminView: React.FC = () => {
   };
 
   const selectedStore = stores.find(s => s.id === selectedStoreId);
-
-  const syncPublicMenuWithDocs = async (storeId: string, updatedWines: WineMaster[]) => {
-    try {
-      const richPublicMenu = updatedWines
-        .filter(w => w.visible !== false && w.isActive !== false)
-        .map(w => {
-          const compId = getWineDocId(w);
-          return projectWineForPublic({ ...w, id: compId, pureId: w.pureId || w.id });
-        });
-
-      await updateDoc(doc(db, 'stores', storeId), {
-        publicMenu: richPublicMenu,
-        updatedAt: new Date().toISOString()
-      });
-      
-      fetch(`/api/menu/${storeId}/invalidate`, { method: 'POST' }).catch(() => {});
-      queryClient.invalidateQueries({ queryKey: ['publicMenu', storeId] });
-    } catch (e) {
-      console.error("Failed to sync publicMenu:", e);
-    }
-  };
 
   const handleUpdateWineItem = (wineId: string, updatedFields: Partial<WineMaster>, saveImmediately = false) => {
     if (!selectedStoreId) return;
@@ -445,7 +378,6 @@ export const AdminView: React.FC = () => {
     const newStoreId = `store-${Math.random().toString(36).substr(2, 9)}`;
     const path = `stores/${newStoreId}`;
     try {
-      // 【バグ修正】新規店舗の初期データに配列情報を確実にセットしてホワイトアウトを防ぐ
       const newStore: Store = {
         id: newStoreId,
         name: `新規店舗 ${stores.length + 1}`,
@@ -589,38 +521,83 @@ export const AdminView: React.FC = () => {
       const importedWines = await parseWineCSV(file);
       const CHUNK_SIZE = 450;
       
-      for (let i = 0; i < importedWines.length; i += CHUNK_SIZE) {
-        const chunk = importedWines.slice(i, i + CHUNK_SIZE);
-        const batch = writeBatch(db);
-        
-        chunk.forEach(wine => {
-          const docId = getWineDocId(wine);
-          const wineToSave = { ...wine, id: docId, pureId: wine.pureId || wine.id };
-          batch.set(doc(db, 'winesMaster', docId), wineToSave);
-        });
-        
-        await batch.commit();
-      }
+      // 【バグ修正: 課金枠の節約と高速化】
+      // CSV内の重複を排除
+      const uniqueMap = new Map<string, WineMaster>();
+      importedWines.forEach(w => uniqueMap.set(getWineDocId(w), w));
+      const uniqueImportedWines = Array.from(uniqueMap.values());
 
-      queryClient.invalidateQueries({ queryKey: ['winesMaster'] });
+      // すでにマスターデータに存在するIDのものはスキップ（新規書き込みが必要なものだけ抽出）
+      const newMasterWines = uniqueImportedWines.filter(wine => {
+        const compositeId = getWineDocId(wine);
+        return !wines.some(existingWine => getWineDocId(existingWine) === compositeId);
+      });
 
-      if (selectedStoreId) {
-        let winesToAdd = importedWines;
-        if (selectedStore?.allowedSuppliers) {
-          const allowed = selectedStore.allowedSuppliers.map(s => s.toUpperCase());
-          winesToAdd = importedWines.filter(w => allowed.includes((w.supplier || 'PIEROTH').toUpperCase()));
-        }
-
-        for (let i = 0; i < winesToAdd.length; i += CHUNK_SIZE) {
-          const chunk = winesToAdd.slice(i, i + CHUNK_SIZE);
+      if (newMasterWines.length > 0) {
+        for (let i = 0; i < newMasterWines.length; i += CHUNK_SIZE) {
+          const chunk = newMasterWines.slice(i, i + CHUNK_SIZE);
           const batch = writeBatch(db);
           
           chunk.forEach(wine => {
+            const docId = getWineDocId(wine);
+            const wineToSave = { ...wine, id: docId, pureId: wine.pureId || wine.id };
+            batch.set(doc(db, 'winesMaster', docId), wineToSave);
+          });
+          
+          await batch.commit();
+        }
+        queryClient.invalidateQueries({ queryKey: ['winesMaster'] });
+      }
+
+      if (selectedStoreId) {
+        let winesToAdd = uniqueImportedWines;
+        if (selectedStore?.allowedSuppliers) {
+          const allowed = selectedStore.allowedSuppliers.map(s => s.toUpperCase());
+          winesToAdd = winesToAdd.filter(w => allowed.includes((w.supplier || 'PIEROTH').toUpperCase()));
+        }
+
+        // 【バグ修正: 課金枠の節約】すでに店舗の在庫に存在するものは再書き込みをスキップ
+        const newInventoryWines = winesToAdd.filter(wine => {
+          const compositeId = getWineDocId(wine);
+          return !selectedWines.some(sw => getWineDocId(sw) === compositeId);
+        });
+
+        if (newInventoryWines.length > 0) {
+          for (let i = 0; i < newInventoryWines.length; i += CHUNK_SIZE) {
+            const chunk = newInventoryWines.slice(i, i + CHUNK_SIZE);
+            const batch = writeBatch(db);
+            
+            chunk.forEach(wine => {
+              const compositeId = getWineDocId(wine);
+              const invItem = {
+                id: compositeId,
+                pureId: extractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
+                supplier: (wine.supplier || 'PIEROTH').toUpperCase(),
+                price_bottle: wine.price_bottle || Math.round(wine.cost * 3 / 100) * 100,
+                price_glass: wine.price_glass || 0,
+                glasses_per_bottle: 6,
+                stock: wine.stock || 0,
+                isActive: true,
+                visible: true,
+                updatedAt: new Date().toISOString()
+              };
+              batch.set(doc(db, 'stores', selectedStoreId, 'inventory', compositeId), invItem, { merge: true });
+            });
+            
+            await batch.commit();
+          }
+          
+          fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
+          queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
+
+          // ローカルの在庫一覧に新規追加分だけを足して即座に画面に表示
+          const mergedWinesList = [...selectedWines];
+          newInventoryWines.forEach(wine => {
             const compositeId = getWineDocId(wine);
-            const invItem = {
+            const newProjectedItem = {
+              ...wine,
               id: compositeId,
               pureId: extractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
-              supplier: (wine.supplier || 'PIEROTH').toUpperCase(),
               price_bottle: wine.price_bottle || Math.round(wine.cost * 3 / 100) * 100,
               price_glass: wine.price_glass || 0,
               glasses_per_bottle: 6,
@@ -628,18 +605,17 @@ export const AdminView: React.FC = () => {
               isActive: true,
               visible: true,
               updatedAt: new Date().toISOString()
-            };
-            batch.set(doc(db, 'stores', selectedStoreId, 'inventory', compositeId), invItem, { merge: true });
+            } as WineMaster;
+            mergedWinesList.push(newProjectedItem);
           });
-          
-          await batch.commit();
+          setSelectedWines(mergedWinesList);
         }
-
-        fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
-        queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
       }
 
-      setImportStatus({ type: 'success', message: `${importedWines.length}件の銘柄データをインポートしました` });
+      setImportStatus({ 
+        type: 'success', 
+        message: `${uniqueImportedWines.length}件のCSVデータを処理しました。（新規マスター登録: ${newMasterWines.length}件）` 
+      });
     } catch (error: any) {
       console.error('Import error:', error);
       setImportStatus({ type: 'error', message: `インポート失敗: ${error.message}` });
@@ -1024,7 +1000,6 @@ export const AdminView: React.FC = () => {
                     />
                   </div>
 
-                  {/* 【バグ修正】予算設定などのカスタマイズ項目を追加し、安全にレンダリング */}
                   <div className="space-y-4 pt-4 border-t border-slate-100">
                     <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-100 rounded-xl">
                       <div className="flex flex-col">
@@ -1063,7 +1038,6 @@ export const AdminView: React.FC = () => {
                       <input 
                         type="text"
                         placeholder="5000, 10000, 20000"
-                        // 【バグ修正】安全なフォールバック文字列 `|| ''` を追加してUncontrolled Component化を防ぐ
                         value={isEditingStore ? (editStoreData.budgetTiers?.join(', ') || '') : (selectedStore?.budgetTiers?.join(', ') || '')}
                         onChange={e => {
                           const tiers = e.target.value.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
