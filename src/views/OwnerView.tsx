@@ -43,7 +43,6 @@ export const OwnerView: React.FC = () => {
   const [selectedMasterIds, setSelectedMasterIds] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 【バグ修正】初期ロードと再フェッチ時にローカル状態を同期
   useEffect(() => {
     if (inventoryData?.inventory && selectedStoreId === inventoryData.store?.id) {
       setSelectedWines(inventoryData.inventory);
@@ -74,6 +73,18 @@ export const OwnerView: React.FC = () => {
       if (!selectedStoreId) setSelectedStoreId(stores[0].id);
     }
   }, [stores, user]);
+
+  // 【バグ修正】オーナー画面で選択中の店舗IDを、ブラウザのURLパラメータ(?storeId=xxx)にリアルタイム常時同期
+  // これにより、ヘッダーの「管理者画面に戻る」共通ボタンがいつでも正しい店舗IDを読み込めるようになります
+  useEffect(() => {
+    if (selectedStoreId) {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('storeId') !== selectedStoreId) {
+        url.searchParams.set('storeId', selectedStoreId);
+        window.history.replaceState({}, '', url.toString());
+      }
+    }
+  }, [selectedStoreId]);
 
   const sid = selectedStoreId;
 
@@ -171,7 +182,6 @@ export const OwnerView: React.FC = () => {
     }
   };
 
-  // 【バグ修正】AdminViewと完全に同じ挙動でローカル入力値を保持する
   const handleUpdateWineItem = (wineId: string, updatedFields: Partial<WineMaster>, saveImmediately = false) => {
     if (!sid) return;
     
@@ -200,7 +210,7 @@ export const OwnerView: React.FC = () => {
             price_bottle: wine.price_bottle ?? 0,
             price_glass: wine.price_glass ?? 0,
             cost: wine.cost ?? 0,
-            stock: wine.stock ?? 0, // 在庫も保存
+            stock: wine.stock ?? 0,
             glasses_per_bottle: wine.glasses_per_bottle ?? 6,
             visible: wine.visible ?? true,
             isFeatured: wine.isFeatured ?? false,
@@ -238,7 +248,7 @@ export const OwnerView: React.FC = () => {
             price_bottle: wine.price_bottle ?? 0,
             price_glass: wine.price_glass ?? 0,
             cost: wine.cost ?? 0,
-            stock: wine.stock ?? 0, // 在庫も保存
+            stock: wine.stock ?? 0,
             glasses_per_bottle: wine.glasses_per_bottle || 6,
             visible: wine.visible ?? true,
             isFeatured: wine.isFeatured ?? false,
@@ -429,15 +439,6 @@ export const OwnerView: React.FC = () => {
     }
   };
 
-  if (inventoryLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full py-24 gap-4">
-        <Loader2 className="w-8 h-8 animate-spin text-brand-gold-dark" />
-        <p className="text-brand-gold-dark/60 text-xs font-bold uppercase tracking-widest">セラーを読み込み中...</p>
-      </div>
-    );
-  }
-
   return (
     <div id="owner-view" className="max-w-4xl lg:max-w-7xl mx-auto px-4 py-8 md:py-12 space-y-8 animate-in fade-in duration-700">
       <header className="flex flex-col md:flex-row md:items-start justify-between gap-6">
@@ -556,7 +557,6 @@ export const OwnerView: React.FC = () => {
         </div>
       </header>
 
-      {/* 【バグ修正】オーナー画面にも完全なAnalyticsとInventoryManagerを適用 */}
       <StoreAnalytics selectedWines={selectedWines} />
 
       <div className="bg-white/5 rounded-3xl overflow-hidden shadow-luxury-soft">
