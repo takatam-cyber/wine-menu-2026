@@ -614,7 +614,7 @@ export const AdminView: React.FC = () => {
 
       setImportStatus({ 
         type: 'success', 
-        message: `${uniqueImportedWines.length}件のCSVデータを処理しました。（新規マスター登録: ${newMasterWines.length}件）` 
+        message: `${uniqueImportedWines.length}件のCSVデータを処理しました。（新規登録: マスター${newMasterWines.length}件）` 
       });
     } catch (error: any) {
       console.error('Import error:', error);
