@@ -20,15 +20,20 @@ export function useInventoryQuery(storeId: string | null) {
         return { store: storeData, inventory: [] };
       }
 
-      // クォータ節約のための「in」クエリによる一括取得（最大30件ずつチャンク処理してRead数を劇的に削減）
       const enrichedWines: WineMaster[] = [];
       const itemIds = inventoryItems.map(item => item.id);
 
+      // 【バグ修正】 直列の await を廃止し、すべてのチャンクを Promise.all で並列一括取得（超高速化）
+      const chunkPromises = [];
       for (let i = 0; i < itemIds.length; i += 30) {
         const chunk = itemIds.slice(i, i + 30);
         const q = query(collection(db, 'winesMaster'), where('__name__', 'in', chunk));
-        const masterSnaps = await getDocs(q);
-        
+        chunkPromises.push(getDocs(q));
+      }
+
+      const snapshotsArray = await Promise.all(chunkPromises);
+      
+      snapshotsArray.forEach(masterSnaps => {
         masterSnaps.forEach(docSnap => {
           const masterData = docSnap.data() as WineMaster;
           const invItem = inventoryItems.find(item => item.id === docSnap.id);
@@ -39,7 +44,6 @@ export function useInventoryQuery(storeId: string | null) {
               pureId: masterData.id || docSnap.id,
               price_bottle: invItem.price_bottle ?? masterData.price_bottle,
               price_glass: invItem.price_glass ?? masterData.price_glass,
-              // 【ビジネスロジックの罠を粉砕】店舗固有の特別卸値（invItem.cost）を最優先でマージ
               cost: invItem.cost ?? masterData.cost ?? 2000,
               glasses_per_bottle: invItem.glasses_per_bottle ?? 6,
               visible: invItem.visible ?? true,
@@ -50,7 +54,7 @@ export function useInventoryQuery(storeId: string | null) {
             });
           }
         });
-      }
+      });
 
       // マスターデータの登録順に綺麗にソートして返却
       const sortedWines = enrichedWines.sort((a, b) => (a.name_jp || '').localeCompare(b.name_jp || ''));
