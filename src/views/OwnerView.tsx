@@ -68,8 +68,9 @@ export const OwnerView: React.FC = () => {
     }
   }, [store]);
 
+  // 【バグ修正】オーナー画面でも、ID生成時に .toUpperCase() を絶対に行う
   const getWineDocId = (wine: { id: string; supplier?: string; pureId?: string }) => {
-    const pure = extractPureId(wine.pureId || wine.id, wine.supplier);
+    const pure = extractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase();
     const supplier = (wine.supplier || 'PIEROTH').toUpperCase();
     return `${supplier}_${pure}`;
   };
@@ -99,7 +100,7 @@ export const OwnerView: React.FC = () => {
 
   const projectWineForPublic = (w: any) => ({
     id: getWineDocId(w),
-    pureId: extractPureId(w.pureId || w.id, w.supplier),
+    pureId: extractPureId(w.pureId || w.id, w.supplier).toUpperCase(),
     supplier: (w.supplier || 'PIEROTH').toUpperCase(),
     name_jp: w.name_jp,
     name_en: w.name_en,
@@ -178,10 +179,15 @@ export const OwnerView: React.FC = () => {
       });
 
       if (editStoreData.name !== store?.name) {
-        await updateDoc(doc(db, 'users', user.uid), {
+        await updateDoc(doc(db, 'users', user!.uid), {
           name: editStoreData.name
         });
       }
+
+      // 【バグ修正】サーバーキャッシュとインベントリを破棄して、Adminで変更した情報も確実に全画面へ同期させる
+      fetch(`/api/menu/${sid}/invalidate`, { method: 'POST' }).catch(() => {});
+      queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
+      queryClient.invalidateQueries({ queryKey: ['stores'] });
 
       setIsEditingStore(false);
     } catch (error) {
@@ -227,6 +233,7 @@ export const OwnerView: React.FC = () => {
             updatedAt: new Date().toISOString()
           };
           await setDoc(itemRef, docPayload, { merge: true });
+          await syncPublicMenuWithDocs(sid, nextWines);
         } catch (error) {
           console.error('Error auto-updating wine inventory item:', error);
         }
@@ -270,11 +277,7 @@ export const OwnerView: React.FC = () => {
         await batch.commit();
       }
 
-      await updateDoc(doc(db, 'stores', sid), {
-        updatedAt: new Date().toISOString()
-      });
-
-      fetch(`/api/menu/${sid}/invalidate`, { method: 'POST' }).catch(() => {});
+      await syncPublicMenuWithDocs(sid, wines);
 
       alert('すべてのセラー情報を一括保存しました。');
       queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
@@ -350,7 +353,6 @@ export const OwnerView: React.FC = () => {
         setSearchId('');
         
         fetch(`/api/menu/${sid}/invalidate`, { method: 'POST' }).catch(() => {});
-        // 削除: queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
       } catch (error) {
         handleFirestoreError(error, OperationType.WRITE, `stores/${sid}/inventory/${compositeId}`);
       }
@@ -424,7 +426,6 @@ export const OwnerView: React.FC = () => {
       setSelectedWines(mergedList);
       
       fetch(`/api/menu/${sid}/invalidate`, { method: 'POST' }).catch(() => {});
-      // 削除: queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
       
       setShowCatalogSelection(false);
       setSelectedMasterIds([]);
@@ -449,7 +450,6 @@ export const OwnerView: React.FC = () => {
       const filteredList = selectedWines.filter(w => getWineDocId(w) !== compositeId);
       setSelectedWines(filteredList);
       fetch(`/api/menu/${sid}/invalidate`, { method: 'POST' }).catch(() => {});
-      // 削除: queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `stores/${sid}/inventory/${compositeId}`);
     }
