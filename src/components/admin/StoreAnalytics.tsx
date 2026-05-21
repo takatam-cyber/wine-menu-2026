@@ -1,3 +1,4 @@
+// src/components/admin/StoreAnalytics.tsx
 import React from 'react';
 import { WineMaster } from '../../types';
 import { TrendingUp, BarChart3, Shield } from 'lucide-react';
@@ -12,7 +13,8 @@ export const StoreAnalytics: React.FC<StoreAnalyticsProps> = ({ selectedWines })
   const chartData = selectedWines.map(w => {
     const { profit, costRatio } = calculateProfit(w.cost, w.price_bottle);
     return {
-      name: w.name_jp.substring(0, 10),
+      // 【バグ修正】name_jpが未定義の場合のクラッシュを防止する（オプショナルチェイニング）
+      name: w.name_jp?.substring(0, 10) || '名称未設定',
       profit,
       costRatio: Math.round(costRatio),
       cost: w.cost
