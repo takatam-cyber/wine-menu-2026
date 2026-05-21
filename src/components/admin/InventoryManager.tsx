@@ -1,3 +1,4 @@
+// src/components/admin/InventoryManager.tsx
 import React from 'react';
 import { WineMaster, Store } from '../../types';
 import { Search, Plus, Wine, Upload, Save, Sparkles, Trash2, CheckCircle2, X, Eye, EyeOff } from 'lucide-react';
@@ -20,7 +21,8 @@ interface InventoryManagerProps {
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   hasMoreWines: boolean;
   onLoadMoreWines: () => void;
-  onUpdateWineItem: (wineId: string, updatedFields: Partial<WineMaster>) => void;
+  // 【バグ修正】引数を更新し、即時保存フラグ(saveImmediately)を追加
+  onUpdateWineItem: (wineId: string, updatedFields: Partial<WineMaster>, saveImmediately?: boolean) => void;
 }
 
 export const InventoryManager: React.FC<InventoryManagerProps> = ({
@@ -41,7 +43,6 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
 }) => {
   return (
     <div className="bg-white rounded-3xl overflow-hidden flex flex-col shadow-sm border border-slate-200">
-      {/* 操作アクションヘッダー */}
       <div className="px-4 md:px-8 py-5 md:py-6 border-b border-slate-100 bg-slate-50 flex flex-col xl:flex-row justify-between items-center gap-6">
         <div className="flex items-center gap-3 self-start md:self-auto">
           <div className="w-10 h-10 bg-brand-wine text-white rounded-xl flex items-center justify-center shadow-md shrink-0">
@@ -61,7 +62,6 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
               className="pl-12 pr-4 py-2 bg-white border border-slate-300 rounded-full text-xs w-full md:w-56 lg:w-80 text-slate-900 outline-none focus:ring-2 focus:ring-brand-wine/10 focus:border-brand-wine transition-all"
             />
             
-            {/* ライブ検索サジェストパネルをフローティング配置 */}
             {searchId.trim().length > 0 && (() => {
               const matched = masterWines
                 .filter(w => {
@@ -72,7 +72,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                   const matchesCountry = (w.country || '').toLowerCase().includes(query);
                   return (matchesNameJp || matchesNameEn || matchesId || matchesCountry) && !selectedWines.some(sw => sw.id === w.id);
                 })
-                .slice(0, 8); // 表示上限を8件にしてスマートに
+                .slice(0, 8);
 
               if (matched.length === 0) return null;
 
@@ -137,9 +137,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
         </div>
       </div>
      
-      {/* メインリスト領域 */}
       <div className="p-4 md:p-6 space-y-4">
-        {/* PC表示用のグリッドヘッダー（mdサイズ以上でのみ表示） */}
         <div className="hidden md:grid md:grid-cols-12 gap-4 px-6 py-2 text-xs font-extrabold text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100">
           <div className="md:col-span-4">ワイン銘柄</div>
           <div className="md:col-span-2 text-center">仕入れ原価(税別)</div>
@@ -149,7 +147,6 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
           <div className="md:col-span-1 text-right">操作</div>
         </div>
 
-        {/* ワインカードリスト */}
         {selectedWines.map((wine, idx) => {
           const bottleStats = calculateProfit(wine.cost, wine.price_bottle);
           const glassStats = calculateGlassProfit(wine.cost, wine.price_glass, wine.glasses_per_bottle || 6);
@@ -160,11 +157,11 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                 !wine.visible ? 'opacity-60 bg-slate-50/50' : 'hover:border-slate-300'
               }`}
             >
-              {/* 1. ワイン銘柄カラム (PC: 4/12幅, スマホ: w-full) */}
               <div className="md:col-span-4 flex items-center gap-3 w-full min-w-0">
                 <button
                   onClick={() => {
-                    onUpdateWineItem(wine.id, { isFeatured: !wine.isFeatured });
+                    // トグルは即時保存（第3引数=true）
+                    onUpdateWineItem(wine.id, { isFeatured: !wine.isFeatured }, true);
                   }}
                   className={`p-2 rounded-xl transition-all border shrink-0 ${
                     wine.isFeatured ? 'bg-amber-50 border-amber-300 text-amber-500 shadow-sm' : 'bg-slate-50 border-slate-200 text-slate-300 hover:text-slate-400'
@@ -190,49 +187,33 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                 </div>
               </div>
 
-              {/* 2. 仕入れ原価カラム */}
               <div className="md:col-span-2 w-full md:w-auto flex md:flex-col items-center justify-between md:justify-center gap-2 px-1">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest md:hidden">仕入れ原価</span>
                 <div className="flex items-center gap-1">
                   <span className="text-slate-400 font-mono text-xs">¥</span>
+                  {/* 【バグ修正】value + onChangeで状態を更新し、入力ごとに保存が走るのを防ぐ */}
                   <input
                     type="number"
-                    defaultValue={wine.cost}
-                    key={`cost-${wine.id}-${wine.cost}`}
-                    onBlur={(e) => {
+                    value={wine.cost || ''}
+                    onChange={(e) => {
                       const val = parseInt(e.target.value) || 0;
-                      if (val !== wine.cost) {
-                        onUpdateWineItem(wine.id, { cost: val });
-                      }
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.currentTarget.blur();
-                      }
+                      onUpdateWineItem(wine.id, { cost: val }, false);
                     }}
                     className="w-24 bg-slate-50 border border-slate-200 rounded-xl px-2 py-1.5 focus:border-brand-wine outline-none font-mono text-slate-700 text-center font-bold"
                   />
                 </div>
               </div>
 
-              {/* 3. ボトル設定カラム */}
               <div className="md:col-span-2 w-full md:w-auto flex md:flex-col items-center justify-between md:justify-center gap-2 px-1">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest md:hidden">ボトル価格</span>
                 <div className="flex items-center gap-3">
+                  {/* 【バグ修正】value + onChangeで状態を更新し、入力ごとに保存が走るのを防ぐ */}
                   <input
                     type="number"
-                    defaultValue={wine.price_bottle}
-                    key={`bottle-${wine.id}-${wine.price_bottle}`}
-                    onBlur={(e) => {
+                    value={wine.price_bottle || ''}
+                    onChange={(e) => {
                       const val = parseInt(e.target.value) || 0;
-                      if (val !== wine.price_bottle) {
-                        onUpdateWineItem(wine.id, { price_bottle: val });
-                      }
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.currentTarget.blur();
-                      }
+                      onUpdateWineItem(wine.id, { price_bottle: val }, false);
                     }}
                     className="w-24 md:w-28 bg-white border border-slate-300 rounded-xl px-2 py-1.5 focus:border-brand-wine outline-none font-mono text-slate-900 font-bold text-center"
                   />
@@ -243,25 +224,17 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                 </div>
               </div>
 
-              {/* 4. グラス設定カラム */}
               <div className="md:col-span-2 w-full md:w-auto flex flex-col gap-2 border-t md:border-t-0 pt-2 md:pt-0 border-slate-100">
                 <div className="flex items-center justify-between md:justify-center gap-2">
                   <span className="text-[10px] font-bold text-slate-400 w-8 md:hidden">グラス価格</span>
                   <div className="flex items-center gap-2">
+                    {/* 【バグ修正】value + onChangeで状態を更新し、入力ごとに保存が走るのを防ぐ */}
                     <input
                       type="number"
-                      defaultValue={wine.price_glass}
-                      key={`glass-${wine.id}-${wine.price_glass}`}
-                      onBlur={(e) => {
+                      value={wine.price_glass || ''}
+                      onChange={(e) => {
                         const val = parseInt(e.target.value) || 0;
-                        if (val !== wine.price_glass) {
-                          onUpdateWineItem(wine.id, { price_glass: val });
-                        }
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.currentTarget.blur();
-                        }
+                        onUpdateWineItem(wine.id, { price_glass: val }, false);
                       }}
                       className="w-20 bg-white border border-slate-300 rounded-lg px-2 py-1 text-xs font-mono text-slate-900 text-center"
                     />
@@ -274,20 +247,13 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                 <div className="flex items-center justify-between md:justify-center gap-2">
                   <span className="text-[10px] font-bold text-slate-400 w-8 md:hidden">グラス杯数</span>
                   <div className="flex items-center gap-1">
+                    {/* 【バグ修正】value + onChangeで状態を更新し、入力ごとに保存が走るのを防ぐ */}
                     <input
                       type="number"
-                      defaultValue={wine.glasses_per_bottle || 6}
-                      key={`gpb-${wine.id}-${wine.glasses_per_bottle}`}
-                      onBlur={(e) => {
+                      value={wine.glasses_per_bottle || ''}
+                      onChange={(e) => {
                         const val = parseInt(e.target.value) || 6;
-                        if (val !== wine.glasses_per_bottle) {
-                          onUpdateWineItem(wine.id, { glasses_per_bottle: val });
-                        }
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.currentTarget.blur();
-                        }
+                        onUpdateWineItem(wine.id, { glasses_per_bottle: val }, false);
                       }}
                       className="w-12 bg-slate-50 border border-slate-300 rounded-md px-1 py-0.5 text-center text-xs font-mono text-slate-600"
                     />
@@ -296,12 +262,12 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                 </div>
               </div>
 
-              {/* 5. メニュー表示設定カラム */}
               <div className="md:col-span-1 w-full md:w-auto flex md:flex-col items-center justify-between md:justify-center gap-2 border-t md:border-t-0 pt-2 md:pt-0 border-slate-100">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest md:hidden">メニュー表示</span>
                 <button
                   onClick={() => {
-                    onUpdateWineItem(wine.id, { visible: !wine.visible });
+                    // トグルは即時保存（第3引数=true）
+                    onUpdateWineItem(wine.id, { visible: !wine.visible }, true);
                   }}
                   className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all shrink-0 ${
                     wine.visible
@@ -313,45 +279,25 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                 </button>
               </div>
 
-              {/* 6. 操作（削除）カラム */}
               <div className="md:col-span-1 w-full md:w-auto flex items-center justify-end md:justify-end border-t md:border-t-0 pt-2 md:pt-0 border-slate-100">
                 <div className="md:hidden flex items-center gap-2 mr-auto">
                   <span className="text-[10px] font-bold text-slate-400 uppercase">ラベル:</span>
                   <input
                      placeholder="プロモラベル..."
                      className="text-xs bg-slate-50 border border-slate-200 rounded-md px-2 py-1 outline-none focus:border-brand-wine w-24"
-                     defaultValue={wine.promoLabel || ''}
-                     key={`promo-mobile-${wine.id}-${wine.promoLabel || ''}`}
-                     onBlur={(e) => {
-                       const val = e.target.value;
-                       if (val !== wine.promoLabel) {
-                         onUpdateWineItem(wine.id, { promoLabel: val });
-                       }
-                     }}
-                     onKeyDown={(e) => {
-                       if (e.key === 'Enter') {
-                         e.currentTarget.blur();
-                       }
+                     value={wine.promoLabel || ''}
+                     onChange={(e) => {
+                       onUpdateWineItem(wine.id, { promoLabel: e.target.value }, false);
                      }}
                    />
                 </div>
-                {/* デスクトップ表示用のプロモ入力（グループホバーで滑らかに出現） */}
                 <div className="hidden md:flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all mr-2">
                   <input
                      placeholder="おすすめラベル..."
                      className="text-[11px] bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 outline-none focus:border-brand-wine w-24"
-                     defaultValue={wine.promoLabel || ''}
-                     key={`promo-desktop-${wine.id}-${wine.promoLabel || ''}`}
-                     onBlur={(e) => {
-                       const val = e.target.value;
-                       if (val !== wine.promoLabel) {
-                         onUpdateWineItem(wine.id, { promoLabel: val });
-                       }
-                     }}
-                     onKeyDown={(e) => {
-                       if (e.key === 'Enter') {
-                         e.currentTarget.blur();
-                       }
+                     value={wine.promoLabel || ''}
+                     onChange={(e) => {
+                       onUpdateWineItem(wine.id, { promoLabel: e.target.value }, false);
                      }}
                    />
                 </div>
@@ -366,7 +312,6 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
           );
         })}
 
-        {/* 在庫が空の時のフォールバック表示 */}
         {selectedWines.length === 0 && (
           <div className="px-8 py-24 text-center">
             <Wine className="w-12 h-12 text-slate-200 mx-auto mb-4 animate-bounce" />
