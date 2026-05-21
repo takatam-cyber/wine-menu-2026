@@ -311,8 +311,6 @@ export const AdminView: React.FC = () => {
         setSearchId('');
         
         fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
-        // 【バグ修正】ここで再読み込みを行うと未保存の入力が消えるため削除
-        // queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
       } catch (error) {
         handleFirestoreError(error, OperationType.WRITE, docPath);
       }
@@ -386,8 +384,6 @@ export const AdminView: React.FC = () => {
       setSelectedWines(mergedList);
       
       fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
-      // 【バグ修正】ここで再読み込みを行うと未保存の入力が消えるため削除
-      // queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
       
       setImportStatus({ type: 'success', message: `${selectedMasterIds.length}件のワインを追加しました` });
       setShowCatalogSelection(false);
@@ -516,9 +512,14 @@ export const AdminView: React.FC = () => {
         updatedAt: new Date().toISOString()
       };
       await updateDoc(doc(db, 'stores', selectedStoreId), updatePayload);
+      
+      // 【バグ修正】Admin画面で店舗情報を更新した直後、キャッシュをリセットして全画面に即座に同期させます
+      fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
+      queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
+      queryClient.invalidateQueries({ queryKey: ['stores'] });
+      
       setImportStatus({ type: 'success', message: '店舗情報を更新しました' });
       setIsEditingStore(false);
-      queryClient.invalidateQueries({ queryKey: ['stores'] });
     } catch (error: any) {
       handleFirestoreError(error, OperationType.UPDATE, `stores/${selectedStoreId}`);
     }
@@ -611,8 +612,6 @@ export const AdminView: React.FC = () => {
           }
           
           fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
-          // 【バグ修正】ここで再読み込みを行うと未保存の入力が消えるため削除
-          // queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
 
           const mergedWinesList = [...selectedWines];
           newInventoryWines.forEach(wine => {
@@ -688,7 +687,6 @@ export const AdminView: React.FC = () => {
 
       fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
 
-      // 一括保存が完了した時だけ、最新のデータベース状態を再読み込みする
       queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
       queryClient.invalidateQueries({ queryKey: ['stores'] });
       setImportStatus({ type: 'success', message: '全ての在庫・価格データを保存しました' });
@@ -709,8 +707,6 @@ export const AdminView: React.FC = () => {
       const filteredList = selectedWines.filter(w => getWineDocId(w) !== compositeId);
       setSelectedWines(filteredList);
       fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
-      // 【バグ修正】ここで再読み込みを行うと未保存の入力が消えるため削除
-      // queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `stores/${selectedStoreId}/inventory/${compositeId}`);
     }
