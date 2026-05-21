@@ -44,7 +44,14 @@ async function startServer() {
   });
 
   app.use(express.json());
-  app.use("/api/", limiter);
+  
+  // 【バグ修正】画像のプロキシエンドポイントのみレートリミットを除外する
+  app.use("/api", (req, res, next) => {
+    if (req.path === "/proxy-image") {
+      return next();
+    }
+    limiter(req, res, next);
+  });
 
   // Use Routes
   app.use("/api", authRoutes);
