@@ -35,57 +35,12 @@ const getBaseUrl = () => {
   return origin;
 };
 
+// 【バグ修正】製品コードを常に大文字に強制統一してドキュメントIDを組み立てる
 const getWineDocId = (wine: { id: string; supplier?: string; pureId?: string }) => {
-  const pure = extractPureId(wine.pureId || wine.id, wine.supplier);
+  const pure = extractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase();
   const supplier = (wine.supplier || 'PIEROTH').toUpperCase();
   return `${supplier}_${pure}`;
 };
-
-const projectWineForPublic = (w: any) => ({
-  id: getWineDocId(w),
-  pureId: extractPureId(w.pureId || w.id, w.supplier),
-  supplier: (w.supplier || 'PIEROTH').toUpperCase(),
-  name_jp: w.name_jp,
-  name_en: w.name_en,
-  menu_short: w.menu_short || '',
-  menu_short_en: w.menu_short_en || '',
-  ai_explanation: w.ai_explanation || '',
-  ai_explanation_en: w.ai_explanation_en || '',
-  country: w.country,
-  country_en: w.country_en,
-  region: w.region,
-  region_en: w.region_en,
-  grape: w.grape,
-  grape_en: w.grape_en,
-  color: w.color,
-  color_en: w.color_en,
-  type: w.type,
-  type_en: w.type_en,
-  vintage: w.vintage,
-  alcohol: w.alcohol,
-  sweetness: w.sweetness || 1,
-  body: w.body || 3,
-  acidity: w.acidity || 3,
-  tannins: w.tannins || 3,
-  aroma_intensity: w.aroma_intensity || 3,
-  complexity: w.complexity || 3,
-  finish: w.finish || 3,
-  oak: w.oak || 1,
-  aroma_features: w.aroma_features || '',
-  aroma_features_en: w.aroma_features_en || '',
-  tags: w.tags || '',
-  tags_en: w.tags_en || '',
-  pairing: w.pairing || '',
-  pairing_en: w.pairing_en || '',
-  price_bottle: w.price_bottle,
-  price_glass: w.price_glass,
-  glasses_per_bottle: w.glasses_per_bottle || 6,
-  image_url: w.image_url,
-  isFeatured: w.isFeatured ?? false,
-  promoLabel: w.promoLabel || '',
-  isActive: w.isActive ?? true,
-  updatedAt: new Date().toISOString()
-});
 
 export const AdminView: React.FC = () => {
   const { user } = useWines();
@@ -248,29 +203,6 @@ export const AdminView: React.FC = () => {
     fetchNextWinesMaster();
   };
 
-  const selectedStore = stores.find(s => s.id === selectedStoreId);
-
-  const syncPublicMenuWithDocs = async (storeId: string, updatedWines: WineMaster[]) => {
-    try {
-      const richPublicMenu = updatedWines
-        .filter(w => w.visible !== false && w.isActive !== false)
-        .map(w => {
-          const compId = getWineDocId(w);
-          return projectWineForPublic({ ...w, id: compId, pureId: w.pureId || w.id });
-        });
-
-      await updateDoc(doc(db, 'stores', storeId), {
-        publicMenu: richPublicMenu,
-        updatedAt: new Date().toISOString()
-      });
-      
-      fetch(`/api/menu/${storeId}/invalidate`, { method: 'POST' }).catch(() => {});
-      queryClient.invalidateQueries({ queryKey: ['publicMenu', storeId] });
-    } catch (e) {
-      console.error("Failed to sync publicMenu:", e);
-    }
-  };
-
   const handleUpdateWineItem = (wineId: string, updatedFields: Partial<WineMaster>, saveImmediately = false) => {
     if (!selectedStoreId) return;
     
@@ -294,12 +226,12 @@ export const AdminView: React.FC = () => {
         try {
           const docPayload = {
             id: compositeId,
-            pureId: wine.pureId || wine.id,
+            pureId: extractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
             supplier: (wine.supplier || 'PIEROTH').toUpperCase(),
             price_bottle: wine.price_bottle ?? 0,
             price_glass: wine.price_glass ?? 0,
             cost: wine.cost ?? 0,
-            stock: wine.stock ?? 0, // 【バグ修正】即時保存時にも在庫を含める
+            stock: wine.stock ?? 0, 
             glasses_per_bottle: wine.glasses_per_bottle ?? 6,
             visible: wine.visible ?? true,
             isFeatured: wine.isFeatured ?? false,
@@ -307,7 +239,6 @@ export const AdminView: React.FC = () => {
             updatedAt: new Date().toISOString()
           };
           await setDoc(itemRef, docPayload, { merge: true });
-          await syncPublicMenuWithDocs(selectedStoreId, nextWines);
         } catch (error) {
           console.error('Error auto-updating wine inventory item:', error);
         }
@@ -333,7 +264,7 @@ export const AdminView: React.FC = () => {
     }
 
     const compositeId = getWineDocId(wine);
-    const alreadyExists = selectedWines.some(sw => sw.pureId === (wine?.pureId || wine?.id));
+    const alreadyExists = selectedWines.some(sw => extractPureId(sw.pureId || sw.id, sw.supplier).toUpperCase() === extractPureId(wine?.pureId || wine?.id, wine?.supplier).toUpperCase());
 
     if (alreadyExists) {
       alert('このワインは既にメニューに登録されています。');
@@ -353,7 +284,7 @@ export const AdminView: React.FC = () => {
       try {
         const newInventoryItem = {
           id: compositeId,
-          pureId: wine.pureId || wine.id,
+          pureId: extractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
           supplier: (wine.supplier || 'PIEROTH').toUpperCase(),
           price_bottle: wine.price_bottle || wine.cost * 3,
           price_glass: wine.price_glass || Math.round((wine.cost * 3 / 6) / 100) * 100,
@@ -372,12 +303,14 @@ export const AdminView: React.FC = () => {
           ...wine,
           ...newInventoryItem,
           id: compositeId,
-          pureId: wine.pureId || wine.id
+          pureId: extractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase()
         } as WineMaster;
         const newWinesList = [...currentWinesList, fullyProjectedWine];
         setSelectedWines(newWinesList);
-        await syncPublicMenuWithDocs(selectedStoreId, newWinesList);
         setSearchId('');
+        
+        fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
+        queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
       } catch (error) {
         handleFirestoreError(error, OperationType.WRITE, docPath);
       }
@@ -409,7 +342,7 @@ export const AdminView: React.FC = () => {
           const compositeId = getWineDocId(wine);
           const newInventoryItem = {
             id: compositeId,
-            pureId: wine.pureId || wine.id,
+            pureId: extractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
             supplier: (wine.supplier || 'PIEROTH').toUpperCase(),
             price_bottle: wine.price_bottle || wine.cost * 3,
             price_glass: wine.price_glass || Math.round((wine.cost * 3 / 6) / 100) * 100,
@@ -426,32 +359,9 @@ export const AdminView: React.FC = () => {
         await batch.commit();
       }
 
-      const newWinesToAppend = winesToAdd.map(wine => {
-        const compositeId = getWineDocId(wine);
-        return {
-          ...wine,
-          id: compositeId,
-          pureId: wine.pureId || wine.id,
-          price_bottle: wine.price_bottle || wine.cost * 3,
-          price_glass: wine.price_glass || Math.round((wine.cost * 3 / 6) / 100) * 100,
-          cost: wine.cost,
-          glasses_per_bottle: 6,
-          stock: 0,
-          isActive: true,
-          visible: true,
-          updatedAt: new Date().toISOString()
-        } as WineMaster;
-      });
-      const mergedList = [...selectedWines];
-      newWinesToAppend.forEach(nw => {
-        if (!mergedList.some(sw => sw.pureId === nw.pureId)) {
-          mergedList.push(nw);
-        }
-      });
-      setSelectedWines(mergedList);
-      await syncPublicMenuWithDocs(selectedStoreId, mergedList);
-      
-      setImportStatus({ type: 'success', message: `${selectedMasterIds.length}件 of ワインを追加しました` });
+      fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
+      queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
+      setImportStatus({ type: 'success', message: `${selectedMasterIds.length}件のワインを追加しました` });
       setShowCatalogSelection(false);
       setSelectedMasterIds([]);
     } catch (error) {
@@ -636,7 +546,7 @@ export const AdminView: React.FC = () => {
             const compositeId = getWineDocId(wine);
             const invItem = {
               id: compositeId,
-              pureId: wine.pureId || wine.id,
+              pureId: extractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
               supplier: (wine.supplier || 'PIEROTH').toUpperCase(),
               price_bottle: wine.price_bottle || Math.round(wine.cost * 3 / 100) * 100,
               price_glass: wine.price_glass || 0,
@@ -652,35 +562,8 @@ export const AdminView: React.FC = () => {
           await batch.commit();
         }
 
-        const mergedWinesList = [...selectedWines];
-        winesToAdd.forEach(wine => {
-          const compositeId = getWineDocId(wine);
-          const existingIdx = mergedWinesList.findIndex(sw => getWineDocId(sw) === compositeId);
-          const newProjectedItem = {
-            ...wine,
-            id: compositeId,
-            pureId: wine.pureId || wine.id,
-            price_bottle: wine.price_bottle || Math.round(wine.cost * 3 / 100) * 100,
-            price_glass: wine.price_glass || 0,
-            glasses_per_bottle: 6,
-            stock: wine.stock || 0,
-            isActive: true,
-            visible: true,
-            updatedAt: new Date().toISOString()
-          };
-          
-          if (existingIdx !== -1) {
-            mergedWinesList[existingIdx] = {
-              ...mergedWinesList[existingIdx],
-              ...newProjectedItem
-            };
-          } else {
-            mergedWinesList.push(newProjectedItem as WineMaster);
-          }
-        });
-
-        setSelectedWines(mergedWinesList);
-        await syncPublicMenuWithDocs(selectedStoreId, mergedWinesList);
+        fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
+        queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
       }
 
       setImportStatus({ type: 'success', message: `${importedWines.length}件の銘柄データをインポートしました` });
@@ -709,12 +592,12 @@ export const AdminView: React.FC = () => {
           
           const inventoryItem = {
             id: compositeId,
-            pureId: wine.pureId || wine.id,
+            pureId: extractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
             supplier: (wine.supplier || 'PIEROTH').toUpperCase(),
             price_bottle: wine.price_bottle,
             price_glass: wine.price_glass,
             cost: wine.cost,
-            stock: wine.stock ?? 0, // 【バグ修正】保存時に在庫数を含める
+            stock: wine.stock ?? 0, 
             glasses_per_bottle: wine.glasses_per_bottle || 6,
             visible: wine.visible ?? true,
             isFeatured: wine.isFeatured ?? false,
@@ -727,20 +610,18 @@ export const AdminView: React.FC = () => {
         await batch.commit();
       }
 
-      const richPublicMenu = wines
-        .filter(w => w.visible !== false && w.isActive !== false)
-        .map(projectWineForPublic);
-
+      // 【棚の完全分離設計】親ドキュメント（stores）にpublicMenuの二重保存（配列の詰め込み）を行うのを完全に廃止します。
+      // これにより、データの肥大化や先祖返り、キャッシュの不一致バグがインフラ構造レベルで消滅します。
       await updateDoc(doc(db, 'stores', selectedStoreId), {
-        publicMenu: richPublicMenu,
         updatedAt: new Date().toISOString()
       });
 
-      fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
+      // サーバーキャッシュの強制クリア
+      await fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
 
       queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
       queryClient.invalidateQueries({ queryKey: ['stores'] });
-      setImportStatus({ type: 'success', message: '全ての在庫・価格データを保存し、公開メニューを更新しました' });
+      setImportStatus({ type: 'success', message: '全ての在庫・価格データを保存しました' });
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `stores/${selectedStoreId}/inventory`);
     }
@@ -754,10 +635,10 @@ export const AdminView: React.FC = () => {
     const compositeId = getWineDocId(wine);
     try {
       await deleteDoc(doc(db, 'stores', selectedStoreId, 'inventory', compositeId));
-      
       const filteredList = selectedWines.filter(w => getWineDocId(w) !== compositeId);
       setSelectedWines(filteredList);
-      await syncPublicMenuWithDocs(selectedStoreId, filteredList);
+      fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
+      queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `stores/${selectedStoreId}/inventory/${compositeId}`);
     }
@@ -988,7 +869,7 @@ export const AdminView: React.FC = () => {
           <MasterCatalog 
             wines={wines}
             masterSearchTerm={masterSearchTerm}
-            onSearchMaster={handleSearchMaster}
+            onSearchMaster = {handleSearchMaster}
             isEditingMaster={isEditingMaster}
             editingMasterWine={editingMasterWine}
             editMasterData={editMasterData}
@@ -1046,7 +927,7 @@ export const AdminView: React.FC = () => {
                     <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-1">店名</label>
                     <input 
                       type="text"
-                      value={isEditingStore ? editStoreData.name : selectedStore?.name}
+                      value={isEditingStore ? editStoreData.name || '' : selectedStore?.name || ''}
                       onChange={(e) => isEditingStore && setEditStoreData({...editStoreData, name: e.target.value})}
                       disabled={!isEditingStore}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-brand-wine disabled:opacity-70 disabled:bg-slate-100"
@@ -1056,7 +937,7 @@ export const AdminView: React.FC = () => {
                     <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-1">料理カテゴリー</label>
                     <input 
                       type="text"
-                      value={isEditingStore ? editStoreData.cuisine_type : selectedStore?.cuisine_type}
+                      value={isEditingStore ? editStoreData.cuisine_type || '' : selectedStore?.cuisine_type || ''}
                       onChange={(e) => isEditingStore && setEditStoreData({...editStoreData, cuisine_type: e.target.value})}
                       disabled={!isEditingStore}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-brand-wine disabled:opacity-70 disabled:bg-slate-100"
@@ -1066,7 +947,7 @@ export const AdminView: React.FC = () => {
                     <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-1">住所</label>
                     <input 
                       type="text"
-                      value={isEditingStore ? editStoreData.address : selectedStore?.address}
+                      value={isEditingStore ? editStoreData.address || '' : selectedStore?.address || ''}
                       onChange={(e) => isEditingStore && setEditStoreData({...editStoreData, address: e.target.value})}
                       disabled={!isEditingStore}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-brand-wine disabled:opacity-70 disabled:bg-slate-100"
@@ -1158,7 +1039,7 @@ export const AdminView: React.FC = () => {
                     </div>
                   ) : (
                     <p className="text-xs text-slate-400 py-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                      店舗を選択すると、QRコードとメニューURLが生成されます。
+                      店舗を選択すると、QRコード og メニューURLが生成されます。
                     </p>
                   )}
                 </div>
