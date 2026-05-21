@@ -35,7 +35,6 @@ const getBaseUrl = () => {
   return origin;
 };
 
-// ID生成および射影ユーティリティを追加
 const getWineDocId = (wine: { id: string; supplier?: string; pureId?: string }) => {
   const pure = wine.pureId || wine.id;
   const supplier = (wine.supplier || 'PIEROTH').toUpperCase();
@@ -94,7 +93,6 @@ export const AdminView: React.FC = () => {
   const { user } = useWines();
   const queryClient = useQueryClient();
   
-  // React Query Hooks
   const { 
     data: storesData, 
     fetchNextPage: fetchNextStores, 
@@ -109,7 +107,6 @@ export const AdminView: React.FC = () => {
 
   const [masterSearchTerm, setMasterSearchTerm] = useState('');
 
-  // Flattened Data
   const stores = useMemo(() => storesData?.pages.flatMap(page => page.data) || [], [storesData]);
   
   const wines = useMemo(() => {
@@ -121,7 +118,6 @@ export const AdminView: React.FC = () => {
 
   const [selectedWines, setSelectedWines] = useState<WineMaster[]>([]);
 
-  // 【バグ修正】ワイン追加時やタブ切り替え時にもデータを即時同期させる
   useEffect(() => {
     if (inventoryData?.inventory && selectedStoreId === inventoryData.store?.id) {
       setSelectedWines(inventoryData.inventory);
@@ -252,7 +248,13 @@ export const AdminView: React.FC = () => {
       }
     }
 
-    if (wine && selectedStoreId && !selectedWines.find(sw => sw.id === idToUse)) {
+    // 【バグ修正】 ワインが見つからない場合のフィードバック追加
+    if (!wine) {
+      alert('ワインが見つかりません。候補リストから正しい銘柄（ID）を選択してください。');
+      return;
+    }
+
+    if (selectedStoreId && !selectedWines.find(sw => sw.id === idToUse)) {
       const allowed = selectedStore?.allowedSuppliers?.map(s => s.toUpperCase());
       const wineSupplier = (wine.supplier || 'PIEROTH').toUpperCase();
       
@@ -288,7 +290,6 @@ export const AdminView: React.FC = () => {
     }
   };
 
-  // 【バグ修正】トランザクション制限（500件）クラッシュ防止のためChunk分割を実装
   const handleBulkAddWines = async () => {
     if (!selectedStoreId || selectedMasterIds.length === 0) return;
     
