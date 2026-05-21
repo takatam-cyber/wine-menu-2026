@@ -35,12 +35,57 @@ const getBaseUrl = () => {
   return origin;
 };
 
-// 【バグ修正】製品コードを常に大文字に強制統一してドキュメントIDを組み立てる
 const getWineDocId = (wine: { id: string; supplier?: string; pureId?: string }) => {
   const pure = extractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase();
   const supplier = (wine.supplier || 'PIEROTH').toUpperCase();
   return `${supplier}_${pure}`;
 };
+
+const projectWineForPublic = (w: any) => ({
+  id: getWineDocId(w),
+  pureId: extractPureId(w.pureId || w.id, w.supplier).toUpperCase(),
+  supplier: (w.supplier || 'PIEROTH').toUpperCase(),
+  name_jp: w.name_jp,
+  name_en: w.name_en,
+  menu_short: w.menu_short || '',
+  menu_short_en: w.menu_short_en || '',
+  ai_explanation: w.ai_explanation || '',
+  ai_explanation_en: w.ai_explanation_en || '',
+  country: w.country,
+  country_en: w.country_en,
+  region: w.region,
+  region_en: w.region_en,
+  grape: w.grape,
+  grape_en: w.grape_en,
+  color: w.color,
+  color_en: w.color_en,
+  type: w.type,
+  type_en: w.type_en,
+  vintage: w.vintage,
+  alcohol: w.alcohol,
+  sweetness: w.sweetness || 1,
+  body: w.body || 3,
+  acidity: w.acidity || 3,
+  tannins: w.tannins || 3,
+  aroma_intensity: w.aroma_intensity || 3,
+  complexity: w.complexity || 3,
+  finish: w.finish || 3,
+  oak: w.oak || 1,
+  aroma_features: w.aroma_features || '',
+  aroma_features_en: w.aroma_features_en || '',
+  tags: w.tags || '',
+  tags_en: w.tags_en || '',
+  pairing: w.pairing || '',
+  pairing_en: w.pairing_en || '',
+  price_bottle: w.price_bottle,
+  price_glass: w.price_glass,
+  glasses_per_bottle: w.glasses_per_bottle || 6,
+  image_url: w.image_url,
+  isFeatured: w.isFeatured ?? false,
+  promoLabel: w.promoLabel || '',
+  isActive: w.isActive ?? true,
+  updatedAt: new Date().toISOString()
+});
 
 export const AdminView: React.FC = () => {
   const { user } = useWines();
@@ -201,6 +246,29 @@ export const AdminView: React.FC = () => {
 
   const handleLoadMoreWines = () => {
     fetchNextWinesMaster();
+  };
+
+  const selectedStore = stores.find(s => s.id === selectedStoreId);
+
+  const syncPublicMenuWithDocs = async (storeId: string, updatedWines: WineMaster[]) => {
+    try {
+      const richPublicMenu = updatedWines
+        .filter(w => w.visible !== false && w.isActive !== false)
+        .map(w => {
+          const compId = getWineDocId(w);
+          return projectWineForPublic({ ...w, id: compId, pureId: w.pureId || w.id });
+        });
+
+      await updateDoc(doc(db, 'stores', storeId), {
+        publicMenu: richPublicMenu,
+        updatedAt: new Date().toISOString()
+      });
+      
+      fetch(`/api/menu/${storeId}/invalidate`, { method: 'POST' }).catch(() => {});
+      queryClient.invalidateQueries({ queryKey: ['publicMenu', storeId] });
+    } catch (e) {
+      console.error("Failed to sync publicMenu:", e);
+    }
   };
 
   const handleUpdateWineItem = (wineId: string, updatedFields: Partial<WineMaster>, saveImmediately = false) => {
@@ -377,6 +445,7 @@ export const AdminView: React.FC = () => {
     const newStoreId = `store-${Math.random().toString(36).substr(2, 9)}`;
     const path = `stores/${newStoreId}`;
     try {
+      // 【バグ修正】新規店舗の初期データに配列情報を確実にセットしてホワイトアウトを防ぐ
       const newStore: Store = {
         id: newStoreId,
         name: `新規店舗 ${stores.length + 1}`,
@@ -385,7 +454,11 @@ export const AdminView: React.FC = () => {
         cuisine_type: 'フレンチ',
         isActive: true,
         hasAiSommelier: true,
-        address: '〒106-0032 東京都港区六本木...'
+        address: '〒106-0032 東京都港区六本木...',
+        budgetTiers: [],
+        hidePairingFilter: false,
+        hideWinePairing: false,
+        allowedSuppliers: ['PIEROTH']
       };
       
       await setDoc(doc(db, 'stores', newStoreId), newStore);
@@ -610,14 +683,11 @@ export const AdminView: React.FC = () => {
         await batch.commit();
       }
 
-      // 【棚の完全分離設計】親ドキュメント（stores）にpublicMenuの二重保存（配列の詰め込み）を行うのを完全に廃止します。
-      // これにより、データの肥大化や先祖返り、キャッシュの不一致バグがインフラ構造レベルで消滅します。
       await updateDoc(doc(db, 'stores', selectedStoreId), {
         updatedAt: new Date().toISOString()
       });
 
-      // サーバーキャッシュの強制クリア
-      await fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
+      fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
 
       queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
       queryClient.invalidateQueries({ queryKey: ['stores'] });
@@ -869,7 +939,7 @@ export const AdminView: React.FC = () => {
           <MasterCatalog 
             wines={wines}
             masterSearchTerm={masterSearchTerm}
-            onSearchMaster = {handleSearchMaster}
+            onSearchMaster={handleSearchMaster}
             isEditingMaster={isEditingMaster}
             editingMasterWine={editingMasterWine}
             editMasterData={editMasterData}
@@ -953,6 +1023,59 @@ export const AdminView: React.FC = () => {
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-brand-wine disabled:opacity-70 disabled:bg-slate-100"
                     />
                   </div>
+
+                  {/* 【バグ修正】予算設定などのカスタマイズ項目を追加し、安全にレンダリング */}
+                  <div className="space-y-4 pt-4 border-t border-slate-100">
+                    <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-100 rounded-xl">
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">ペアリングフィルターを非表示</span>
+                        <span className="text-xs text-slate-500 uppercase">「お料理から選ぶ」を隠す</span>
+                      </div>
+                      <button 
+                        onClick={() => isEditingStore && setEditStoreData({...editStoreData, hidePairingFilter: !editStoreData.hidePairingFilter})}
+                        disabled={!isEditingStore}
+                        className={`w-12 h-6 rounded-full transition-all relative disabled:opacity-50 ${
+                          (isEditingStore ? editStoreData.hidePairingFilter : selectedStore?.hidePairingFilter) ? 'bg-green-500' : 'bg-slate-300'
+                        }`}
+                      >
+                        <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${(isEditingStore ? editStoreData.hidePairingFilter : selectedStore?.hidePairingFilter) ? 'left-7' : 'left-1'}`} />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-100 rounded-xl">
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">マリアージュ詳細を非表示</span>
+                        <span className="text-xs text-slate-500 uppercase">「最高のマリアージュ」を隠す</span>
+                      </div>
+                      <button 
+                        onClick={() => isEditingStore && setEditStoreData({...editStoreData, hideWinePairing: !editStoreData.hideWinePairing})}
+                        disabled={!isEditingStore}
+                        className={`w-12 h-6 rounded-full transition-all relative disabled:opacity-50 ${
+                          (isEditingStore ? editStoreData.hideWinePairing : selectedStore?.hideWinePairing) ? 'bg-green-500' : 'bg-slate-300'
+                        }`}
+                      >
+                        <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${(isEditingStore ? editStoreData.hideWinePairing : selectedStore?.hideWinePairing) ? 'left-7' : 'left-1'}`} />
+                      </button>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-1">予算設定 (カンマ区切り)</label>
+                      <input 
+                        type="text"
+                        placeholder="5000, 10000, 20000"
+                        // 【バグ修正】安全なフォールバック文字列 `|| ''` を追加してUncontrolled Component化を防ぐ
+                        value={isEditingStore ? (editStoreData.budgetTiers?.join(', ') || '') : (selectedStore?.budgetTiers?.join(', ') || '')}
+                        onChange={e => {
+                          const tiers = e.target.value.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+                          setEditStoreData({...editStoreData, budgetTiers: tiers});
+                        }}
+                        disabled={!isEditingStore}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 text-sm outline-none focus:border-brand-wine disabled:opacity-70 disabled:bg-slate-100"
+                      />
+                      <p className="text-xs text-slate-400 mt-1 uppercase tracking-tighter">例: 5000, 10000, 20000 (数値のみ入力してください)</p>
+                    </div>
+                  </div>
+
                   <div className="flex items-center justify-between pt-4 border-t border-slate-100">
                     <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">公開ステータス</span>
                     <button 
@@ -1039,7 +1162,7 @@ export const AdminView: React.FC = () => {
                     </div>
                   ) : (
                     <p className="text-xs text-slate-400 py-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                      店舗を選択すると、QRコード og メニューURLが生成されます。
+                      店舗を選択すると、QRコードとメニューURLが生成されます。
                     </p>
                   )}
                 </div>
