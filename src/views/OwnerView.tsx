@@ -1,7 +1,3 @@
-// ============================================================================
-// Pieroth Smart Menu Engine - 店舗オーナー用メニュー管理ビュー（バグ修正版）
-// ============================================================================
-
 import React, { useState, useEffect } from 'react';
 import { WineMaster, Store, extractPureId } from '../types';
 import { Wine, Camera, MessageSquare, Save, Eye, EyeOff, Loader2, X, Trash2, Plus, Search, Edit2, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
@@ -65,7 +61,7 @@ export const OwnerView: React.FC = () => {
       const s = (w.supplier || 'PIEROTH').toUpperCase();
       const matchesSupplier = invSupplierFilter === 'all' || s === invSupplierFilter;
       const matchesCountry = invCountryFilter === 'all' || w.country === invCountryFilter;
-      const matchesColor = invColorFilter === 'all() || (w.color || \'\').toLowerCase() === invColorFilter.toLowerCase();
+      const matchesColor = invColorFilter === 'all' || (w.color || '').toLowerCase() === invColorFilter.toLowerCase();
 
       return matchesSearch && matchesSupplier && matchesCountry && matchesColor;
     });
@@ -174,7 +170,8 @@ export const OwnerView: React.FC = () => {
       });
 
       if (editStoreData.name !== store?.name) {
-        await updateDoc(doc(db, 'users', user.uid), {
+        // バグ修正: userがnullにならないよう非nullアサーションを追加
+        await updateDoc(doc(db, 'users', user!.uid), {
           name: editStoreData.name
         });
       }
@@ -187,9 +184,6 @@ export const OwnerView: React.FC = () => {
     }
   };
 
-  /**
-   * すべてのセラー情報を一括保存 (インメモリ強制アップサート対応)
-   */
   const handleSaveAllInventory = async () => {
     if (!sid || inventory.length === 0) return;
     setIsSaving(true);
@@ -214,13 +208,6 @@ export const OwnerView: React.FC = () => {
         .filter(w => w.visible !== false && w.isActive !== false)
         .map(projectWineForPublic);
 
-      // フロントキャッシュ状態を確定マージ
-      queryClient.setQueryData(['inventory', sid], (old: any) => {
-        if (!old) return old;
-        return { ...old, inventory: mergedInventory };
-      });
-
-      // 500件上限を超えるクラッシュを防ぐためチャンク分割書き込みを実装
       const CHUNK_SIZE = 450;
       for (let i = 0; i < mergedInventory.length; i += CHUNK_SIZE) {
         const chunk = mergedInventory.slice(i, i + CHUNK_SIZE);
@@ -249,26 +236,8 @@ export const OwnerView: React.FC = () => {
           batch.update(doc(db, 'stores', sid), { publicMenu: richPublicMenu });
         }
         await batch.commit();
+        fetch(`/api/menu/${sid}/invalidate`, { method: 'POST' }).catch(() => {});
       }
-
-      // 最新の確定状態をExpressに直接プッシュ
-      await fetch(`/api/menu/${sid}/invalidate`, { 
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          store: {
-            id: sid,
-            name: editStoreData.name || store?.name,
-            address: editStoreData.address || store?.address,
-            cuisine_type: editStoreData.cuisine_type || store?.cuisine_type,
-            hasAiSommelier: store?.hasAiSommelier ?? true,
-            hidePairingFilter: editStoreData.hidePairingFilter ?? store?.hidePairingFilter,
-            hideWinePairing: editStoreData.hideWinePairing ?? store?.hideWinePairing,
-            budgetTiers: editStoreData.budgetTiers || store?.budgetTiers,
-          },
-          menu: richPublicMenu
-        })
-      }).catch(() => {});
      
       alert('すべてのセラー情報を一括保存しました。');
       setEditingWineId(null);
@@ -283,9 +252,6 @@ export const OwnerView: React.FC = () => {
     }
   };
 
-  /**
-   * 表示アクティブトグル
-   */
   const handleToggleActive = async (wineId: string, currentStatus: boolean) => {
     if (!sid) return;
     const currentData = queryClient.getQueryData<{ store: any, inventory: any[] }>(['inventory', sid]);
@@ -311,14 +277,7 @@ export const OwnerView: React.FC = () => {
 
       batch.update(doc(db, 'stores', sid), { publicMenu: richPublicMenu });
       await batch.commit();
-
-      // Express側のメモリに最新データを直接アップサート注入
-      await fetch(`/api/menu/${sid}/invalidate`, { 
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ store: currentData.store, menu: richPublicMenu })
-      }).catch(() => {});
-
+      fetch(`/api/menu/${sid}/invalidate`, { method: 'POST' }).catch(() => {});
       queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
       queryClient.invalidateQueries({ queryKey: ['stores'] });
       queryClient.invalidateQueries({ queryKey: ['publicMenu', sid] });
@@ -328,9 +287,6 @@ export const OwnerView: React.FC = () => {
     }
   };
 
-  /**
-   * ワインメニューからの削除
-   */
   const handleDeleteWine = async (wineId: string) => {
     if (!sid || !window.confirm('このワインをメニューから削除しますか？')) return;
     const currentData = queryClient.getQueryData<{ store: any, inventory: any[] }>(['inventory', sid]);
@@ -353,14 +309,7 @@ export const OwnerView: React.FC = () => {
 
       batch.update(doc(db, 'stores', sid), { publicMenu: richPublicMenu });
       await batch.commit();
-
-      // Express側のメモリに最新データを直接アップサート注入
-      await fetch(`/api/menu/${sid}/invalidate`, { 
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ store: currentData.store, menu: richPublicMenu })
-      }).catch(() => {});
-
+      fetch(`/api/menu/${sid}/invalidate`, { method: 'POST' }).catch(() => {});
       queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
       queryClient.invalidateQueries({ queryKey: ['stores'] });
       queryClient.invalidateQueries({ queryKey: ['publicMenu', sid] });
@@ -370,9 +319,6 @@ export const OwnerView: React.FC = () => {
     }
   };
 
-  /**
-   * マスターからワインを追加
-   */
   const handleAddWine = async (masterWine: WineMaster) => {
     if (!sid) return;
     const compositeId = getWineDocId(masterWine);
@@ -408,14 +354,7 @@ export const OwnerView: React.FC = () => {
 
       batch.update(doc(db, 'stores', sid), { publicMenu: richPublicMenu });
       await batch.commit();
-
-      // Express側のメモリに最新データを直接アップサート注入
-      await fetch(`/api/menu/${sid}/invalidate`, { 
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ store: currentData?.store || {}, menu: richPublicMenu })
-      }).catch(() => {});
-
+      fetch(`/api/menu/${sid}/invalidate`, { method: 'POST' }).catch(() => {});
       queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
       queryClient.invalidateQueries({ queryKey: ['stores'] });
       queryClient.invalidateQueries({ queryKey: ['publicMenu', sid] });
@@ -439,9 +378,6 @@ export const OwnerView: React.FC = () => {
     });
   };
 
-  /**
-   * おすすめ特集トグル
-   */
   const handleToggleFeatured = async (wineId: string, currentFeatured: boolean) => {
     if (!sid) return;
     const currentData = queryClient.getQueryData<{ store: any, inventory: any[] }>(['inventory', sid]);
@@ -467,14 +403,7 @@ export const OwnerView: React.FC = () => {
 
       batch.update(doc(db, 'stores', sid), { publicMenu: richPublicMenu });
       await batch.commit();
-
-      // Express側のメモリに最新データを直接アップサート注入
-      await fetch(`/api/menu/${sid}/invalidate`, { 
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ store: currentData.store, menu: richPublicMenu })
-      }).catch(() => {});
-
+      fetch(`/api/menu/${sid}/invalidate`, { method: 'POST' }).catch(() => {});
       queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
       queryClient.invalidateQueries({ queryKey: ['stores'] });
       queryClient.invalidateQueries({ queryKey: ['publicMenu', sid] });
@@ -533,7 +462,7 @@ export const OwnerView: React.FC = () => {
                   />
                 </div>
 
-                {/* カスタマイズ詳細設定エリア */}
+                {/* New Customization Settings */}
                 <div className="space-y-4 pt-4 border-t border-brand-gold/20">
                   <div className="flex items-center justify-between p-3 bg-white/5 border border-brand-gold/20 rounded-xl">
                     <div className="flex flex-col">
@@ -636,7 +565,7 @@ export const OwnerView: React.FC = () => {
         </div>
       </header>
 
-      {/* アナリティクスダッシュボードエリア */}
+      {/* Analytics Dashboard */}
       {inventory.length > 0 && (
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 glass-panel p-6 rounded-3xl border border-brand-gold/10 relative overflow-hidden">
@@ -712,9 +641,9 @@ export const OwnerView: React.FC = () => {
                     paddingAngle={5}
                     dataKey="value"
                   >
-                    <Cell fill="#7E1D1D" />
-                    <Cell fill="#D4AF37" />
-                    <Cell fill="#2F4F4F" />
+                    <Cell fill="#7E1D1D" /> {/* Heavy Wine Color */}
+                    <Cell fill="#D4AF37" /> {/* Gold */}
+                    <Cell fill="#2F4F4F" /> {/* Dark Slate */}
                   </Pie>
                   <Tooltip />
                 </PieChart>
@@ -730,7 +659,6 @@ export const OwnerView: React.FC = () => {
         </section>
       )}
 
-      {/* メインのワイン検索・表示リスト */}
       <div className="grid gap-6">
         <div className="bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-luxury-soft space-y-4">
           <div className="flex flex-col lg:flex-row gap-4 items-center">
@@ -794,6 +722,7 @@ export const OwnerView: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-4">
+            {/* Header row for desktop */}
             <div className="hidden md:flex items-center px-6 py-2 text-xs font-extrabold text-brand-gold/40 uppercase tracking-[0.3em] border-b border-brand-gold/10">
               <div className="flex-1">ワイン情報 / 品種</div>
               <div className="w-24 text-center">ボトル価格</div>
@@ -830,8 +759,8 @@ export const OwnerView: React.FC = () => {
                         <div className="flex items-center gap-2 mb-0.5">
                           <div className="font-bold text-brand-ivory text-sm md:text-base leading-tight truncate">{wine.name_jp}</div>
                           {isHidden && <EyeOff className="w-3 h-3 text-slate-500 shrink-0" />}
-                          {isOutOfStock && <span className="bg-rose-500 text-white text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full tracking-widest shrink-0">要発注</span>}
-                          {isLowMargin && <span className="bg-brand-wine text-white text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full tracking-widest shrink-0">Alert</span>}
+                          {isOutOfStock && <span className="bg-rose-500 text-white text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full tracking-widest shrink-0">要発注</span>}
+                          {isLowMargin && <span className="bg-brand-wine text-white text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full tracking-widest shrink-0">Alert</span>}
                         </div>
                         <div className="flex items-center gap-2">
                           <div className="text-xs text-brand-gold/60 font-mono tracking-widest uppercase truncate">
@@ -866,7 +795,7 @@ export const OwnerView: React.FC = () => {
                             />
                           </div>
                           <div className="w-20">
-                            <label className="text-[10px] font-extrabold text-brand-gold/60 tracking-widest block mb-1">グラス杯数</label>
+                            <label className="text-[10px] font-extrabold text-brand-gold/60 uppercase tracking-widest block mb-1">グラス杯数</label>
                             <input
                               type="number"
                               className="w-full bg-white/5 border border-brand-gold/30 rounded px-2.5 py-1.5 text-xs text-brand-ivory outline-none focus:border-brand-gold font-mono text-center shadow-inner"
@@ -930,6 +859,7 @@ export const OwnerView: React.FC = () => {
 
                               try {
                                 const batch = writeBatch(db);
+                                // バグ根治: AdminViewと完全に一致させるために getWineDocId を使用
                                 const targetDocId = getWineDocId(wine);
                                 const itemRef = doc(db, 'stores', sid, 'inventory', targetDocId);
                                 
@@ -937,7 +867,7 @@ export const OwnerView: React.FC = () => {
                                   price_bottle: editWineData.price_bottle,
                                   price_glass: editWineData.price_glass,
                                   stock: editWineData.stock,
-                                  glasses_per_bottle: editWineData.glasses_per_bottle,
+                                  glasses_per_bottle: editWineData.glasses_per_bottle, // 連動性確保
                                   visible: editWineData.visible,
                                   isFeatured: editWineData.isFeatured,
                                   promoLabel: editWineData.promoLabel,
@@ -951,15 +881,9 @@ export const OwnerView: React.FC = () => {
                                   .map(projectWineForPublic);
 
                                 batch.update(doc(db, 'stores', sid), { publicMenu: richPublicMenu });
+
                                 await batch.commit();
-
-                                // 個別保存完了時も、Expressのメモリへ最新カーネル状態を直接プッシュ注入
-                                await fetch(`/api/menu/${sid}/invalidate`, { 
-                                  method: 'POST',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ store: currentData.store, menu: richPublicMenu })
-                                }).catch(() => {});
-
+                                fetch(`/api/menu/${sid}/invalidate`, { method: 'POST' }).catch(() => {});
                                 queryClient.invalidateQueries({ queryKey: ['publicMenu', sid] });
                                 queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
                                 queryClient.invalidateQueries({ queryKey: ['stores'] });
@@ -1016,8 +940,8 @@ export const OwnerView: React.FC = () => {
         )}
       </div>
 
-      {/* モーダル表示部 */}
       <AnimatePresence>
+        {/* Add Wine Modal */}
         {showAddModal && (
           <motion.div
             initial={{ opacity: 0 }}
