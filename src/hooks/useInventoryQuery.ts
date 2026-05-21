@@ -11,6 +11,7 @@ export function useInventoryQuery(storeId: string | null) {
     queryFn: async () => {
       if (!storeId) return null;
       
+      // 棚1（店舗情報）と 棚2（店舗固有の在庫サブコレクション）を別々に並列取得
       const [storeData, inventoryItems] = await Promise.all([
         storeRepository.getStoreById(storeId),
         storeRepository.getStoreInventory(storeId)
@@ -23,16 +24,22 @@ export function useInventoryQuery(storeId: string | null) {
 
       const enrichedWines: WineMaster[] = [];
       
-      // 【致命的バグ修正】店舗側の複合ID（例: PIEROTH_A1234）から、接頭辞を綺麗に取り除いた純粋なID（例: A1234）の配列を生成
-      const pureItemIds = inventoryItems.map(item => 
-        extractPureId(item.pureId || item.id, item.supplier || 'PIEROTH')
+      // 【棚の完全分離バグ修正】サブコレクションから取得したドキュメントIDをすべて「大文字」に完全統一
+      const upperInventoryItems = inventoryItems.map(item => ({
+        ...item,
+        id: item.id.toUpperCase()
+      }));
+
+      // 問い合わせ用の製品コード（大文字）の配列を生成
+      const pureItemIds = upperInventoryItems.map(item => 
+        extractPureId(item.pureId || item.id, item.supplier || 'PIEROTH').toUpperCase()
       );
 
       // すべてのチャンクを Promise.all で並列一括取得（超高速化）
       const chunkPromises = [];
       for (let i = 0; i < pureItemIds.length; i += 30) {
         const chunk = pureItemIds.slice(i, i + 30);
-        // 【バグ修正】純粋な製品コードの配列（chunk）で問い合わせることで、winesMasterからデータが100%確実にヒットするようになります
+        // 【バグ修正】ドキュメント名（__name__）に対して大文字の製品コードで検索するため、マスターから100%確実にヒットします
         const q = query(collection(db, 'winesMaster'), where('__name__', 'in', chunk));
         chunkPromises.push(getDocs(q));
       }
@@ -42,19 +49,20 @@ export function useInventoryQuery(storeId: string | null) {
       snapshotsArray.forEach(masterSnaps => {
         masterSnaps.forEach(docSnap => {
           const masterData = docSnap.data() as WineMaster;
+          const masterDocId = docSnap.id.toUpperCase();
           
-          // 【バグ修正】大文字に統一した純粋な製品コード同士で、大文字小文字の揺れを完全に無視して安全に紐付け（マージ）
-          const masterPureId = extractPureId(masterData.pureId || docSnap.id, masterData.supplier).toUpperCase();
-          const invItem = inventoryItems.find(item => {
-            const itemPureId = extractPureId(item.pureId || item.id, item.supplier || masterData.supplier).toUpperCase();
-            return itemPureId === masterPureId;
+          // 大文字に完全統一したID同士で、店舗在庫の棚（棚2）とカタログの棚（棚3）を確実にマージします
+          const invItem = upperInventoryItems.find(item => {
+            const itemCompId = extractPureId(item.id, item.supplier || masterData.supplier).toUpperCase();
+            const masterCompId = extractPureId(masterDocId, masterData.supplier).toUpperCase();
+            return itemCompId === masterCompId;
           });
 
           if (invItem) {
             enrichedWines.push({ 
               ...masterData, 
-              id: docSnap.id,
-              pureId: masterPureId,
+              id: masterDocId,
+              pureId: extractPureId(masterDocId, masterData.supplier).toUpperCase(),
               price_bottle: invItem.price_bottle ?? masterData.price_bottle,
               price_glass: invItem.price_glass ?? masterData.price_glass,
               cost: invItem.cost ?? masterData.cost ?? 2000,
@@ -78,10 +86,9 @@ export function useInventoryQuery(storeId: string | null) {
       };
     },
     enabled: !!storeId,
-    // 【キャッシュ先祖返り防止】staleTime を 0 に強制設定。
-    // これにより、画面の切り替えや出入りをした際、ブラウザの古いキャッシュを絶対に掴まず、必ずFirestoreの最新確定データを直接再ロードします。
+    // staleTimeを0にすることで、画面の切り替えや出入りをした際、ブラウザの古いキャッシュを絶対に掴まず最新のFirestoreデータをロードします
     staleTime: 0, 
-    gcTime: 1000 * 60 * 1, // 不要になったキャッシュは1分で自動破棄
+    gcTime: 1000 * 60 * 1,
   });
 }
 
