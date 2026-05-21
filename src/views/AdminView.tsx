@@ -11,7 +11,7 @@ import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { initializeApp, deleteApp, getApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
-import { Plus, Database, Upload, Eye, Save, Settings, Edit2, Shield, Wine, Trash2, X, Search, ChevronLeft } from 'lucide-react';
+import { Plus, Database, Upload, Eye, Save, Settings, Edit2, Shield, Wine, Trash2, X, Search, ChevronLeft, QrCode, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -979,6 +979,49 @@ export const AdminView: React.FC = () => {
                       </button>
                     )}
                   </div>
+                </div>
+
+                {/* QR Code and Customer Menu Card */}
+                <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+                  <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                    <QrCode className="text-brand-wine w-5 h-5" />
+                    <h2 className="text-xs font-bold uppercase tracking-widest text-slate-800">QRコード & お客様メニュー</h2>
+                  </div>
+                  
+                  {selectedStoreId ? (
+                    <div className="flex flex-col items-center gap-4 py-2">
+                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-center shadow-inner">
+                        <img 
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(`${getBaseUrl() || window.location.origin}/?storeId=${selectedStoreId}`)}`} 
+                          alt="Store QR Code" 
+                          className="w-36 h-36 object-contain"
+                        />
+                      </div>
+                      
+                      <p className="text-[11px] text-slate-400 text-center leading-relaxed">
+                        このQRコードを印刷して店内に掲示し、お客様がマイスマホでスキャンできるようにしてください。
+                      </p>
+
+                      <div className="w-full flex flex-col gap-2">
+                        <button 
+                          onClick={() => window.open(`${getBaseUrl() || window.location.origin}/?storeId=${selectedStoreId}`, '_blank')}
+                          className="w-full py-3 bg-brand-wine text-white text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-brand-wine/90 hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                        >
+                          <ExternalLink className="w-4 h-4" /> お客用メニューを開く
+                        </button>
+                        
+                        <div className="text-center">
+                          <span className="text-[9px] font-mono select-all break-all text-slate-400 text-center block max-w-full overflow-hidden truncate">
+                            {`${getBaseUrl() || window.location.origin}/?storeId=${selectedStoreId}`}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-400 py-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                      店舗を選択すると、QRコードとメニューURLが生成されます。
+                    </p>
+                  )}
                 </div>
 
                 <OwnerAccountForm 
