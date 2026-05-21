@@ -1,7 +1,7 @@
 // src/views/OwnerView.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import { WineMaster, Store, extractPureId } from '../types';
-import { Wine, Save, Loader2, X, Plus, Search, Edit2, AlertCircle, Sparkles } from 'lucide-react';
+import { Wine, Save, Loader2, X, Plus, Search, Edit2, AlertCircle, Sparkles, Settings, QrCode, ExternalLink } from 'lucide-react';
 import { useWines } from '../lib/WineContext';
 import { db } from '../lib/firebase';
 import { doc, updateDoc, setDoc, writeBatch, deleteDoc } from 'firebase/firestore';
@@ -15,6 +15,17 @@ import { useWinesMasterQuery } from '../hooks/useWinesQuery';
 import { InventoryManager } from '../components/admin/InventoryManager';
 import { CatalogSelector } from '../components/admin/CatalogSelector';
 import { StoreAnalytics } from '../components/admin/StoreAnalytics';
+
+const PRODUCTION_DOMAIN = import.meta.env.VITE_APP_DOMAIN || "";
+
+const getBaseUrl = () => {
+  if (typeof window === 'undefined') return '';
+  const origin = window.location.origin;
+  if (origin.includes('googleusercontent.com') || origin.includes('localhost') || origin.includes('cloudshell.dev') || (origin.includes('asia-east1.run.app') && origin.includes('-vfs-'))) {
+    return PRODUCTION_DOMAIN;
+  }
+  return origin;
+};
 
 export const OwnerView: React.FC = () => {
   const { user } = useWines();
@@ -74,8 +85,6 @@ export const OwnerView: React.FC = () => {
     }
   }, [stores, user]);
 
-  // 【バグ修正】オーナー画面で選択中の店舗IDを、ブラウザのURLパラメータ(?storeId=xxx)にリアルタイム常時同期
-  // これにより、ヘッダーの「管理者画面に戻る」共通ボタンがいつでも正しい店舗IDを読み込めるようになります
   useEffect(() => {
     if (selectedStoreId) {
       const url = new URL(window.location.href);
@@ -443,141 +452,211 @@ export const OwnerView: React.FC = () => {
     <div id="owner-view" className="max-w-4xl lg:max-w-7xl mx-auto px-4 py-8 md:py-12 space-y-8 animate-in fade-in duration-700">
       <header className="flex flex-col md:flex-row md:items-start justify-between gap-6">
         <div className="flex-1">
-          {isEditingStore ? (
-            <div className="space-y-4 bg-black/40 p-6 rounded-2xl border border-brand-gold/20 animate-in slide-in-from-top duration-300">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-bold text-brand-gold/60 uppercase tracking-widest block mb-1">店名</label>
-                  <input 
-                    className="w-full bg-white/5 border border-brand-gold/20 rounded-lg px-3 py-2 text-brand-ivory text-sm outline-none focus:border-brand-gold"
-                    value={editStoreData.name || ''}
-                    onChange={e => setEditStoreData({...editStoreData, name: e.target.value})}
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-brand-gold/60 uppercase tracking-widest block mb-1">料理カテゴリー</label>
-                  <input 
-                    className="w-full bg-white/5 border border-brand-gold/20 rounded-lg px-3 py-2 text-brand-ivory text-sm outline-none focus:border-brand-gold"
-                    value={editStoreData.cuisine_type || ''}
-                    onChange={e => setEditStoreData({...editStoreData, cuisine_type: e.target.value})}
-                  />
-                </div>
-              </div>
-                <div>
-                  <label className="text-xs font-bold text-brand-gold/60 uppercase tracking-widest block mb-1">住所</label>
-                  <input 
-                    className="w-full bg-white/5 border border-brand-gold/20 rounded-lg px-3 py-2 text-brand-ivory text-sm outline-none focus:border-brand-gold"
-                    value={editStoreData.address || ''}
-                    onChange={e => setEditStoreData({...editStoreData, address: e.target.value})}
-                  />
-                </div>
-
-                <div className="space-y-4 pt-4 border-t border-brand-gold/20">
-                  <div className="flex items-center justify-between p-3 bg-white/5 border border-brand-gold/20 rounded-xl">
-                    <div className="flex flex-col">
-                      <span className="text-xs font-bold text-brand-gold-dark uppercase tracking-wider">ペアリングフィルターを非表示</span>
-                      <span className="text-xs text-gray-500 uppercase">「お料理から選ぶ」を隠す</span>
-                    </div>
-                    <button 
-                      onClick={() => setEditStoreData({...editStoreData, hidePairingFilter: !editStoreData.hidePairingFilter})}
-                      className={`w-12 h-6 rounded-full transition-all relative ${editStoreData.hidePairingFilter ? 'bg-brand-gold' : 'bg-gray-700'}`}
-                    >
-                      <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${editStoreData.hidePairingFilter ? 'left-7' : 'left-1'}`} />
-                    </button>
-                  </div>
-
-                  <div className="flex items-center justify-between p-3 bg-white/5 border border-brand-gold/20 rounded-xl">
-                    <div className="flex flex-col">
-                      <span className="text-xs font-bold text-brand-gold-dark uppercase tracking-wider">マリアージュ詳細を非表示</span>
-                      <span className="text-xs text-gray-500 uppercase">「最高のマリアージュ」を隠す</span>
-                    </div>
-                    <button 
-                      onClick={() => setEditStoreData({...editStoreData, hideWinePairing: !editStoreData.hideWinePairing})}
-                      className={`w-12 h-6 rounded-full transition-all relative ${editStoreData.hideWinePairing ? 'bg-brand-gold' : 'bg-gray-700'}`}
-                    >
-                      <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${editStoreData.hideWinePairing ? 'left-7' : 'left-1'}`} />
-                    </button>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold text-brand-gold/60 uppercase tracking-widest block mb-1">予算設定 (カンマ区切り)</label>
-                    <input 
-                      type="text"
-                      placeholder="5000, 10000, 20000"
-                      value={editStoreData.budgetTiers?.join(', ') || ''}
-                      onChange={e => {
-                        const tiers = e.target.value.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
-                        setEditStoreData({...editStoreData, budgetTiers: tiers});
-                      }}
-                      className="w-full bg-white/5 border border-brand-gold/20 rounded-lg px-3 py-2 text-brand-ivory text-sm outline-none focus:border-brand-gold transition-all"
-                    />
-                    <p className="text-xs text-gray-500 mt-1 uppercase tracking-tighter">例: 5000, 10000, 20000 (数値のみ入力してください)</p>
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-2 pt-2">
-                  <button onClick={() => setIsEditingStore(false)} className="px-4 py-2 text-xs uppercase font-bold text-gray-400 hover:text-white transition-colors">キャンセル</button>
-                  <button 
-                    onClick={handleUpdateStore} 
-                    disabled={isSaving}
-                    className="bg-brand-gold text-brand-wine px-6 py-2 rounded-lg text-xs uppercase font-bold tracking-widest flex items-center gap-2 hover:brightness-110"
-                  >
-                    {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
-                    保存する
-                  </button>
-                </div>
-            </div>
-          ) : (
-            <div>
-              <div className="flex flex-col md:flex-row md:items-center gap-3">
-                <div className="flex items-center gap-3">
-                  <h1 className="serif text-3xl text-brand-gold-dark">{store?.name || '店舗情報不明'}</h1>
-                  <button onClick={() => setIsEditingStore(true)} className="p-2 text-brand-gold-dark/40 hover:text-brand-gold-dark transition-colors">
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                </div>
-                {(user?.role === 'admin' || user?.role === 'rep') && (
-                  <select 
-                    className="bg-brand-gold-dark/10 border border-brand-gold-dark/30 text-brand-gold-dark rounded-full px-4 py-1 text-xs font-bold uppercase outline-none"
-                    value={sid || ''}
-                    onChange={(e) => window.location.href = `/owner?storeId=${e.target.value}`}
-                  >
-                    <option value="" disabled>店舗を切り替え</option>
-                    {stores.map(s => (
-                      <option key={s.id} value={s.id} className="bg-brand-wine text-brand-gold-dark font-sans">{s.name}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-              <p className="text-gray-400 text-xs uppercase tracking-widest font-bold mt-1">
-                {store?.cuisine_type} • {store?.address}
-              </p>
-            </div>
-          )}
+          <div className="flex flex-col md:flex-row md:items-center gap-3">
+            <h1 className="serif text-3xl text-brand-gold-dark">{store?.name || '店舗情報不明'}</h1>
+            {(user?.role === 'admin' || user?.role === 'rep') && (
+              <select 
+                className="bg-brand-gold-dark/10 border border-brand-gold-dark/30 text-brand-gold-dark rounded-full px-4 py-1 text-xs font-bold uppercase outline-none"
+                value={sid || ''}
+                onChange={(e) => window.location.href = `/owner?storeId=${e.target.value}`}
+              >
+                <option value="" disabled>店舗を切り替え</option>
+                {stores.map(s => (
+                  <option key={s.id} value={s.id} className="bg-brand-wine text-brand-gold-dark font-sans">{s.name}</option>
+                ))}
+              </select>
+            )}
+          </div>
+          <p className="text-gray-400 text-xs uppercase tracking-widest font-bold mt-1">
+            {store?.cuisine_type} • {store?.address}
+          </p>
         </div>
       </header>
 
       <StoreAnalytics selectedWines={selectedWines} />
 
-      <div className="bg-white/5 rounded-3xl overflow-hidden shadow-luxury-soft">
-        <InventoryManager 
-          selectedStore={store || undefined}
-          selectedStoreId={sid}
-          selectedWines={selectedWines}
-          setSelectedWines={setSelectedWines}
-          masterWines={masterWines}
-          searchId={searchId}
-          setSearchId={setSearchId}
-          handleAddWine={handleAddWine}
-          onShowCatalogSelection={() => setShowCatalogSelection(true)}
-          onFileUpload={() => { alert('オーナー権限での一括CSVインポートは現在制限されています。') }}
-          onSaveInventory={handleSaveInventory}
-          onDeleteWine={handleDeleteWine}
-          fileInputRef={fileInputRef}
-          hasMoreWines={hasMoreWinesMaster}
-          onLoadMoreWines={fetchNextWinesMaster}
-          onUpdateWineItem={handleUpdateWineItem}
-        />
+      {/* 【レイアウト変更】左2/3を在庫管理、右1/3を設定・QRコードエリアとして統合 */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2">
+          <InventoryManager 
+            selectedStore={store || undefined}
+            selectedStoreId={sid}
+            selectedWines={selectedWines}
+            setSelectedWines={setSelectedWines}
+            masterWines={masterWines}
+            searchId={searchId}
+            setSearchId={setSearchId}
+            handleAddWine={handleAddWine}
+            onShowCatalogSelection={() => setShowCatalogSelection(true)}
+            onFileUpload={() => { alert('オーナー権限での一括CSVインポートは現在制限されています。') }}
+            onSaveInventory={handleSaveInventory}
+            onDeleteWine={handleDeleteWine}
+            fileInputRef={fileInputRef}
+            hasMoreWines={hasMoreWinesMaster}
+            onLoadMoreWines={fetchNextWinesMaster}
+            onUpdateWineItem={handleUpdateWineItem}
+          />
+        </div>
+        
+        <div className="space-y-6">
+          {/* 1. 基本情報・カスタマイズ設定カード */}
+          <div className="bg-black/40 p-6 rounded-3xl border border-brand-gold/20 shadow-luxury space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Settings className="text-brand-gold w-5 h-5" />
+              <h2 className="text-xs font-bold uppercase tracking-widest text-brand-gold-dark">基本情報・メニュー設定</h2>
+            </div>
+            
+            <div>
+              <label className="text-xs font-bold text-brand-gold/60 uppercase tracking-widest block mb-1">店名</label>
+              <input 
+                type="text"
+                value={isEditingStore ? editStoreData.name || '' : store?.name || ''}
+                onChange={(e) => isEditingStore && setEditStoreData({...editStoreData, name: e.target.value})}
+                disabled={!isEditingStore}
+                className="w-full bg-white/5 border border-brand-gold/20 rounded-xl px-4 py-2.5 text-sm text-brand-ivory outline-none focus:border-brand-gold disabled:opacity-70 disabled:bg-black/20 font-sans"
+              />
+            </div>
+            
+            <div>
+              <label className="text-xs font-bold text-brand-gold/60 uppercase tracking-widest block mb-1">料理カテゴリー</label>
+              <input 
+                type="text"
+                value={isEditingStore ? editStoreData.cuisine_type || '' : store?.cuisine_type || ''}
+                onChange={(e) => isEditingStore && setEditStoreData({...editStoreData, cuisine_type: e.target.value})}
+                disabled={!isEditingStore}
+                className="w-full bg-white/5 border border-brand-gold/20 rounded-xl px-4 py-2.5 text-sm text-brand-ivory outline-none focus:border-brand-gold disabled:opacity-70 disabled:bg-black/20 font-sans"
+              />
+            </div>
+            
+            <div>
+              <label className="text-xs font-bold text-brand-gold/60 uppercase tracking-widest block mb-1">住所</label>
+              <input 
+                type="text"
+                value={isEditingStore ? editStoreData.address || '' : store?.address || ''}
+                onChange={(e) => isEditingStore && setEditStoreData({...editStoreData, address: e.target.value})}
+                disabled={!isEditingStore}
+                className="w-full bg-white/5 border border-brand-gold/20 rounded-xl px-4 py-2.5 text-sm text-brand-ivory outline-none focus:border-brand-gold disabled:opacity-70 disabled:bg-black/20 font-sans"
+              />
+            </div>
+
+            <div className="space-y-3 pt-3 border-t border-brand-gold/10">
+              <div className="flex items-center justify-between p-2.5 bg-white/5 border border-brand-gold/10 rounded-xl">
+                <div className="flex flex-col">
+                  <span className="text-[11px] font-bold text-brand-gold-dark uppercase tracking-wider">ペアリングフィルター非表示</span>
+                  <span className="text-[9px] text-gray-500 uppercase">「お料理から選ぶ」を隠す</span>
+                </div>
+                <button 
+                  onClick={() => isEditingStore && setEditStoreData({...editStoreData, hidePairingFilter: !editStoreData.hidePairingFilter})}
+                  disabled={!isEditingStore}
+                  className={`w-10 h-5 rounded-full transition-all relative disabled:opacity-50 ${
+                    (isEditingStore ? editStoreData.hidePairingFilter : store?.hidePairingFilter) ? 'bg-brand-gold' : 'bg-gray-700'
+                  }`}
+                >
+                  <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${(isEditingStore ? editStoreData.hidePairingFilter : store?.hidePairingFilter) ? 'left-5.5' : 'left-0.5'}`} />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between p-2.5 bg-white/5 border border-brand-gold/10 rounded-xl">
+                <div className="flex flex-col">
+                  <span className="text-[11px] font-bold text-brand-gold-dark uppercase tracking-wider">マリアージュ詳細非表示</span>
+                  <span className="text-[9px] text-gray-500 uppercase">「最高のマリアージュ」を隠す</span>
+                </div>
+                <button 
+                  onClick={() => isEditingStore && setEditStoreData({...editStoreData, hideWinePairing: !editStoreData.hideWinePairing})}
+                  disabled={!isEditingStore}
+                  className={`w-10 h-5 rounded-full transition-all relative disabled:opacity-50 ${
+                    (isEditingStore ? editStoreData.hideWinePairing : store?.hideWinePairing) ? 'bg-brand-gold' : 'bg-gray-700'
+                  }`}
+                >
+                  <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${(isEditingStore ? editStoreData.hideWinePairing : store?.hideWinePairing) ? 'left-5.5' : 'left-0.5'}`} />
+                </button>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-brand-gold/60 uppercase tracking-widest block mb-1">予算設定 (カンマ区切り)</label>
+                <input 
+                  type="text"
+                  placeholder="5000, 10000, 20000"
+                  value={isEditingStore ? editStoreData.budgetTiers?.join(', ') : store?.budgetTiers?.join(', ') || ''}
+                  onChange={e => {
+                    if (isEditingStore) {
+                      const tiers = e.target.value.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+                      setEditStoreData({...editStoreData, budgetTiers: tiers});
+                    }
+                  }}
+                  disabled={!isEditingStore}
+                  className="w-full bg-white/5 border border-brand-gold/20 rounded-lg px-3 py-2 text-brand-ivory text-sm outline-none focus:border-brand-gold disabled:opacity-70 disabled:bg-black/20 font-sans"
+                />
+              </div>
+            </div>
+
+            <div className="pt-2 flex gap-2">
+              {isEditingStore ? (
+                <>
+                  <button 
+                    onClick={() => setIsEditingStore(false)}
+                    className="flex-1 py-2 text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white transition-all"
+                  >
+                    キャンセル
+                  </button>
+                  <button 
+                    onClick={handleUpdateStore}
+                    className="flex-1 py-2 bg-brand-gold text-brand-wine text-xs font-bold uppercase tracking-widest rounded-xl hover:brightness-110 transition-all flex items-center justify-center gap-2 shadow-lg"
+                  >
+                    <Save className="w-3.5 h-3.5" /> 保存
+                  </button>
+                </>
+              ) : (
+                <button 
+                  onClick={() => {
+                    setEditStoreData(store || {});
+                    setIsEditingStore(true);
+                  }}
+                  className="w-full py-2 bg-white/5 border border-brand-gold/30 text-brand-gold text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-white/10 transition-all flex items-center justify-center gap-2"
+                >
+                  <Edit2 className="w-3.5 h-3.5" /> 店舗設定を編集
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* 2. QRコード & お客様メニューカード */}
+          <div className="bg-black/40 p-6 rounded-3xl border border-brand-gold/20 shadow-luxury space-y-4">
+            <div className="flex items-center gap-2 border-b border-brand-gold/10 pb-3">
+              <QrCode className="text-brand-gold w-5 h-5" />
+              <h2 className="text-xs font-bold uppercase tracking-widest text-brand-gold-dark">QRコード & お客様メニュー</h2>
+            </div>
+            
+            <div className="flex flex-col items-center gap-4 py-2">
+              <div className="p-4 bg-white rounded-2xl flex items-center justify-center shadow-inner">
+                <img 
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(`${getBaseUrl() || window.location.origin}/menu/${sid}`)}`} 
+                  alt="Store QR Code" 
+                  className="w-36 h-36 object-contain"
+                />
+              </div>
+              
+              <p className="text-[11px] text-gray-400 text-center leading-relaxed">
+                このQRコードを印刷して店内に掲示し、お客様がマイスマホでスキャンできるようにしてください。
+              </p>
+
+              <div className="w-full flex flex-col gap-2">
+                <button 
+                  onClick={() => window.open(`${getBaseUrl() || window.location.origin}/menu/${sid}`, '_blank')}
+                  className="w-full py-3 bg-brand-gold text-brand-wine text-xs font-bold uppercase tracking-widest rounded-xl hover:brightness-110 transition-all flex items-center justify-center gap-2 shadow-md"
+                >
+                  <ExternalLink className="w-4 h-4" /> お客用メニューを開く
+                </button>
+                
+                <div className="text-center">
+                  <span className="text-[9px] font-mono select-all break-all text-brand-gold/50 text-center block max-w-full overflow-hidden truncate">
+                    {`${getBaseUrl() || window.location.origin}/menu/${sid}`}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <CatalogSelector 
