@@ -21,7 +21,6 @@ interface InventoryManagerProps {
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   hasMoreWines: boolean;
   onLoadMoreWines: () => void;
-  // 【バグ修正】引数を更新し、即時保存フラグ(saveImmediately)を追加
   onUpdateWineItem: (wineId: string, updatedFields: Partial<WineMaster>, saveImmediately?: boolean) => void;
 }
 
@@ -125,13 +124,13 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
               onClick={() => fileInputRef.current?.click()}
               className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 md:px-4 py-2 bg-slate-800 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-700 transition-all shadow-md"
             >
-              <Upload className="w-4 h-4 shrink-0" /> <span className="truncate">CSV読み込み</span>
+              <Upload className="w-4 h-4 shrink-0" /> <span className="truncate">CSV読込</span>
             </button>
             <button
               onClick={onSaveInventory}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 md:px-4 py-2 border-2 border-brand-wine text-brand-wine rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-brand-wine hover:text-white transition-all shadow-sm"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 md:px-4 py-2 border-2 border-brand-wine text-white bg-brand-wine rounded-xl text-xs font-bold uppercase tracking-widest hover:brightness-110 transition-all shadow-lg active:scale-95"
             >
-              <Save className="w-4 h-4 shrink-0" /> <span className="truncate">保存</span>
+              <Save className="w-4 h-4 shrink-0" /> <span className="truncate">一括保存</span>
             </button>
           </div>
         </div>
@@ -139,10 +138,12 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
      
       <div className="p-4 md:p-6 space-y-4">
         <div className="hidden md:grid md:grid-cols-12 gap-4 px-6 py-2 text-xs font-extrabold text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100">
-          <div className="md:col-span-4">ワイン銘柄</div>
+          <div className="md:col-span-3">ワイン銘柄</div>
           <div className="md:col-span-2 text-center">仕入れ原価(税別)</div>
           <div className="md:col-span-2 text-center">ボトル設定</div>
           <div className="md:col-span-2 text-center">グラス設定</div>
+          {/* 【バグ修正】在庫数のカラムを新設 */}
+          <div className="md:col-span-1 text-center">在庫数</div>
           <div className="md:col-span-1 text-center">表示状態</div>
           <div className="md:col-span-1 text-right">操作</div>
         </div>
@@ -157,10 +158,10 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                 !wine.visible ? 'opacity-60 bg-slate-50/50' : 'hover:border-slate-300'
               }`}
             >
-              <div className="md:col-span-4 flex items-center gap-3 w-full min-w-0">
+              {/* 1. ワイン銘柄 */}
+              <div className="md:col-span-3 flex items-center gap-3 w-full min-w-0">
                 <button
                   onClick={() => {
-                    // トグルは即時保存（第3引数=true）
                     onUpdateWineItem(wine.id, { isFeatured: !wine.isFeatured }, true);
                   }}
                   className={`p-2 rounded-xl transition-all border shrink-0 ${
@@ -187,14 +188,14 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                 </div>
               </div>
 
+              {/* 2. 仕入れ原価 */}
               <div className="md:col-span-2 w-full md:w-auto flex md:flex-col items-center justify-between md:justify-center gap-2 px-1">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest md:hidden">仕入れ原価</span>
                 <div className="flex items-center gap-1">
                   <span className="text-slate-400 font-mono text-xs">¥</span>
-                  {/* 【バグ修正】value + onChangeで状態を更新し、入力ごとに保存が走るのを防ぐ */}
                   <input
                     type="number"
-                    value={wine.cost || ''}
+                    value={wine.cost === 0 ? 0 : (wine.cost || '')}
                     onChange={(e) => {
                       const val = parseInt(e.target.value) || 0;
                       onUpdateWineItem(wine.id, { cost: val }, false);
@@ -204,13 +205,13 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                 </div>
               </div>
 
+              {/* 3. ボトル設定 */}
               <div className="md:col-span-2 w-full md:w-auto flex md:flex-col items-center justify-between md:justify-center gap-2 px-1">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest md:hidden">ボトル価格</span>
                 <div className="flex items-center gap-3">
-                  {/* 【バグ修正】value + onChangeで状態を更新し、入力ごとに保存が走るのを防ぐ */}
                   <input
                     type="number"
-                    value={wine.price_bottle || ''}
+                    value={wine.price_bottle === 0 ? 0 : (wine.price_bottle || '')}
                     onChange={(e) => {
                       const val = parseInt(e.target.value) || 0;
                       onUpdateWineItem(wine.id, { price_bottle: val }, false);
@@ -224,14 +225,14 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                 </div>
               </div>
 
+              {/* 4. グラス設定 */}
               <div className="md:col-span-2 w-full md:w-auto flex flex-col gap-2 border-t md:border-t-0 pt-2 md:pt-0 border-slate-100">
                 <div className="flex items-center justify-between md:justify-center gap-2">
                   <span className="text-[10px] font-bold text-slate-400 w-8 md:hidden">グラス価格</span>
                   <div className="flex items-center gap-2">
-                    {/* 【バグ修正】value + onChangeで状態を更新し、入力ごとに保存が走るのを防ぐ */}
                     <input
                       type="number"
-                      value={wine.price_glass || ''}
+                      value={wine.price_glass === 0 ? 0 : (wine.price_glass || '')}
                       onChange={(e) => {
                         const val = parseInt(e.target.value) || 0;
                         onUpdateWineItem(wine.id, { price_glass: val }, false);
@@ -247,10 +248,9 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                 <div className="flex items-center justify-between md:justify-center gap-2">
                   <span className="text-[10px] font-bold text-slate-400 w-8 md:hidden">グラス杯数</span>
                   <div className="flex items-center gap-1">
-                    {/* 【バグ修正】value + onChangeで状態を更新し、入力ごとに保存が走るのを防ぐ */}
                     <input
                       type="number"
-                      value={wine.glasses_per_bottle || ''}
+                      value={wine.glasses_per_bottle === 0 ? 0 : (wine.glasses_per_bottle || '')}
                       onChange={(e) => {
                         const val = parseInt(e.target.value) || 6;
                         onUpdateWineItem(wine.id, { glasses_per_bottle: val }, false);
@@ -262,11 +262,25 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                 </div>
               </div>
 
+              {/* 5. 【バグ修正】在庫数の入力欄を復活 */}
+              <div className="md:col-span-1 w-full md:w-auto flex md:flex-col items-center justify-between md:justify-center gap-2 px-1 border-t md:border-t-0 pt-2 md:pt-0 border-slate-100">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest md:hidden">在庫数</span>
+                <input
+                  type="number"
+                  value={wine.stock === 0 ? 0 : (wine.stock || '')}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value) || 0;
+                    onUpdateWineItem(wine.id, { stock: val }, false);
+                  }}
+                  className="w-16 bg-white border border-slate-300 rounded-lg px-2 py-1.5 focus:border-brand-wine outline-none font-mono text-slate-900 font-bold text-center"
+                />
+              </div>
+
+              {/* 6. 表示状態 */}
               <div className="md:col-span-1 w-full md:w-auto flex md:flex-col items-center justify-between md:justify-center gap-2 border-t md:border-t-0 pt-2 md:pt-0 border-slate-100">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest md:hidden">メニュー表示</span>
                 <button
                   onClick={() => {
-                    // トグルは即時保存（第3引数=true）
                     onUpdateWineItem(wine.id, { visible: !wine.visible }, true);
                   }}
                   className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all shrink-0 ${
@@ -279,6 +293,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                 </button>
               </div>
 
+              {/* 7. 操作 */}
               <div className="md:col-span-1 w-full md:w-auto flex items-center justify-end md:justify-end border-t md:border-t-0 pt-2 md:pt-0 border-slate-100">
                 <div className="md:hidden flex items-center gap-2 mr-auto">
                   <span className="text-[10px] font-bold text-slate-400 uppercase">ラベル:</span>
