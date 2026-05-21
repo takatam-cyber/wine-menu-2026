@@ -248,7 +248,6 @@ export const AdminView: React.FC = () => {
       }
     }
 
-    // 【バグ修正】 ワインが見つからない場合のフィードバック追加
     if (!wine) {
       alert('ワインが見つかりません。候補リストから正しい銘柄（ID）を選択してください。');
       return;
@@ -701,7 +700,7 @@ export const AdminView: React.FC = () => {
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">Grape (English)</label>
                   <input 
                     type="text"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
+                    className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
                     value={editMasterData.grape_en || ''}
                     onChange={e => setEditMasterData({...editMasterData, grape_en: e.target.value})}
                   />
@@ -834,7 +833,7 @@ export const AdminView: React.FC = () => {
                     className="bg-transparent px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 outline-none cursor-pointer hover:text-brand-wine transition-colors"
                   >
                     <option value="all">すべての状態</option>
-                    <option value="active">稼働中</option>
+                    <option value="active">稼動中</option>
                     <option value="inactive">停止中</option>
                   </select>
                 </div>
@@ -847,7 +846,6 @@ export const AdminView: React.FC = () => {
           </div>
         )}
 
-        {/* 【バグ修正】 店舗が選択された場合にInventoryManager等を表示する分岐を追加 */}
         {showMasterCatalog ? (
           <MasterCatalog 
             wines={wines}

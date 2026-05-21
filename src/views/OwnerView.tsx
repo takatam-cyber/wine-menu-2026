@@ -569,7 +569,7 @@ export const OwnerView: React.FC = () => {
             </div>
             <div className="h-[250px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={inventory.map(w => ({ name: w.name_jp.slice(0, 10), profit: w.price_bottle - w.cost })).sort((a,b) => b.profit - a.profit).slice(0, 8)}>
+                <BarChart data={inventory.map(w => ({ name: w.name_jp.slice(0, 10), profit: w.price_bottle - (w.cost || 0) })).sort((a,b) => b.profit - a.profit).slice(0, 8)}>
                   <XAxis 
                     dataKey="name" 
                     stroke="#D4AF37" 
@@ -615,16 +615,16 @@ export const OwnerView: React.FC = () => {
           <div className="glass-panel p-6 rounded-3xl border border-brand-gold/10 flex flex-col justify-between">
             <div>
               <h3 className="text-xs font-bold text-brand-gold-dark uppercase tracking-widest">原価率別・銘柄構成</h3>
-              <p className="text-xs text-gray-500 mt-1 uppercase">平均原価率: {inventory.length > 0 ? Math.round(inventory.reduce((acc, w) => acc + (w.cost / w.price_bottle * 100), 0) / inventory.length) : 0}%</p>
+              <p className="text-xs text-gray-500 mt-1 uppercase">平均原価率: {inventory.length > 0 ? Math.round(inventory.reduce((acc, w) => acc + (((w.cost || 0) / w.price_bottle) * 100 || 0), 0) / inventory.length) : 0}%</p>
             </div>
             <div className="h-[200px] flex items-center justify-center">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
                     data={[
-                      { name: '40%以上', value: inventory.filter(w => (w.cost/w.price_bottle) > 0.4).length },
-                      { name: '30-40%', value: inventory.filter(w => (w.cost/w.price_bottle) > 0.3 && (w.cost/w.price_bottle) <= 0.4).length },
-                      { name: '30%未満', value: inventory.filter(w => (w.cost/w.price_bottle) <= 0.3).length },
+                      { name: '40%以上', value: inventory.filter(w => ((w.cost || 0)/w.price_bottle) > 0.4).length },
+                      { name: '30-40%', value: inventory.filter(w => ((w.cost || 0)/w.price_bottle) > 0.3 && ((w.cost || 0)/w.price_bottle) <= 0.4).length },
+                      { name: '30%未満', value: inventory.filter(w => ((w.cost || 0)/w.price_bottle) <= 0.3).length },
                     ]}
                     cx="50%"
                     cy="50%"
@@ -644,7 +644,7 @@ export const OwnerView: React.FC = () => {
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs font-bold uppercase tracking-tighter">
                  <span className="text-brand-gold-dark">ポテンシャル：</span>
-                 <span className="text-brand-dark/60">{inventory.filter(w => w.price_bottle > w.cost * 3).length}件の高収益アイテムを検知</span>
+                 <span className="text-brand-dark/60">{inventory.filter(w => w.price_bottle > (w.cost || 0) * 3).length}件の高収益アイテムを検知</span>
               </div>
             </div>
           </div>
@@ -726,7 +726,7 @@ export const OwnerView: React.FC = () => {
 
             <div className="grid gap-3">
               {filteredInventory.map((wine) => {
-                const margin = Math.round((wine.price_bottle - wine.cost) / wine.price_bottle * 100);
+                const margin = Math.round((wine.price_bottle - (wine.cost || 0)) / wine.price_bottle * 100);
                 const isLowMargin = margin < 30;
                 const isHidden = wine.visible === false || wine.isActive === false;
                 const isOutOfStock = wine.stock === 0;
@@ -879,7 +879,7 @@ export const OwnerView: React.FC = () => {
                                 queryClient.invalidateQueries({ queryKey: ['stores'] });
                                 setEditingWineId(null);
                               } catch (error) {
-                                      console.error('Error saving wine changes:', error);
+                                console.error('Error saving wine changes:', error);
                                 queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
                               }
                             }}
