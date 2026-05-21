@@ -1,5 +1,5 @@
 // ============================================================================
-// Pieroth Smart Menu Engine - 一般顧客向けデジタルワインメニュービュー
+// Pieroth Smart Menu Engine - 一般顧客向けデジタルワインメニュービュー（バグ修正版）
 // ============================================================================
 
 import React, { useState, useEffect } from 'react';
@@ -985,7 +985,7 @@ export const CustomerView: React.FC = () => {
                   <div className="relative">
                     <div className="absolute top-4 left-4 text-brand-gold/20"><Sparkles className="w-8 h-8" /></div>
                     <div className="bg-brand-gold/5 p-6 pt-10 rounded-2xl border border-brand-gold/10 shadow-inner min-h-[200px] flex flex-col justify-center">
-                      {isDynamicFetching || isDetailLoading ? (
+                      {isDataFetching || isDetailLoading ? (
                         <div className="flex flex-col items-center justify-center p-12 gap-4">
                           <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }} className="w-12 h-12 border-2 border-brand-gold/20 border-t-brand-gold rounded-full" />
                           <p className="text-xs text-brand-gold-dark/40 font-bold uppercase tracking-[0.3em] animate-pulse">Fetching sommelier notes...</p>
