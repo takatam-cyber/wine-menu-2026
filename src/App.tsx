@@ -1,3 +1,4 @@
+// src/App.tsx
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import { AdminView } from './views/AdminView';
@@ -10,7 +11,6 @@ import { User, Shield, Wine, Menu as MenuIcon, X, LogOut, Loader2, Eye } from 'l
 import { motion, AnimatePresence } from 'motion/react';
 import { logout, signInAnonymously, auth } from './lib/firebase';
 
-// Global Layout for admin/owner
 const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useWines();
   const location = useLocation();
@@ -34,7 +34,14 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
         <div className="flex items-center gap-3 md:gap-6">
           {(user.role === 'admin' || user.role === 'rep') && (
             <button
-              onClick={() => isOwnerView ? window.location.href = '/admin' : window.location.href = '/owner'}
+              onClick={() => {
+                // 【バグ修正】現在選択中の店舗IDをURLから取得して引き継ぐ
+                const urlParams = new URLSearchParams(window.location.search);
+                const storeId = urlParams.get('storeId');
+                let target = isOwnerView ? '/admin' : '/owner';
+                if (storeId) target += `?storeId=${storeId}`;
+                window.location.href = target;
+              }}
               className="hidden lg:flex items-center gap-2 px-4 py-1.5 bg-brand-gold/10 text-brand-gold border border-brand-gold/30 rounded-full text-xs font-bold uppercase tracking-widest hover:bg-brand-gold hover:text-brand-wine transition-all"
             >
               <Eye className="w-3.5 h-3.5" />
@@ -73,7 +80,6 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
   );
 };
 
-// Role-based protection components
 const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useWines();
   if (!user) return <Navigate to="/login" replace />;
@@ -85,7 +91,6 @@ const OwnerRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useWines();
   if (!user) return <Navigate to="/login" replace />;
   
-  // 修正：管理者(admin)と営業担当(rep)もオーナー画面にアクセスできるように拡張
   const allowedRoles = ['owner', 'admin', 'rep'];
   if (!allowedRoles.includes(user.role)) return <Navigate to="/login" replace />;
   
@@ -96,7 +101,6 @@ export default function App() {
   const { user, loading } = useWines();
   const [isAnonLoading, setIsAnonLoading] = useState(false);
 
-  // Trigger anonymous login for customers in background 
   useEffect(() => {
     const isMenuPath = window.location.pathname.startsWith('/menu/');
     const params = new URLSearchParams(window.location.search);
@@ -128,7 +132,6 @@ export default function App() {
 
   return (
     <Routes>
-      {/* Root redirection logic */}
       <Route path="/" element={
         <Navigate to={
           !user ? "/login" : 
@@ -137,31 +140,26 @@ export default function App() {
         } replace />
       } />
 
-      {/* Public / Login */}
       <Route path="/login" element={
         user ? <Navigate to="/" replace /> : <LoginView />
       } />
 
-      {/* Customer Menu */}
       <Route path="/menu/:storeId" element={
         <CustomerView />
       } />
 
-      {/* Admin Section */}
       <Route path="/admin" element={
         <AdminRoute>
           <AdminView />
         </AdminRoute>
       } />
 
-      {/* Owner Section */}
       <Route path="/owner" element={
         <OwnerRoute>
           <OwnerView />
         </OwnerRoute>
       } />
 
-      {/* Catch all */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
