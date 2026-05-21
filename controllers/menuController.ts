@@ -40,7 +40,6 @@ export const getMenu = async (req: Request, res: Response) => {
     const { storeId } = req.params;
     const now = Date.now();
 
-    // 1. キャッシュの確認
     const cached = menuCache.get(storeId);
     if (cached && cached.expiresAt > now) {
       cached.hits++;
@@ -50,7 +49,6 @@ export const getMenu = async (req: Request, res: Response) => {
       return res.json(cached.data);
     }
     
-    // 2. 棚1（店舗基本情報）のロード
     const storeDoc = await dbAdmin.collection("stores").doc(storeId).get();
     if (!storeDoc.exists) {
       return res.status(404).json({ error: "Store not found" });
@@ -69,7 +67,6 @@ export const getMenu = async (req: Request, res: Response) => {
       budgetTiers: storeData.budgetTiers || null,
     };
 
-    // 3. 【棚の完全分離によるAPI改修】サブコレクション（棚2）から、その店舗独自のワイン設定を全件ロード
     const inventorySnap = await dbAdmin.collection("stores").doc(storeId).collection("inventory").get();
     
     const menu: any[] = [];
@@ -77,10 +74,9 @@ export const getMenu = async (req: Request, res: Response) => {
     if (!inventorySnap.empty) {
       const inventoryItems = inventorySnap.docs.map(d => ({
         ...d.data(),
-        id: d.id.toUpperCase() // IDを大文字に統一
+        id: d.id.toUpperCase() 
       }));
 
-      // 棚3（カタログマスター）から、店舗に存在するワインだけをPromise.allで並列一括取得
       const masterPromises = inventoryItems.map(item => 
         dbAdmin.collection("winesMaster").doc(item.id).get()
       );
@@ -92,7 +88,6 @@ export const getMenu = async (req: Request, res: Response) => {
           const masterData = mSnap.data() || {};
           const invItem: any = inventoryItems[idx];
 
-          // 稼働中で、かつ表示設定がONのもの（下書きや売り切れでないもの）のみをお客用メニューとしてマージ
           if (invItem.isActive !== false && invItem.visible !== false) {
             menu.push({
               ...masterData,
@@ -113,7 +108,6 @@ export const getMenu = async (req: Request, res: Response) => {
       });
     }
 
-    // データの並び替え（日本語名称順）
     const sortedMenu = menu.sort((a, b) => (a.name_jp || '').localeCompare(b.name_jp || ''));
 
     const responsePayload = {
@@ -173,5 +167,16 @@ export const proxyImage = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error("Proxy Image Error:", error);
     res.status(500).send("External imaging failure");
+  }
+};
+
+// 【バグ修正】フロントエンドから呼び出されるキャッシュ破棄エンドポイントを追加
+export const invalidateMenuCache = (req: Request, res: Response) => {
+  try {
+    const { storeId } = req.params;
+    menuCache.delete(storeId);
+    res.json({ success: true, message: "Cache invalidated" });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to invalidate cache" });
   }
 };
