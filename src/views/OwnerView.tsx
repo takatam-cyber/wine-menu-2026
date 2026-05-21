@@ -97,73 +97,6 @@ export const OwnerView: React.FC = () => {
 
   const sid = selectedStoreId;
 
-  const projectWineForPublic = (w: any) => ({
-    id: getWineDocId(w),
-    pureId: extractPureId(w.pureId || w.id, w.supplier),
-    supplier: (w.supplier || 'PIEROTH').toUpperCase(),
-    name_jp: w.name_jp,
-    name_en: w.name_en,
-    menu_short: w.menu_short || '',
-    menu_short_en: w.menu_short_en || '',
-    ai_explanation: w.ai_explanation || '',
-    ai_explanation_en: w.ai_explanation_en || '',
-    country: w.country,
-    country_en: w.country_en,
-    region: w.region,
-    region_en: w.region_en,
-    grape: w.grape,
-    grape_en: w.grape_en,
-    color: w.color,
-    color_en: w.color_en,
-    type: w.type,
-    type_en: w.type_en,
-    vintage: w.vintage,
-    alcohol: w.alcohol,
-    sweetness: w.sweetness || 1,
-    body: w.body || 3,
-    acidity: w.acidity || 3,
-    tannins: w.tannins || 3,
-    aroma_intensity: w.aroma_intensity || 3,
-    complexity: w.complexity || 3,
-    finish: w.finish || 3,
-    oak: w.oak || 1,
-    aroma_features: w.aroma_features || '',
-    aroma_features_en: w.aroma_features_en || '',
-    tags: w.tags || '',
-    tags_en: w.tags_en || '',
-    pairing: w.pairing || '',
-    pairing_en: w.pairing_en || '',
-    price_bottle: w.price_bottle,
-    price_glass: w.price_glass,
-    glasses_per_bottle: w.glasses_per_bottle || 6,
-    image_url: w.image_url,
-    isFeatured: w.isFeatured ?? false,
-    promoLabel: w.promoLabel || '',
-    isActive: w.isActive ?? true,
-    updatedAt: new Date().toISOString()
-  });
-
-  const syncPublicMenuWithDocs = async (storeId: string, updatedWines: WineMaster[]) => {
-    try {
-      const richPublicMenu = updatedWines
-        .filter(w => w.visible !== false && w.isActive !== false)
-        .map(w => {
-          const compId = getWineDocId(w);
-          return projectWineForPublic({ ...w, id: compId, pureId: w.pureId || w.id });
-        });
-
-      await updateDoc(doc(db, 'stores', storeId), {
-        publicMenu: richPublicMenu,
-        updatedAt: new Date().toISOString()
-      });
-      
-      fetch(`/api/menu/${storeId}/invalidate`, { method: 'POST' }).catch(() => {});
-      queryClient.invalidateQueries({ queryKey: ['publicMenu', storeId] });
-    } catch (e) {
-      console.error("Failed to sync publicMenu:", e);
-    }
-  };
-
   const handleUpdateStore = async () => {
     if (!sid || !user?.uid) return;
     setIsSaving(true);
@@ -178,8 +111,7 @@ export const OwnerView: React.FC = () => {
       });
 
       if (editStoreData.name !== store?.name) {
-        // 【デプロイエラー回避】ユーザーが存在する場合のみ安全に更新
-        await updateDoc(doc(db, 'users', user!.uid), {
+        await updateDoc(doc(db, 'users', user.uid), {
           name: editStoreData.name
         });
       }
@@ -228,7 +160,6 @@ export const OwnerView: React.FC = () => {
             updatedAt: new Date().toISOString()
           };
           await setDoc(itemRef, docPayload, { merge: true });
-          await syncPublicMenuWithDocs(sid, nextWines);
         } catch (error) {
           console.error('Error auto-updating wine inventory item:', error);
         }
@@ -272,7 +203,11 @@ export const OwnerView: React.FC = () => {
         await batch.commit();
       }
 
-      await syncPublicMenuWithDocs(sid, wines);
+      await updateDoc(doc(db, 'stores', sid), {
+        updatedAt: new Date().toISOString()
+      });
+
+      fetch(`/api/menu/${sid}/invalidate`, { method: 'POST' }).catch(() => {});
 
       alert('すべてのセラー情報を一括保存しました。');
       queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
@@ -345,9 +280,10 @@ export const OwnerView: React.FC = () => {
         } as WineMaster;
         const newWinesList = [...currentWinesList, fullyProjectedWine];
         setSelectedWines(newWinesList);
-        await syncPublicMenuWithDocs(sid, newWinesList);
         
         setSearchId('');
+        fetch(`/api/menu/${sid}/invalidate`, { method: 'POST' }).catch(() => {});
+        queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
       } catch (error) {
         handleFirestoreError(error, OperationType.WRITE, `stores/${sid}/inventory/${compositeId}`);
       }
@@ -396,31 +332,9 @@ export const OwnerView: React.FC = () => {
         await batch.commit();
       }
 
-      const newWinesToAppend = winesToAdd.map(wine => {
-        const compositeId = getWineDocId(wine);
-        return {
-          ...wine,
-          id: compositeId,
-          pureId: wine.pureId || wine.id,
-          price_bottle: wine.price_bottle || wine.cost * 3,
-          price_glass: wine.price_glass || Math.round((wine.cost * 3 / 6) / 100) * 100,
-          cost: wine.cost,
-          glasses_per_bottle: 6,
-          stock: 0,
-          isActive: true,
-          visible: true,
-          updatedAt: new Date().toISOString()
-        } as WineMaster;
-      });
-      const mergedList = [...selectedWines];
-      newWinesToAppend.forEach(nw => {
-        if (!mergedList.some(sw => sw.pureId === nw.pureId)) {
-          mergedList.push(nw);
-        }
-      });
-      setSelectedWines(mergedList);
-      await syncPublicMenuWithDocs(sid, mergedList);
-      
+      fetch(`/api/menu/${sid}/invalidate`, { method: 'POST' }).catch(() => {});
+      queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
+      alert(`${selectedMasterIds.length}件のワインを追加しました`);
       setShowCatalogSelection(false);
       setSelectedMasterIds([]);
     } catch (error) {
@@ -443,7 +357,8 @@ export const OwnerView: React.FC = () => {
       
       const filteredList = selectedWines.filter(w => getWineDocId(w) !== compositeId);
       setSelectedWines(filteredList);
-      await syncPublicMenuWithDocs(sid, filteredList);
+      fetch(`/api/menu/${sid}/invalidate`, { method: 'POST' }).catch(() => {});
+      queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `stores/${sid}/inventory/${compositeId}`);
     }
