@@ -159,7 +159,8 @@ export const CustomerView: React.FC = () => {
   
   // Filters State
   const [activeCuisine, setActiveCuisine] = useState<string | null>(null);
-  const [activeColor, BainstalledColor] = useState<string | null>(null);
+  // 【バグ修正】 変数名修正 BainstalledColor -> setActiveColor
+  const [activeColor, setActiveColor] = useState<string | null>(null);
   const [activeBudget, setActiveBudget] = useState<string | null>(null);
 
   // Concierge State
@@ -543,7 +544,7 @@ export const CustomerView: React.FC = () => {
               <div className="flex overflow-x-auto no-scrollbar py-3 px-4 gap-2 items-center">
                 <button 
                   onClick={() => {
-                    BainstalledColor(null);
+                    setActiveColor(null);
                     setActiveCuisine(null);
                     setActiveBudget(null);
                     setSelectedDish(null);
@@ -562,7 +563,7 @@ export const CustomerView: React.FC = () => {
                 {['赤', '白', '泡'].map(color => (
                   <button
                     key={color}
-                    onClick={() => BainstalledColor(activeColor === color ? null : color)}
+                    onClick={() => setActiveColor(activeColor === color ? null : color)}
                     className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap border ${activeColor === color ? 'bg-brand-gold-dark text-white border-brand-gold' : 'bg-white border-brand-gold/20 text-brand-gold-dark'}`}
                   >
                     {color === '赤' ? t.red : color === '白' ? t.white : t.sparkling}
