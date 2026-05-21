@@ -116,7 +116,6 @@ export const AdminView: React.FC = () => {
 
   const [selectedWines, setSelectedWines] = useState<WineMaster[]>([]);
 
-  // 初期ロード時とストア切り替え時のみセット
   useEffect(() => {
     if (inventoryData?.inventory && selectedStoreId === inventoryData.store?.id) {
       setSelectedWines(inventoryData.inventory);
@@ -125,7 +124,6 @@ export const AdminView: React.FC = () => {
     }
   }, [selectedStoreId, inventoryData?.inventory]);
 
-  // 【バグ修正】選択中の店舗をURLと完全に同期する
   useEffect(() => {
     if (selectedStoreId) {
       const url = new URL(window.location.href);
@@ -267,12 +265,12 @@ export const AdminView: React.FC = () => {
       });
       
       fetch(`/api/menu/${storeId}/invalidate`, { method: 'POST' }).catch(() => {});
+      queryClient.invalidateQueries({ queryKey: ['publicMenu', storeId] });
     } catch (e) {
       console.error("Failed to sync publicMenu:", e);
     }
   };
 
-  // 【バグ修正】テキスト入力時はローカルstateのみ更新し、再フェッチによる先祖返りを防ぐ
   const handleUpdateWineItem = (wineId: string, updatedFields: Partial<WineMaster>, saveImmediately = false) => {
     if (!selectedStoreId) return;
     
@@ -301,6 +299,7 @@ export const AdminView: React.FC = () => {
             price_bottle: wine.price_bottle ?? 0,
             price_glass: wine.price_glass ?? 0,
             cost: wine.cost ?? 0,
+            stock: wine.stock ?? 0, // 【バグ修正】即時保存時にも在庫を含める
             glasses_per_bottle: wine.glasses_per_bottle ?? 6,
             visible: wine.visible ?? true,
             isFeatured: wine.isFeatured ?? false,
@@ -309,7 +308,6 @@ export const AdminView: React.FC = () => {
           };
           await setDoc(itemRef, docPayload, { merge: true });
           await syncPublicMenuWithDocs(selectedStoreId, nextWines);
-          // 即時保存の時は invalidateQueries を呼ばない（画面のちらつき防止）
         } catch (error) {
           console.error('Error auto-updating wine inventory item:', error);
         }
@@ -380,7 +378,6 @@ export const AdminView: React.FC = () => {
         setSelectedWines(newWinesList);
         await syncPublicMenuWithDocs(selectedStoreId, newWinesList);
         setSearchId('');
-        // 【バグ修正】入力キャンセルを防ぐためリフェッチはしない
       } catch (error) {
         handleFirestoreError(error, OperationType.WRITE, docPath);
       }
@@ -717,6 +714,7 @@ export const AdminView: React.FC = () => {
             price_bottle: wine.price_bottle,
             price_glass: wine.price_glass,
             cost: wine.cost,
+            stock: wine.stock ?? 0, // 【バグ修正】保存時に在庫数を含める
             glasses_per_bottle: wine.glasses_per_bottle || 6,
             visible: wine.visible ?? true,
             isFeatured: wine.isFeatured ?? false,
@@ -740,7 +738,6 @@ export const AdminView: React.FC = () => {
 
       fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
 
-      // 全て保存完了してから再フェッチをかける
       queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
       queryClient.invalidateQueries({ queryKey: ['stores'] });
       setImportStatus({ type: 'success', message: '全ての在庫・価格データを保存し、公開メニューを更新しました' });
