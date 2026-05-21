@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { storeRepository } from '../lib/repositories/storeRepository';
 import { db } from '../lib/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
-import { WineMaster, Store, extractPureId } from '../types';
+import { WineMaster, Store } from '../types';
 
 export function useInventoryQuery(storeId: string | null) {
   return useQuery({
@@ -11,7 +11,6 @@ export function useInventoryQuery(storeId: string | null) {
     queryFn: async () => {
       if (!storeId) return null;
       
-      // 棚1（店舗情報）と 棚2（店舗固有の在庫サブコレクション）を別々に並列取得
       const [storeData, inventoryItems] = await Promise.all([
         storeRepository.getStoreById(storeId),
         storeRepository.getStoreInventory(storeId)
@@ -24,22 +23,21 @@ export function useInventoryQuery(storeId: string | null) {
 
       const enrichedWines: WineMaster[] = [];
       
-      // 【棚の完全分離バグ修正】サブコレクションから取得したドキュメントIDをすべて「大文字」に完全統一
+      // サブコレクションから取得したドキュメントIDを大文字に統一
       const upperInventoryItems = inventoryItems.map(item => ({
         ...item,
         id: item.id.toUpperCase()
       }));
 
-      // 問い合わせ用の製品コード（大文字）の配列を生成
-      const pureItemIds = upperInventoryItems.map(item => 
-        extractPureId(item.pureId || item.id, item.supplier || 'PIEROTH').toUpperCase()
-      );
+      // 【致命的バグの修正】
+      // winesMaster コレクションは「PIEROTH_A1234」のような【複合ID】で保存されています。
+      // 純粋なID（A1234）で検索すると0件になってしまうため、必ず複合IDのまま検索にかけます。
+      const compositeItemIds = upperInventoryItems.map(item => item.id);
 
-      // すべてのチャンクを Promise.all で並列一括取得（超高速化）
       const chunkPromises = [];
-      for (let i = 0; i < pureItemIds.length; i += 30) {
-        const chunk = pureItemIds.slice(i, i + 30);
-        // 【バグ修正】ドキュメント名（__name__）に対して大文字の製品コードで検索するため、マスターから100%確実にヒットします
+      for (let i = 0; i < compositeItemIds.length; i += 30) {
+        const chunk = compositeItemIds.slice(i, i + 30);
+        // 複合IDで検索するため、マスターデータが100%確実にヒットします
         const q = query(collection(db, 'winesMaster'), where('__name__', 'in', chunk));
         chunkPromises.push(getDocs(q));
       }
@@ -51,18 +49,14 @@ export function useInventoryQuery(storeId: string | null) {
           const masterData = docSnap.data() as WineMaster;
           const masterDocId = docSnap.id.toUpperCase();
           
-          // 大文字に完全統一したID同士で、店舗在庫の棚（棚2）とカタログの棚（棚3）を確実にマージします
-          const invItem = upperInventoryItems.find(item => {
-            const itemCompId = extractPureId(item.id, item.supplier || masterData.supplier).toUpperCase();
-            const masterCompId = extractPureId(masterDocId, masterData.supplier).toUpperCase();
-            return itemCompId === masterCompId;
-          });
+          // 大文字に統一した複合ID同士で確実に結合
+          const invItem = upperInventoryItems.find(item => item.id === masterDocId);
 
           if (invItem) {
             enrichedWines.push({ 
               ...masterData, 
               id: masterDocId,
-              pureId: extractPureId(masterDocId, masterData.supplier).toUpperCase(),
+              pureId: invItem.pureId || masterData.pureId || masterDocId,
               price_bottle: invItem.price_bottle ?? masterData.price_bottle,
               price_glass: invItem.price_glass ?? masterData.price_glass,
               cost: invItem.cost ?? masterData.cost ?? 2000,
@@ -77,7 +71,6 @@ export function useInventoryQuery(storeId: string | null) {
         });
       });
 
-      // マスターデータの登録順に綺麗にソートして返却
       const sortedWines = enrichedWines.sort((a, b) => (a.name_jp || '').localeCompare(b.name_jp || ''));
 
       return {
@@ -86,7 +79,6 @@ export function useInventoryQuery(storeId: string | null) {
       };
     },
     enabled: !!storeId,
-    // staleTimeを0にすることで、画面の切り替えや出入りをした際、ブラウザの古いキャッシュを絶対に掴まず最新のFirestoreデータをロードします
     staleTime: 0, 
     gcTime: 1000 * 60 * 1,
   });
