@@ -38,22 +38,18 @@ export const OwnerView: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [editingWineId, setEditingWineId] = useState<string | null>(null);
 
-  // Advanced Filters for Inventory
   const [invSupplierFilter, setInvSupplierFilter] = useState<string>('all');
   const [invCountryFilter, setInvCountryFilter] = useState<string>('all');
   const [invColorFilter, setInvColorFilter] = useState<string>('all');
   const [invSearchTerm, setInvSearchTerm] = useState('');
 
-  // Dynamic filter options for current inventory
   const invCountries = React.useMemo(() => {
     const set = new Set(inventory.map(w => w.country).filter(Boolean));
     return Array.from(set).sort();
   }, [inventory]);
 
-  // In-memory filtered inventory
   const filteredInventory = React.useMemo(() => {
     return inventory.filter(w => {
-      // Keyword match
       const search = invSearchTerm.toLowerCase();
       const matchesSearch = !search || 
         w.name_jp.toLowerCase().includes(search) ||
@@ -62,14 +58,9 @@ export const OwnerView: React.FC = () => {
         (w.grape || '').toLowerCase().includes(search) ||
         w.id.toLowerCase().includes(search);
 
-      // Supplier match
       const s = (w.supplier || 'PIEROTH').toUpperCase();
       const matchesSupplier = invSupplierFilter === 'all' || s === invSupplierFilter;
-
-      // Country match
       const matchesCountry = invCountryFilter === 'all' || w.country === invCountryFilter;
-
-      // Color match
       const matchesColor = invColorFilter === 'all' || (w.color || '').toLowerCase() === invColorFilter.toLowerCase();
 
       return matchesSearch && matchesSupplier && matchesCountry && matchesColor;
@@ -121,7 +112,6 @@ export const OwnerView: React.FC = () => {
 
   const sid = selectedStoreId;
 
-  // セキュリティ&軽量化プロジェクション関数（仕入れ値をパージして、1MBの容量制限を徹底防御）
   const projectWineForPublic = (w: any) => ({
     id: getWineDocId(w),
     pureId: w.pureId || w.id,
@@ -195,13 +185,11 @@ export const OwnerView: React.FC = () => {
     }
   };
 
-  // ─── 追加機能：新規一括保存（確定ボタン）ロジック ───
   const handleSaveAllInventory = async () => {
     if (!sid || inventory.length === 0) return;
     setIsSaving(true);
     try {
       const mergedInventory = inventory.map(w => {
-        // 現在編集中のワインは、editWineDataの最新の入力値をマージする
         if (editingWineId && w.id === editingWineId) {
           return {
             ...w,
@@ -217,32 +205,40 @@ export const OwnerView: React.FC = () => {
         return w;
       });
 
-      const batch = writeBatch(db);
-      mergedInventory.forEach(wine => {
-        const compositeId = getWineDocId(wine);
-        const itemRef = doc(db, 'stores', sid, 'inventory', compositeId);
-        batch.set(itemRef, {
-          id: compositeId,
-          pureId: wine.pureId || wine.id,
-          supplier: (wine.supplier || 'PIEROTH').toUpperCase(),
-          price_bottle: wine.price_bottle || 0,
-          price_glass: wine.price_glass || 0,
-          stock: wine.stock || 0,
-          glasses_per_bottle: wine.glasses_per_bottle || 6,
-          visible: wine.visible ?? true,
-          isFeatured: wine.isFeatured ?? false,
-          promoLabel: wine.promoLabel || '',
-          isActive: wine.isActive ?? true,
-          updatedAt: new Date().toISOString()
-        }, { merge: true });
-      });
-
       const richPublicMenu = mergedInventory
         .filter(w => w.visible !== false && w.isActive !== false)
         .map(projectWineForPublic);
 
-      batch.update(doc(db, 'stores', sid), { publicMenu: richPublicMenu });
-      await batch.commit();
+      // 【バグ修正】 500件上限を超えるクラッシュを防ぐためチャンク分割書き込みを実装
+      const CHUNK_SIZE = 450;
+      for (let i = 0; i < mergedInventory.length; i += CHUNK_SIZE) {
+        const chunk = mergedInventory.slice(i, i + CHUNK_SIZE);
+        const batch = writeBatch(db);
+        
+        chunk.forEach(wine => {
+          const compositeId = getWineDocId(wine);
+          const itemRef = doc(db, 'stores', sid, 'inventory', compositeId);
+          batch.set(itemRef, {
+            id: compositeId,
+            pureId: wine.pureId || wine.id,
+            supplier: (wine.supplier || 'PIEROTH').toUpperCase(),
+            price_bottle: wine.price_bottle || 0,
+            price_glass: wine.price_glass || 0,
+            stock: wine.stock || 0,
+            glasses_per_bottle: wine.glasses_per_bottle || 6,
+            visible: wine.visible ?? true,
+            isFeatured: wine.isFeatured ?? false,
+            promoLabel: wine.promoLabel || '',
+            isActive: wine.isActive ?? true,
+            updatedAt: new Date().toISOString()
+          }, { merge: true });
+        });
+
+        if (i + CHUNK_SIZE >= mergedInventory.length) {
+          batch.update(doc(db, 'stores', sid), { publicMenu: richPublicMenu });
+        }
+        await batch.commit();
+      }
      
       alert('すべてのセラー情報を一括保存しました。');
       setEditingWineId(null);
@@ -256,7 +252,6 @@ export const OwnerView: React.FC = () => {
     }
   };
 
-  // 表示切替トグル
   const handleToggleActive = async (wineId: string, currentStatus: boolean) => {
     if (!sid) return;
     const currentData = queryClient.getQueryData<{ store: any, inventory: any[] }>(['inventory', sid]);
@@ -290,7 +285,6 @@ export const OwnerView: React.FC = () => {
     }
   };
 
-  // ワイン削除
   const handleDeleteWine = async (wineId: string) => {
     if (!sid || !window.confirm('このワインをメニューから削除しますか？')) return;
     const currentData = queryClient.getQueryData<{ store: any, inventory: any[] }>(['inventory', sid]);
@@ -321,7 +315,6 @@ export const OwnerView: React.FC = () => {
     }
   };
 
-  // カタログからワインの追加
   const handleAddWine = async (masterWine: WineMaster) => {
     if (!sid) return;
     const compositeId = getWineDocId(masterWine);
