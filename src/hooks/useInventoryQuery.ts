@@ -38,10 +38,11 @@ export function useInventoryQuery(storeId: string | null) {
         masterSnaps.forEach(docSnap => {
           const masterData = docSnap.data() as WineMaster;
           
-          // 【バグ修正】生IDの単純比較を廃止し、extractPureIdで純粋なコードを取り出して確実にマッチングさせる
-          const masterPureId = extractPureId(masterData.pureId || docSnap.id, masterData.supplier);
+          // 【バグ修正】生IDの単純比較を完全に廃止。
+          // 両方のIDからインポーター接頭辞を排除し、小文字に統一した純粋な製品コード同士で完全に安全なマッチングを行います。
+          const masterPureId = extractPureId(masterData.pureId || docSnap.id, masterData.supplier).toLowerCase();
           const invItem = inventoryItems.find(item => {
-            const itemPureId = extractPureId(item.pureId || item.id, item.supplier || masterData.supplier);
+            const itemPureId = extractPureId(item.pureId || item.id, item.supplier || masterData.supplier).toLowerCase();
             return itemPureId === masterPureId;
           });
 
@@ -73,8 +74,8 @@ export function useInventoryQuery(storeId: string | null) {
       };
     },
     enabled: !!storeId,
-    // 【バグ修正】管理画面のキャッシュ保持時間を0に設定
-    // これにより、画面を移動したり入り直したりした際、古いキャッシュを使わずに必ず最新の数値をFirestoreから直接再ロードします
+    // 【バグ修正】ダッシュボード管理画面の staleTime を 0 に強制変更。
+    // これにより、画面を切り替えたり入り直したりした際、古いローカルキャッシュを掴まずに、必ず確定保存された最新のFirestoreデータを直接ロードします。
     staleTime: 0, 
     gcTime: 1000 * 60 * 1, // 不要になったキャッシュは1分で自動破棄
   });
