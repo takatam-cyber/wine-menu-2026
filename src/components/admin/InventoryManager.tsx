@@ -20,6 +20,7 @@ interface InventoryManagerProps {
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   hasMoreWines: boolean;
   onLoadMoreWines: () => void;
+  onUpdateWineItem: (wineId: string, updatedFields: Partial<WineMaster>) => void;
 }
 
 export const InventoryManager: React.FC<InventoryManagerProps> = ({
@@ -36,6 +37,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
   onSaveInventory,
   onDeleteWine,
   fileInputRef,
+  onUpdateWineItem,
 }) => {
   return (
     <div className="bg-white rounded-3xl overflow-hidden flex flex-col shadow-sm border border-slate-200">
@@ -52,18 +54,54 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               type="text"
-              list="master-wines-list"
-              placeholder="マスターからワインを検索・追加..."
+              placeholder="ワイン名、産地、IDでマスターを検索..."
               value={searchId}
               onChange={(e) => setSearchId(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleAddWine()}
               className="pl-12 pr-4 py-2 bg-white border border-slate-300 rounded-full text-xs w-full md:w-56 lg:w-80 text-slate-900 outline-none focus:ring-2 focus:ring-brand-wine/10 focus:border-brand-wine transition-all"
             />
-            <datalist id="master-wines-list">
-              {masterWines.filter(w => !selectedWines.some(sw => sw.id === w.id)).map(w => (
-                <option key={w.id} value={w.id}>{w.name_jp} ({w.country})</option>
-              ))}
-            </datalist>
+            
+            {/* ライブ検索サジェストパネルをフローティング配置 */}
+            {searchId.trim().length > 0 && (() => {
+              const matched = masterWines
+                .filter(w => {
+                  const query = searchId.toLowerCase();
+                  const matchesNameJp = (w.name_jp || '').toLowerCase().includes(query);
+                  const matchesNameEn = (w.name_en || '').toLowerCase().includes(query);
+                  const matchesId = (w.id || '').toLowerCase().includes(query);
+                  const matchesCountry = (w.country || '').toLowerCase().includes(query);
+                  return (matchesNameJp || matchesNameEn || matchesId || matchesCountry) && !selectedWines.some(sw => sw.id === w.id);
+                })
+                .slice(0, 8); // 表示上限を8件にしてスマートに
+
+              if (matched.length === 0) return null;
+
+              return (
+                <div className="absolute left-0 right-0 z-[100] mt-2 bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden max-h-64 overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-200">
+                  <div className="px-4 py-2 bg-slate-50 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    マスターカタログ検索候補 ({matched.length}件)
+                  </div>
+                  {matched.map(w => (
+                    <button
+                      key={w.id}
+                      onClick={() => {
+                        handleAddWine(w.id);
+                        setSearchId('');
+                      }}
+                      className="w-full text-left px-4 py-3 hover:bg-slate-50 border-b border-slate-100/50 flex flex-col gap-0.5 transition-colors group"
+                    >
+                      <div className="flex justify-between items-center">
+                        <span className="font-bold text-xs text-slate-800 group-hover:text-brand-wine transition-colors">{w.name_jp}</span>
+                        <span className="bg-slate-100 text-slate-500 font-mono text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider shrink-0">{w.supplier || 'PIEROTH'}</span>
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-medium">
+                        {w.country || '不明な生産国'} • {w.grape || '不明な品種'} • 通常 ¥{w.price_bottle?.toLocaleString()} • (ID: {w.id})
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
           <button
             onClick={() => handleAddWine()}
@@ -126,7 +164,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
               <div className="md:col-span-4 flex items-center gap-3 w-full min-w-0">
                 <button
                   onClick={() => {
-                    setSelectedWines(prev => prev.map((w, i) => i === idx ? { ...w, isFeatured: !w.isFeatured } : w));
+                    onUpdateWineItem(wine.id, { isFeatured: !wine.isFeatured });
                   }}
                   className={`p-2 rounded-xl transition-all border shrink-0 ${
                     wine.isFeatured ? 'bg-amber-50 border-amber-300 text-amber-500 shadow-sm' : 'bg-slate-50 border-slate-200 text-slate-300 hover:text-slate-400'
@@ -161,10 +199,17 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                   <span className="text-slate-400 font-mono text-xs">¥</span>
                   <input
                     type="number"
-                    value={wine.cost}
-                    onChange={(e) => {
+                    defaultValue={wine.cost}
+                    onBlur={(e) => {
                       const val = parseInt(e.target.value) || 0;
-                      setSelectedWines(prev => prev.map((w, i) => i === idx ? { ...w, cost: val } : w));
+                      if (val !== wine.cost) {
+                        onUpdateWineItem(wine.id, { cost: val });
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.currentTarget.blur();
+                      }
                     }}
                     className="w-24 bg-slate-50 border border-slate-200 rounded-xl px-2 py-1.5 focus:border-brand-wine outline-none font-mono text-slate-700 text-center font-bold"
                   />
@@ -177,10 +222,17 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                 <div className="flex items-center gap-3">
                   <input
                     type="number"
-                    value={wine.price_bottle}
-                    onChange={(e) => {
+                    defaultValue={wine.price_bottle}
+                    onBlur={(e) => {
                       const val = parseInt(e.target.value) || 0;
-                      setSelectedWines(prev => prev.map((w, i) => i === idx ? { ...w, price_bottle: val } : w));
+                      if (val !== wine.price_bottle) {
+                        onUpdateWineItem(wine.id, { price_bottle: val });
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.currentTarget.blur();
+                      }
                     }}
                     className="w-24 md:w-28 bg-white border border-slate-300 rounded-xl px-2 py-1.5 focus:border-brand-wine outline-none font-mono text-slate-900 font-bold text-center"
                   />
@@ -198,10 +250,17 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                   <div className="flex items-center gap-2">
                     <input
                       type="number"
-                      value={wine.price_glass}
-                      onChange={(e) => {
+                      defaultValue={wine.price_glass}
+                      onBlur={(e) => {
                         const val = parseInt(e.target.value) || 0;
-                        setSelectedWines(prev => prev.map((w, i) => i === idx ? { ...w, price_glass: val } : w));
+                        if (val !== wine.price_glass) {
+                          onUpdateWineItem(wine.id, { price_glass: val });
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.currentTarget.blur();
+                        }
                       }}
                       className="w-20 bg-white border border-slate-300 rounded-lg px-2 py-1 text-xs font-mono text-slate-900 text-center"
                     />
@@ -216,10 +275,17 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                   <div className="flex items-center gap-1">
                     <input
                       type="number"
-                      value={wine.glasses_per_bottle || 6}
-                      onChange={(e) => {
+                      defaultValue={wine.glasses_per_bottle || 6}
+                      onBlur={(e) => {
                         const val = parseInt(e.target.value) || 6;
-                        setSelectedWines(prev => prev.map((w, i) => i === idx ? { ...w, glasses_per_bottle: val } : w));
+                        if (val !== wine.glasses_per_bottle) {
+                          onUpdateWineItem(wine.id, { glasses_per_bottle: val });
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.currentTarget.blur();
+                        }
                       }}
                       className="w-12 bg-slate-50 border border-slate-300 rounded-md px-1 py-0.5 text-center text-xs font-mono text-slate-600"
                     />
@@ -233,7 +299,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest md:hidden">メニュー表示</span>
                 <button
                   onClick={() => {
-                    setSelectedWines(prev => prev.map((w, i) => i === idx ? { ...w, visible: !w.visible } : w));
+                    onUpdateWineItem(wine.id, { visible: !wine.visible });
                   }}
                   className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all shrink-0 ${
                     wine.visible
@@ -253,9 +319,16 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                      placeholder="プロモラベル..."
                      className="text-xs bg-slate-50 border border-slate-200 rounded-md px-2 py-1 outline-none focus:border-brand-wine w-24"
                      value={wine.promoLabel || ''}
-                     onChange={(e) => {
+                     onBlur={(e) => {
                        const val = e.target.value;
-                       setSelectedWines(prev => prev.map((w, i) => i === idx ? { ...w, promoLabel: val } : w));
+                       if (val !== wine.promoLabel) {
+                         onUpdateWineItem(wine.id, { promoLabel: val });
+                       }
+                     }}
+                     onKeyDown={(e) => {
+                       if (e.key === 'Enter') {
+                         e.currentTarget.blur();
+                       }
                      }}
                    />
                 </div>
@@ -265,9 +338,16 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                      placeholder="おすすめラベル..."
                      className="text-[11px] bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 outline-none focus:border-brand-wine w-24"
                      value={wine.promoLabel || ''}
-                     onChange={(e) => {
+                     onBlur={(e) => {
                        const val = e.target.value;
-                       setSelectedWines(prev => prev.map((w, i) => i === idx ? { ...w, promoLabel: val } : w));
+                       if (val !== wine.promoLabel) {
+                         onUpdateWineItem(wine.id, { promoLabel: val });
+                       }
+                     }}
+                     onKeyDown={(e) => {
+                       if (e.key === 'Enter') {
+                         e.currentTarget.blur();
+                       }
                      }}
                    />
                 </div>

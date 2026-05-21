@@ -236,6 +236,63 @@ export const AdminView: React.FC = () => {
 
   const selectedStore = stores.find(s => s.id === selectedStoreId);
 
+  const syncPublicMenuWithDocs = async (storeId: string, updatedWines: WineMaster[]) => {
+    try {
+      const richPublicMenu = updatedWines
+        .filter(w => w.visible !== false && w.isActive !== false)
+        .map(projectWineForPublic);
+
+      await updateDoc(doc(db, 'stores', storeId), {
+        publicMenu: richPublicMenu,
+        updatedAt: new Date().toISOString()
+      });
+    } catch (e) {
+      console.error("Failed to sync publicMenu:", e);
+    }
+  };
+
+  const handleUpdateWineItem = async (wineId: string, updatedFields: Partial<WineMaster>) => {
+    if (!selectedStoreId) return;
+    
+    const nextWines = selectedWines.map(w => {
+      if (w.id === wineId) {
+        return { ...w, ...updatedFields };
+      }
+      return w;
+    });
+
+    setSelectedWines(nextWines);
+
+    const wine = nextWines.find(w => w.id === wineId);
+    if (!wine) return;
+
+    const compositeId = getWineDocId(wine);
+    const itemRef = doc(db, 'stores', selectedStoreId, 'inventory', compositeId);
+
+    try {
+      const docPayload = {
+        id: compositeId,
+        pureId: wine.pureId || wine.id,
+        supplier: (wine.supplier || 'PIEROTH').toUpperCase(),
+        price_bottle: wine.price_bottle ?? 0,
+        price_glass: wine.price_glass ?? 0,
+        cost: wine.cost ?? 0,
+        glasses_per_bottle: wine.glasses_per_bottle ?? 6,
+        visible: wine.visible ?? true,
+        isFeatured: wine.isFeatured ?? false,
+        promoLabel: wine.promoLabel || '',
+        updatedAt: new Date().toISOString()
+      };
+      await setDoc(itemRef, docPayload, { merge: true });
+      await syncPublicMenuWithDocs(selectedStoreId, nextWines);
+
+      queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
+      queryClient.invalidateQueries({ queryKey: ['stores'] });
+    } catch (error) {
+      console.error('Error auto-updating wine inventory item:', error);
+    }
+  };
+
   const handleAddWine = async (wineId?: string) => {
     const idToUse = wineId || searchId;
     let wine = wines.find(w => w.id === idToUse);
@@ -253,7 +310,10 @@ export const AdminView: React.FC = () => {
       return;
     }
 
-    if (selectedStoreId && !selectedWines.find(sw => sw.id === idToUse)) {
+    const compositeId = getWineDocId(wine);
+    const alreadyExists = selectedWines.some(sw => getWineDocId(sw) === compositeId);
+
+    if (selectedStoreId && !alreadyExists) {
       const allowed = selectedStore?.allowedSuppliers?.map(s => s.toUpperCase());
       const wineSupplier = (wine.supplier || 'PIEROTH').toUpperCase();
       
@@ -262,7 +322,6 @@ export const AdminView: React.FC = () => {
         return;
       }
 
-      const compositeId = getWineDocId(wine);
       const docPath = `stores/${selectedStoreId}/inventory/${compositeId}`;
       try {
         const newInventoryItem = {
@@ -280,6 +339,19 @@ export const AdminView: React.FC = () => {
         };
         
         await setDoc(doc(db, 'stores', selectedStoreId, 'inventory', compositeId), newInventoryItem);
+
+        // 即座にお客用(publicMenu)を同期
+        const currentWinesList = [...selectedWines];
+        const fullyProjectedWine = {
+          ...wine,
+          ...newInventoryItem,
+          id: compositeId,
+          pureId: wine.pureId || wine.id
+        } as WineMaster;
+        const newWinesList = [...currentWinesList, fullyProjectedWine];
+        setSelectedWines(newWinesList);
+        await syncPublicMenuWithDocs(selectedStoreId, newWinesList);
+
         queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
         queryClient.invalidateQueries({ queryKey: ['stores'] });
         setSearchId('');
@@ -331,10 +403,36 @@ export const AdminView: React.FC = () => {
         await batch.commit();
       }
 
+      // 既存リストにバルク追加分をマージし、publicMenu を即時同期
+      const newWinesToAppend = winesToAdd.map(wine => {
+        const compositeId = getWineDocId(wine);
+        return {
+          ...wine,
+          id: compositeId,
+          pureId: wine.pureId || wine.id,
+          price_bottle: wine.price_bottle || wine.cost * 3,
+          price_glass: wine.price_glass || Math.round((wine.cost * 3 / 6) / 100) * 100,
+          cost: wine.cost,
+          glasses_per_bottle: 6,
+          stock: 0,
+          isActive: true,
+          visible: true,
+          updatedAt: new Date().toISOString()
+        } as WineMaster;
+      });
+      const mergedList = [...selectedWines];
+      newWinesToAppend.forEach(nw => {
+        if (!mergedList.some(sw => getWineDocId(sw) === nw.id)) {
+          mergedList.push(nw);
+        }
+      });
+      setSelectedWines(mergedList);
+      await syncPublicMenuWithDocs(selectedStoreId, mergedList);
+
       queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
       queryClient.invalidateQueries({ queryKey: ['stores'] });
       
-      setImportStatus({ type: 'success', message: `${selectedMasterIds.length}件のワインを追加しました` });
+      setImportStatus({ type: 'success', message: `${selectedMasterIds.length}件 of ワインを追加しました` });
       setShowCatalogSelection(false);
       setSelectedMasterIds([]);
     } catch (error) {
@@ -617,9 +715,13 @@ export const AdminView: React.FC = () => {
     const compositeId = getWineDocId(wine);
     try {
       await deleteDoc(doc(db, 'stores', selectedStoreId, 'inventory', compositeId));
+      
+      const filteredList = selectedWines.filter(w => getWineDocId(w) !== compositeId);
+      setSelectedWines(filteredList);
+      await syncPublicMenuWithDocs(selectedStoreId, filteredList);
+
       queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
       queryClient.invalidateQueries({ queryKey: ['stores'] });
-      setSelectedWines(prev => prev.filter(w => w.id !== wineId));
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `stores/${selectedStoreId}/inventory/${compositeId}`);
     }
@@ -895,6 +997,7 @@ export const AdminView: React.FC = () => {
                   fileInputRef={fileInputRef}
                   hasMoreWines={hasMoreWinesMaster}
                   onLoadMoreWines={handleLoadMoreWines}
+                  onUpdateWineItem={handleUpdateWineItem}
                 />
               </div>
               <div className="space-y-6">
