@@ -294,7 +294,6 @@ export const CustomerView: React.FC = () => {
     return (
       <div className="min-h-screen bg-brand-wine flex flex-col items-center justify-center p-8 text-center">
         <Wine className="w-16 h-16 text-brand-gold/20 mb-6" />
-        {/* 💡 老眼対応: 明朝(serif)を廃止し、太字のゴシック(font-sans)に変更 */}
         <h2 className="font-sans text-2xl font-bold text-brand-gold-dark mb-4">{t.loadingStore}</h2>
         <p className="text-sm text-brand-ivory/60 leading-relaxed max-w-xs">{t.loadingStoreRetry}</p>
       </div>
@@ -325,8 +324,7 @@ export const CustomerView: React.FC = () => {
 
           <div className="space-y-8">
             <div>
-              {/* 💡 老眼対応: 掠れやすい明朝体を廃止、極太UDゴシックへ変更 */}
-              <h2 className="font-sans text-3xl md:text-4xl font-black text-brand-gold-dark mb-2 tracking-[0.25em] uppercase leading-snug">
+              <h2 className="font-sans text-3xl md:text-4xl text-brand-gold-dark mb-2 tracking-[0.25em] font-black uppercase leading-snug">
                 {t.preparingTitle}
               </h2>
               <div className="flex items-center justify-center gap-4">
@@ -368,82 +366,7 @@ export const CustomerView: React.FC = () => {
     );
   }
 
-  const displayedInventoryRaw = inventory.filter(w => {
-    let matches = true;
-
-    if (activeColor) matches = matches && w.color === activeColor;
-    if (activeGlassOnly) matches = matches && (w.price_glass !== undefined && w.price_glass > 0);
-
-    if (activeCuisine) {
-      const cuisine = cuisineFilters.find(c => c.id === activeCuisine);
-      if (cuisine) matches = matches && cuisine.match.test(w.pairing || '');
-    }
-
-    if (activeBudget) {
-      const budget = budgetFilters.find(b => b.id === activeBudget);
-      if (budget) {
-        if (budget.max) matches = matches && (w.price_bottle || 0) <= budget.max;
-        if (budget.min) matches = matches && (w.price_bottle || 0) >= budget.min;
-      }
-    }
-
-    if (step1Color) {
-      matches = matches && w.color === step1Color;
-      
-      if (step2Style) {
-        if (step1Color === '赤') {
-          if (step2Style === translations.ja.fullBody || step2Style === translations.en.fullBody) matches = matches && (w.body || 0) >= 4;
-          else if (step2Style === translations.ja.mediumBody || step2Style === translations.en.mediumBody) matches = matches && (w.body || 0) === 3;
-          else if (step2Style === translations.ja.lightBody || step2Style === translations.en.lightBody) matches = matches && (w.body || 0) <= 2;
-        } else {
-          const isDry = step2Style === translations.ja.dry || step2Style === translations.en.dry || step2Style === '辛口' || step2Style === 'Brut' || step2Style === '辛口 (Brut)';
-          const isMedDry = step2Style === translations.ja.mediumDry || step2Style === translations.en.mediumDry || step2Style === '中辛口' || step2Style === 'Extra Dry';
-          const isSweet = step2Style === translations.ja.sweet || step2Style === translations.en.sweet || step2Style === '甘口' || step2Style === 'Demi-Sec' || step2Style === '甘口 (Demi-Sec)';
-
-          let matchesNumeric = false;
-          const s = w.sweetness || 1;
-          if (isDry) matchesNumeric = s >= 1 && s <= 2;
-          else if (isMedDry) matchesNumeric = s === 3;
-          else if (isSweet) matchesNumeric = s >= 4;
-
-          const matchesString = (w.type === step2Style || w.type_en === step2Style);
-          matches = matches && (matchesNumeric || matchesString);
-        }
-      }
-    }
-
-    if (step3Budget) {
-      const budget = conciergeBudgets.find(b => b.id === step3Budget);
-      if (budget) {
-        if (budget.max) matches = matches && (w.price_bottle || 0) <= budget.max;
-        if (budget.min) matches = matches && (w.price_bottle || 0) >= budget.min;
-      }
-    }
-
-    if (selectedDish) {
-      const dish = cuisineFilters.find(d => d.id === selectedDish);
-      if (dish) matches = matches && dish.match.test(w.pairing || '');
-    }
-
-    return matches;
-  });
-
-  const hasNoResults = (activeColor || activeCuisine || activeBudget || step1Color || step2Style || step3Budget || selectedDish || activeGlassOnly) && displayedInventoryRaw.length === 0;
-  
-  const displayedInventory = (hasNoResults ? inventory.filter(w => w.isFeatured) : displayedInventoryRaw)
-    .sort((a, b) => {
-      if (sortBy === 'featured') {
-        if (a.isFeatured && !b.isFeatured) return -1;
-        if (!a.isFeatured && b.isFeatured) return 1;
-        return (b.price_bottle || 0) - (a.price_bottle || 0);
-      }
-      if (sortBy === 'price_desc') return (b.price_bottle || 0) - (a.price_bottle || 0);
-      if (sortBy === 'price_asc') return (a.price_bottle || 0) - (b.price_bottle || 0);
-      return 0;
-    });
-
   return (
-    /* 💡 老眼対応の最重要コア: インラインスタイルでシステムに内蔵された最高品質のUDゴシック体（Windows:BIZ UDPGothic, Mac/iOS:Hiragino, Android:Noto）を強制バインド */
     <div 
       id="customer-view" 
       className="min-h-screen bg-brand-ivory relative text-[16px] font-bold leading-relaxed"
@@ -552,7 +475,6 @@ export const CustomerView: React.FC = () => {
                   </button>
                 ))}
 
-                {/* 💡 グラスワイン対応のみに絞り込める特設ボタンフィルター */}
                 <button
                   onClick={() => setActiveGlassOnly(!activeGlassOnly)}
                   className={`px-4 py-2 rounded-full text-sm font-black uppercase tracking-wider transition-all whitespace-nowrap border ${
@@ -712,7 +634,6 @@ export const CustomerView: React.FC = () => {
                                       </div>
                                     </div>
                                   )}
-                                  {/* 💡 老眼対応: ワインのタイトルフォントサイズを拡張、font-black指定で太さを極限まで高めて視認性を最適化 */}
                                   <h3 className="font-sans text-2xl md:text-3xl font-black text-brand-wine leading-tight tracking-tight group-hover:text-brand-gold-dark transition-colors break-words">
                                     {currentLang === 'ja' ? wine.name_jp : (wine.name_en || wine.name_jp)}
                                   </h3>
@@ -735,7 +656,6 @@ export const CustomerView: React.FC = () => {
                                 ))}
                                   </div>
 
-                                  {/* 💡 グラスワイン/ボトル価格を一覧画面のバッジスタイルに完全明記し、一目で判別可能な極太表記へアップデート */}
                                   <div className="flex items-end justify-between mt-4 pt-3 border-t border-brand-gold/20">
                                     <div className="flex gap-5 text-sm font-sans">
                                       {wine.price_glass && wine.price_glass > 0 ? (
@@ -816,7 +736,6 @@ export const CustomerView: React.FC = () => {
                               </span>
                             </div>
                           )}
-                          {/* 💡 老眼対応: スタンダード銘柄のフォントサイズ・太さも同様に最適化 */}
                           <h3 className="font-sans text-xl md:text-2xl font-black text-brand-wine leading-tight group-hover:text-brand-gold-dark transition-colors break-words">
                             {currentLang === 'ja' ? wine.name_jp : (wine.name_en || wine.name_jp)}
                           </h3>
@@ -835,7 +754,6 @@ export const CustomerView: React.FC = () => {
                               ))}
                             </div>
 
-                          {/* 💡 スタンダード一覧側も同様に、グラス/ボトルの価格をバッジスタイルで明記 */}
                           <div className="flex items-end justify-between mt-3 pt-2 border-t border-brand-wine/5">
                             <div className="flex gap-4 text-xs font-sans">
                               {wine.price_glass && wine.price_glass > 0 ? (
@@ -864,6 +782,7 @@ export const CustomerView: React.FC = () => {
     )}
   </div>
 
+        {/* 💡 修正箇所: ここから下にある AnimatePresence 等のコンポーネント群を、isDataFetching のローディング判定スコープの外側（本来の位置）に正しく配置 */}
         <AnimatePresence>
           {isScrolled && !isConciergeOpen && (
                 <motion.button
@@ -888,13 +807,7 @@ export const CustomerView: React.FC = () => {
         <AnimatePresence>
           {isConciergeOpen && (
             <>
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={() => setIsConciergeOpen(false)}
-                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[115]"
-              />
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsConciergeOpen(false)} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[115]" />
               <motion.div
                 initial={{ y: "100%" }}
                 animate={{ y: 0 }}
@@ -1061,7 +974,6 @@ export const CustomerView: React.FC = () => {
                       <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,rgba(184,134,11,0.25),transparent_70%)]" />
                       {selectedWine?.image_url && <img src={getProxyUrl(selectedWine.image_url)} alt="" loading="lazy" className="h-full object-contain relative z-10 transition-transform duration-2000 group-hover:scale-105" />}
                     </div>
-                    {/* 💡 老眼対応: ポップアップモーダル内の見出しフォントも太字のゴシック(font-black)にスケールアップ */}
                     <h2 className="font-sans text-3xl md:text-5xl font-black text-brand-gold-dark mb-3 tracking-tight leading-tight">
                       {currentLang === 'ja' ? selectedWine?.name_jp : (selectedWine?.name_en || selectedWine?.name_jp)}
                     </h2>
@@ -1102,7 +1014,6 @@ export const CustomerView: React.FC = () => {
                         </div>
                       ) : (
                         <div className="space-y-6 animate-in fade-in duration-700">
-                          {/* 💡 老眼対応: AIソムリエの長文解説テキストもUDゴシック太字でしっかり読める仕様に調整 */}
                           <p className="text-xl md:text-2xl leading-relaxed text-brand-gold-dark font-sans font-bold first-letter:text-5xl first-letter:float-left first-letter:mr-3 first-letter:mt-1 first-letter:text-brand-gold-dark italic">
                             {currentLang === 'ja' 
                               ? (effectiveWine?.ai_explanation || effectiveWine?.aroma_features || '...') 
