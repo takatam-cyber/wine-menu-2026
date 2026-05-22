@@ -1,5 +1,4 @@
 // src/types.ts
-
 export interface WineMaster {
   id: string;
   pureId?: string;
@@ -82,7 +81,7 @@ export interface UserProfile {
   storeId?: string;
 }
 
-// 【バグ修正】IDの接頭辞の揺れ（大文字小文字やアンダースコア）を吸収して純粋なコードを抽出する関数をエクスポート
+// 【バグ修正】削除してしまった関数を復活させ、他ファイルのクラッシュを防止
 export const extractPureId = (id: string, supplier?: string): string => {
   if (!id) return '';
   const s = (supplier || 'PIEROTH').toUpperCase();
