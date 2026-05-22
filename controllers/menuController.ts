@@ -40,7 +40,6 @@ export const getMenu = async (req: Request, res: Response) => {
       return res.json(cached.data);
     }
     
-    // 【無課金・超高速化】1 Read だけで親ドキュメントを取得し、全てを解決する
     const storeDoc = await dbAdmin.collection("stores").doc(storeId).get();
     if (!storeDoc.exists) {
       return res.status(404).json({ error: "Store not found" });
@@ -59,8 +58,54 @@ export const getMenu = async (req: Request, res: Response) => {
       budgetTiers: storeData.budgetTiers || null,
     };
 
-    // 親ドキュメントに埋め込まれた非正規化配列（publicMenu）をそのまま使用（サブコレクションの結合処理ゼロ）
-    const menu = storeData.publicMenu || [];
+    let menu = storeData.publicMenu || [];
+
+    // 【無課金運用＆後方互換性バグ修正】
+    // すでに運用中の200店舗など、「まだ一括保存ボタンを押しておらず publicMenu が作られていない店舗」の場合、
+    // 配列が空っぽになってお客様メニューが消える（準備中になる）バグを防ぐため、従来の方式で自動補完（フォールバック）します。
+    if (menu.length === 0) {
+      const inventorySnap = await dbAdmin.collection("stores").doc(storeId).collection("inventory").get();
+      
+      if (!inventorySnap.empty) {
+        const inventoryItems = inventorySnap.docs.map(d => ({
+          ...d.data(),
+          id: d.id.toUpperCase()
+        }));
+
+        const masterPromises = inventoryItems.map(item => 
+          dbAdmin.collection("winesMaster").doc(item.id).get()
+        );
+        
+        const masterSnaps = await Promise.all(masterPromises);
+
+        masterSnaps.forEach((mSnap, idx) => {
+          if (mSnap.exists) {
+            const masterData = mSnap.data() || {};
+            const invItem: any = inventoryItems[idx];
+
+            // 表示設定がONのものだけをお客様メニューにマージ
+            if (invItem.isActive !== false && invItem.visible !== false) {
+              menu.push({
+                ...masterData,
+                id: mSnap.id,
+                pureId: invItem.pureId || mSnap.id,
+                price_bottle: invItem.price_bottle ?? masterData.price_bottle,
+                price_glass: invItem.price_glass ?? masterData.price_glass,
+                cost: invItem.cost ?? masterData.cost ?? 2000,
+                glasses_per_bottle: invItem.glasses_per_bottle ?? 6,
+                visible: true,
+                isFeatured: invItem.isFeatured ?? false,
+                promoLabel: invItem.promoLabel || '',
+                stock: invItem.stock ?? 0,
+                isActive: true
+              });
+            }
+          }
+        });
+      }
+    }
+
+    // 日本語の名称順に綺麗にソート
     const sortedMenu = menu.sort((a: any, b: any) => (a.name_jp || '').localeCompare(b.name_jp || ''));
 
     const responsePayload = {
@@ -87,7 +132,6 @@ export const getMenu = async (req: Request, res: Response) => {
 };
 
 export const proxyImage = async (req: Request, res: Response) => {
-  // ... 既存の proxyImage ロジック ...
   try {
     const imageUrl = req.query.url as string;
     if (!imageUrl) return res.status(400).send("URL parameter is required");
