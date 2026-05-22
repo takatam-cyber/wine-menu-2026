@@ -8,14 +8,7 @@ interface MasterCatalogProps {
   wines: WineMaster[];
   masterSearchTerm: string;
   onSearchMaster: (term: string) => void;
-  isEditingMaster: boolean;
-  editingMasterWine: WineMaster | null;
-  editMasterData: any;
-  setEditMasterData: (data: any) => void;
   onStartEditingMaster: (wine: WineMaster) => void;
-  onUpdateMaster: () => void;
-  onCancelEditMaster: () => void;
-  // 新機能一括削除用プロップス
   selectedMasterCatalogIds: string[];
   setSelectedMasterCatalogIds: React.Dispatch<React.SetStateAction<string[]>>;
   onBulkDeleteWines: () => void;
@@ -38,7 +31,6 @@ export const MasterCatalog: React.FC<MasterCatalogProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
-  // タブ切り替え時に選択状態とページを初期化
   useEffect(() => {
     setCurrentPage(1);
     setSelectedMasterCatalogIds([]);
@@ -48,7 +40,6 @@ export const MasterCatalog: React.FC<MasterCatalogProps> = ({
     setCurrentPage(1);
   }, [masterSearchTerm]);
 
-  // 現在のタブに応じたワイン抽出
   const tabWines = useMemo(() => {
     return wines.filter(w => {
       const s = (w.supplier || 'PIEROTH').toUpperCase();
@@ -56,7 +47,6 @@ export const MasterCatalog: React.FC<MasterCatalogProps> = ({
     });
   }, [wines, activeTab]);
 
-  // 検索ヒット条件
   const filteredWines = useMemo(() => {
     return tabWines.filter(w => {
       if (!masterSearchTerm) return true;
@@ -72,24 +62,20 @@ export const MasterCatalog: React.FC<MasterCatalogProps> = ({
     }).sort((a, b) => (a.name_jp || '').localeCompare(b.name_jp || ''));
   }, [tabWines, masterSearchTerm]);
 
-  // ページネーション分割
   const totalPages = Math.ceil(filteredWines.length / itemsPerPage);
   const currentItems = filteredWines.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  // 個別チェックのトグル
   const toggleSelection = (id: string) => {
     setSelectedMasterCatalogIds(prev => 
       prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
     );
   };
 
-  // 現在のページ内アイテムがすべて選択されているか
   const isAllCurrentPageSelected = useMemo(() => {
     if (currentItems.length === 0) return false;
     return currentItems.every(item => selectedMasterCatalogIds.includes(item.id));
   }, [currentItems, selectedMasterCatalogIds]);
 
-  // 現在のページ内アイテムを一括選択・解除
   const toggleSelectAllCurrentPage = () => {
     if (isAllCurrentPageSelected) {
       const currentIds = currentItems.map(item => item.id);
@@ -102,7 +88,6 @@ export const MasterCatalog: React.FC<MasterCatalogProps> = ({
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      {/* 検索コントロールエリア */}
       <div className="bg-white border border-slate-200 rounded-[2rem] p-6 md:p-8 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
         <div className="relative flex-1 w-full group">
           <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-brand-wine transition-colors" />
@@ -115,7 +100,6 @@ export const MasterCatalog: React.FC<MasterCatalogProps> = ({
           />
         </div>
 
-        {/* インポーター切り替えタブ */}
         <div className="flex bg-slate-100/60 p-1 rounded-xl border border-slate-200/50 w-full md:w-auto shrink-0">
           <button 
             onClick={() => setActiveTab('PIEROTH')}
@@ -138,7 +122,6 @@ export const MasterCatalog: React.FC<MasterCatalogProps> = ({
         </div>
       </div>
 
-      {/* 【新機能】一括削除フローティング警告アクションバー */}
       <AnimatePresence>
         {selectedMasterCatalogIds.length > 0 && (
           <motion.div
@@ -164,9 +147,7 @@ export const MasterCatalog: React.FC<MasterCatalogProps> = ({
         )}
       </AnimatePresence>
 
-      {/* メイングリッドリスト */}
       <div className="bg-white border border-slate-200 rounded-[2rem] overflow-hidden shadow-sm">
-        {/* 一括全選択用ヘッダーコントロール */}
         {currentItems.length > 0 && (
           <div className="px-6 py-4 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between">
             <button
@@ -199,7 +180,6 @@ export const MasterCatalog: React.FC<MasterCatalogProps> = ({
                     : 'border-slate-100 hover:border-brand-gold shadow-luxury-soft hover:shadow-md'
                 }`}
               >
-                {/* チェックボックスと画像エリア */}
                 <div className="flex flex-col items-center gap-4 shrink-0 py-1">
                   <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all duration-300 ${
                     isChecked ? 'bg-red-600 border-red-600 text-white scale-110 shadow-sm' : 'border-slate-200 bg-white group-hover:border-brand-gold'
@@ -217,7 +197,6 @@ export const MasterCatalog: React.FC<MasterCatalogProps> = ({
                   </div>
                 </div>
 
-                {/* メインテキストディテール */}
                 <div className="flex-1 min-w-0 flex flex-col pt-1">
                   <div className="text-[10px] font-black text-brand-gold uppercase tracking-[0.2em] mb-1">
                     {wine.country} • {wine.color}
@@ -240,7 +219,6 @@ export const MasterCatalog: React.FC<MasterCatalogProps> = ({
                         {wine.id}
                       </div>
                       
-                      {/* 単体編集用ボタン（チェックボックスの衝突を避けるため e.stopPropagation()） */}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -259,7 +237,6 @@ export const MasterCatalog: React.FC<MasterCatalogProps> = ({
           })}
         </div>
 
-        {/* 検索ノーヒット時 */}
         {filteredWines.length === 0 && (
           <div className="flex flex-col items-center justify-center py-24 text-slate-400">
             <Wine className="w-12 h-12 mb-4 opacity-10 animate-bounce" />
@@ -267,7 +244,6 @@ export const MasterCatalog: React.FC<MasterCatalogProps> = ({
           </div>
         )}
 
-        {/* 追加ロード */}
         {hasMoreWines && filteredWines.length > 0 && currentPage === totalPages && (
           <div className="pb-12 flex justify-center">
             <button 
@@ -280,7 +256,6 @@ export const MasterCatalog: React.FC<MasterCatalogProps> = ({
         )}
       </div>
 
-      {/* ページネーションコントロール */}
       {totalPages > 1 && (
         <div className="p-6 md:px-8 bg-white border border-slate-200 rounded-[2rem] flex flex-col sm:flex-row items-center justify-between gap-6 shadow-sm">
           <div className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">
