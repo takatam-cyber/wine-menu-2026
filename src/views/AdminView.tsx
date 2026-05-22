@@ -51,23 +51,21 @@ export const AdminView: React.FC = () => {
   const { data: winesMasterData, fetchNextPage: fetchNextWinesMaster, hasNextPage: hasMoreWinesMaster } = useWinesMasterQuery();
   const [masterSearchTerm, setMasterSearchTerm] = useState('');
 
-  const stores = useMemo(() => storesData?.pages.flatMap(page => page.data) || [], [storesData]);
-  const wines = useMemo(() => winesMasterData?.pages.flatMap(page => page.data) || [], [winesMasterData]);
+  // 【バグ修正】データ内に null や undefined が混ざってクラッシュ（画面が戻れなくなる）のを防ぐ防御壁を追加
+  const stores = useMemo(() => (storesData?.pages.flatMap(page => page.data) || []).filter(Boolean), [storesData]);
+  const wines = useMemo(() => (winesMasterData?.pages.flatMap(page => page.data) || []).filter(Boolean), [winesMasterData]);
 
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
   const { data: inventoryData } = useInventoryQuery(selectedStoreId);
 
   const [selectedWines, setSelectedWines] = useState<WineMaster[]>([]);
   const [initialWines, setInitialWines] = useState<WineMaster[]>([]);
-  
-  // 【バグ修正】入力した数字が消えるのを防ぐため、店舗ごとの「初回ロード」のフラグを管理します
-  const [dataLoadedForStore, setDataLoadedForStore] = useState<string | null>(null);
 
+  const [dataLoadedForStore, setDataLoadedForStore] = useState<string | null>(null);
   const [selectedMasterCatalogIds, setSelectedMasterCatalogIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (inventoryData?.inventory && selectedStoreId === inventoryData.store?.id) {
-      // 【バグ修正】店舗を切り替えた「初回」だけデータをセットし、入力中の未保存データの上書き（リセット）を防ぐ
       if (dataLoadedForStore !== selectedStoreId) {
         setSelectedWines(JSON.parse(JSON.stringify(inventoryData.inventory)));
         setInitialWines(JSON.parse(JSON.stringify(inventoryData.inventory)));
@@ -110,6 +108,8 @@ export const AdminView: React.FC = () => {
 
   const filteredStores = useMemo(() => {
     return stores.filter(store => {
+      // 防御壁
+      if (!store) return false;
       const nameStr = (store.name || '').toLowerCase();
       const addressStr = (store.address || '').toLowerCase();
       const searchStr = (storeSearchTerm || '').toLowerCase();
@@ -212,6 +212,10 @@ export const AdminView: React.FC = () => {
           await setDoc(doc(db, 'stores', selectedStoreId, 'inventory', compositeId), wine, { merge: true });
           const richPublicMenu = nextWines.filter(w => w.visible !== false && w.isActive !== false);
           await updateDoc(doc(db, 'stores', selectedStoreId), { publicMenu: richPublicMenu, updatedAt: new Date().toISOString() });
+          
+          // 【バグ修正】お客様メニューに即時反映させるためのキャッシュクリア
+          queryClient.invalidateQueries({ queryKey: ['publicMenu', selectedStoreId] });
+          
           setInitialWines(JSON.parse(JSON.stringify(nextWines))); 
         } catch (error) {
           console.error('Error auto-updating wine inventory item:', error);
@@ -254,6 +258,7 @@ export const AdminView: React.FC = () => {
         const richPublicMenu = newWinesList.filter(w => w.visible !== false && w.isActive !== false);
         await updateDoc(doc(db, 'stores', selectedStoreId), { publicMenu: richPublicMenu, updatedAt: new Date().toISOString() });
         fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
+        queryClient.invalidateQueries({ queryKey: ['publicMenu', selectedStoreId] });
       } catch (error) {
         handleFirestoreError(error, OperationType.WRITE, `stores/${selectedStoreId}`);
       }
@@ -261,9 +266,9 @@ export const AdminView: React.FC = () => {
   };
 
   const handleBulkAddWines = async () => {
-    if (!selectedStoreId || selectedMasterIds.length === 0) return;
+    if (!selectedStoreId || selectedMasterCatalogIds.length === 0) return;
     try {
-      const winesToAdd = wines.filter(w => selectedMasterIds.includes(w.id));
+      const winesToAdd = wines.filter(w => selectedMasterCatalogIds.includes(w.id));
       const CHUNK_SIZE = 450;
       for (let i = 0; i < winesToAdd.length; i += CHUNK_SIZE) {
         const chunk = winesToAdd.slice(i, i + CHUNK_SIZE);
@@ -311,9 +316,11 @@ export const AdminView: React.FC = () => {
       await updateDoc(doc(db, 'stores', selectedStoreId), { publicMenu: richPublicMenu, updatedAt: new Date().toISOString() });
       
       fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
-      setImportStatus({ type: 'success', message: `${selectedMasterIds.length}件のワインを追加しました` });
+      queryClient.invalidateQueries({ queryKey: ['publicMenu', selectedStoreId] });
+      
+      setImportStatus({ type: 'success', message: `${selectedMasterCatalogIds.length}件のワインを追加しました` });
       setShowCatalogSelection(false);
-      setSelectedMasterIds([]);
+      setSelectedMasterCatalogIds([]);
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `stores/${selectedStoreId}/bulk`);
     }
@@ -333,7 +340,6 @@ export const AdminView: React.FC = () => {
         
         chunk.forEach(wine => {
           const initialWine = initialWines.find(iw => iw.id === wine.id);
-          // 【バグ修正】確実な差分検知を行い、変更が漏れて保存されないのを防ぐ
           const isChanged = !initialWine || 
             initialWine.price_bottle !== wine.price_bottle || 
             initialWine.price_glass !== wine.price_glass || 
@@ -345,8 +351,7 @@ export const AdminView: React.FC = () => {
             initialWine.glasses_per_bottle !== wine.glasses_per_bottle;
 
           if (isChanged) {
-            const compositeId = getWineDocId(wine);
-            const docRef = doc(db, 'stores', selectedStoreId, 'inventory', compositeId);
+            const docRef = doc(db, 'stores', selectedStoreId, 'inventory', wine.id);
             batch.set(docRef, wine, { merge: true });
             chunkWriteCount++;
             totalWriteCount++;
@@ -363,6 +368,10 @@ export const AdminView: React.FC = () => {
       });
 
       fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
+      
+      // 【バグ修正】一括保存後、即座にお客様メニューにも価格を反映させる
+      queryClient.invalidateQueries({ queryKey: ['publicMenu', selectedStoreId] });
+      queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
       
       setInitialWines(JSON.parse(JSON.stringify(selectedWines)));
       setImportStatus({ type: 'success', message: `保存完了（更新件数: ${totalWriteCount}件）` });
@@ -385,6 +394,7 @@ export const AdminView: React.FC = () => {
       const richPublicMenu = filteredList.filter(w => w.visible !== false && w.isActive !== false);
       await updateDoc(doc(db, 'stores', selectedStoreId), { publicMenu: richPublicMenu, updatedAt: new Date().toISOString() });
       fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
+      queryClient.invalidateQueries({ queryKey: ['publicMenu', selectedStoreId] });
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `stores/${selectedStoreId}`);
     }
@@ -637,6 +647,7 @@ export const AdminView: React.FC = () => {
           const richPublicMenu = mergedWinesList.filter(w => w.visible !== false && w.isActive !== false);
           await updateDoc(doc(db, 'stores', selectedStoreId), { publicMenu: richPublicMenu, updatedAt: new Date().toISOString() });
           fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
+          queryClient.invalidateQueries({ queryKey: ['publicMenu', selectedStoreId] });
         }
       }
 
@@ -733,9 +744,7 @@ export const AdminView: React.FC = () => {
                     type="text"
                     className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
                     value={editMasterData.grape_en || ''}
-                    onChange={e => {
-                      setEditMasterData({...editMasterData, grape_en: e.target.value});
-                    }}
+                    onChange={e => setEditMasterData({...editMasterData, grape_en: e.target.value})}
                   />
                 </div>
                 <div className="md:col-span-2">
@@ -916,7 +925,7 @@ export const AdminView: React.FC = () => {
               <div className="lg:col-span-2">
                 <InventoryManager 
                   selectedStore={selectedStore}
-                  selectedStoreId={selectedStoreId}
+                  selectedStoreId={selectedStoreId as string}
                   selectedWines={selectedWines}
                   setSelectedWines={setSelectedWines}
                   masterWines={wines}
