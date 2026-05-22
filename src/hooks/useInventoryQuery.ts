@@ -3,19 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { storeRepository } from '../lib/repositories/storeRepository';
 import { db } from '../lib/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
-// 【バグ修正】types.tsの更新漏れによるクラッシュ（ホワイトアウト）を完全に防ぐため、extractPureId のインポートを削除
-import { WineMaster, Store } from '../types';
-
-// 【バグ修正】他ファイルに依存せず、このファイル単独で安全にIDをクレンジングする関数を実装（クラッシュ完全防止）
-const safeExtractPureId = (id: string | undefined, supplier?: string) => {
-  if (!id) return '';
-  const s = (supplier || 'PIEROTH').toUpperCase();
-  const prefix = `${s}_`;
-  if (id.toUpperCase().startsWith(prefix)) {
-    return id.substring(prefix.length);
-  }
-  return id;
-};
+import { WineMaster, Store, extractPureId } from '../types';
 
 export function useInventoryQuery(storeId: string | null) {
   return useQuery({
@@ -34,7 +22,6 @@ export function useInventoryQuery(storeId: string | null) {
       }
 
       const enrichedWines: WineMaster[] = [];
-      
       const upperInventoryItems = inventoryItems.map(item => ({
         ...item,
         id: item.id.toUpperCase()
@@ -62,7 +49,7 @@ export function useInventoryQuery(storeId: string | null) {
             enrichedWines.push({ 
               ...masterData, 
               id: masterDocId,
-              pureId: safeExtractPureId(masterDocId, masterData.supplier).toUpperCase(),
+              pureId: extractPureId(masterDocId, masterData.supplier).toUpperCase(),
               price_bottle: invItem.price_bottle ?? masterData.price_bottle,
               price_glass: invItem.price_glass ?? masterData.price_glass,
               cost: invItem.cost ?? masterData.cost ?? 2000,
