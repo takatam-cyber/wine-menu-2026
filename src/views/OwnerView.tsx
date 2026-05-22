@@ -17,15 +17,7 @@ import { CatalogSelector } from '../components/admin/CatalogSelector';
 import { StoreAnalytics } from '../components/admin/StoreAnalytics';
 
 const PRODUCTION_DOMAIN = import.meta.env.VITE_APP_DOMAIN || "";
-
-const getBaseUrl = () => {
-  if (typeof window === 'undefined') return '';
-  const origin = window.location.origin;
-  if (origin.includes('googleusercontent.com') || origin.includes('localhost') || origin.includes('cloudshell.dev') || (origin.includes('asia-east1.run.app') && origin.includes('-vfs-'))) {
-    return PRODUCTION_DOMAIN;
-  }
-  return origin;
-};
+const getBaseUrl = () => typeof window === 'undefined' ? '' : (window.location.origin.includes('googleusercontent.com') || window.location.origin.includes('localhost') ? PRODUCTION_DOMAIN : window.location.origin);
 
 const getWineDocId = (wine: { id?: string; supplier?: string; pureId?: string }) => {
   const pure = extractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase();
@@ -169,7 +161,15 @@ export const OwnerView: React.FC = () => {
         
         chunk.forEach(wine => {
           const initialWine = initialWines.find(iw => iw.id === wine.id);
-          const isChanged = !initialWine || JSON.stringify(initialWine) !== JSON.stringify(wine);
+          const isChanged = !initialWine || 
+            initialWine.price_bottle !== wine.price_bottle || 
+            initialWine.price_glass !== wine.price_glass || 
+            initialWine.cost !== wine.cost || 
+            initialWine.stock !== wine.stock || 
+            initialWine.visible !== wine.visible || 
+            initialWine.isFeatured !== wine.isFeatured || 
+            initialWine.promoLabel !== wine.promoLabel ||
+            initialWine.glasses_per_bottle !== wine.glasses_per_bottle;
 
           if (isChanged) {
             const compositeId = getWineDocId(wine);
@@ -541,7 +541,7 @@ export const OwnerView: React.FC = () => {
         isOpen={showCatalogSelection}
         onClose={() => setShowCatalogSelection(false)}
         selectedStore={store || undefined}
-        wines={masterWines}
+        wines={wines}
         masterSearchTerm={masterSearchTerm}
         setMasterSearchTerm={setMasterSearchTerm}
         selectedWines={selectedWines}
