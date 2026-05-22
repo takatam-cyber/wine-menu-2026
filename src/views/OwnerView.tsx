@@ -1,7 +1,6 @@
 // src/views/OwnerView.tsx
 import React, { useState, useEffect, useRef } from 'react';
-// 【バグ修正】types.tsの更新漏れによるクラッシュを防ぐため、extractPureIdのインポートを削除
-import { WineMaster, Store } from '../types';
+import { WineMaster, Store, extractPureId } from '../types';
 import { Wine, Save, Loader2, X, Plus, Search, Edit2, AlertCircle, Sparkles, Settings, QrCode, ExternalLink } from 'lucide-react';
 import { useWines } from '../lib/WineContext';
 import { db } from '../lib/firebase';
@@ -18,21 +17,18 @@ import { CatalogSelector } from '../components/admin/CatalogSelector';
 import { StoreAnalytics } from '../components/admin/StoreAnalytics';
 
 const PRODUCTION_DOMAIN = import.meta.env.VITE_APP_DOMAIN || "";
-const getBaseUrl = () => typeof window === 'undefined' ? '' : (window.location.origin.includes('googleusercontent.com') || window.location.origin.includes('localhost') ? PRODUCTION_DOMAIN : window.location.origin);
 
-// 【バグ修正】他ファイルに依存せず、このファイル単独で安全にIDをクレンジングする関数を実装（クラッシュ完全防止）
-const safeExtractPureId = (id: string | undefined, supplier?: string) => {
-  if (!id) return '';
-  const s = (supplier || 'PIEROTH').toUpperCase();
-  const prefix = `${s}_`;
-  if (id.toUpperCase().startsWith(prefix)) {
-    return id.substring(prefix.length);
+const getBaseUrl = () => {
+  if (typeof window === 'undefined') return '';
+  const origin = window.location.origin;
+  if (origin.includes('googleusercontent.com') || origin.includes('localhost') || origin.includes('cloudshell.dev') || (origin.includes('asia-east1.run.app') && origin.includes('-vfs-'))) {
+    return PRODUCTION_DOMAIN;
   }
-  return id;
+  return origin;
 };
 
 const getWineDocId = (wine: { id?: string; supplier?: string; pureId?: string }) => {
-  const pure = safeExtractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase();
+  const pure = extractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase();
   const supplier = (wine.supplier || 'PIEROTH').toUpperCase();
   return `${supplier}_${pure}`;
 };
@@ -217,7 +213,7 @@ export const OwnerView: React.FC = () => {
         const newInventoryItem = {
           ...wine,
           id: compositeId,
-          pureId: safeExtractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
+          pureId: extractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
           supplier: (wine.supplier || 'PIEROTH').toUpperCase(),
           price_bottle: wine.price_bottle || wine.cost * 3,
           price_glass: wine.price_glass || Math.round((wine.cost * 3 / 6) / 100) * 100,
@@ -258,7 +254,7 @@ export const OwnerView: React.FC = () => {
           const newInventoryItem = {
             ...wine,
             id: compositeId,
-            pureId: safeExtractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
+            pureId: extractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
             supplier: (wine.supplier || 'PIEROTH').toUpperCase(),
             price_bottle: wine.price_bottle || wine.cost * 3,
             price_glass: wine.price_glass || Math.round((wine.cost * 3 / 6) / 100) * 100,
@@ -276,7 +272,7 @@ export const OwnerView: React.FC = () => {
       const newWinesToAppend = winesToAdd.map(wine => ({
         ...wine,
         id: getWineDocId(wine),
-        pureId: safeExtractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
+        pureId: extractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
         price_bottle: wine.price_bottle || wine.cost * 3,
         price_glass: wine.price_glass || Math.round((wine.cost * 3 / 6) / 100) * 100,
         glasses_per_bottle: 6,
@@ -376,7 +372,7 @@ export const OwnerView: React.FC = () => {
             onSaveInventory={handleSaveInventory}
             onDeleteWine={handleDeleteWine}
             fileInputRef={fileInputRef}
-            hasMoreWines={hasMoreWinesMaster}
+            hasMoreWines={!!hasMoreWinesMaster}
             onLoadMoreWines={fetchNextWinesMaster}
             onUpdateWineItem={handleUpdateWineItem}
           />
@@ -552,7 +548,7 @@ export const OwnerView: React.FC = () => {
         selectedMasterIds={selectedMasterIds}
         toggleMasterSelection={toggleMasterSelection}
         handleBulkAddWines={handleBulkAddWines}
-        hasMoreWines={hasMoreWinesMaster}
+        hasMoreWines={!!hasMoreWinesMaster}
         onLoadMoreWines={fetchNextWinesMaster}
       />
     </div>
