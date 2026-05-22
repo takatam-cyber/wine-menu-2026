@@ -37,7 +37,6 @@ const safeExtractPureId = (id: string | undefined, supplier?: string) => {
   return id;
 };
 
-// 【バグ修正】IDが空文字になってクラッシュするのを防ぐ安全装置を追加
 const getWineDocId = (wine: { id?: string; supplier?: string; pureId?: string }) => {
   const pure = safeExtractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase();
   if (!pure) return wine.id || `UNKNOWN_${Date.now()}`;
@@ -60,18 +59,26 @@ export const AdminView: React.FC = () => {
 
   const [selectedWines, setSelectedWines] = useState<WineMaster[]>([]);
   const [initialWines, setInitialWines] = useState<WineMaster[]>([]);
+  
+  // 【バグ修正】入力した数字が消えるのを防ぐため、店舗ごとの「初回ロード」のフラグを管理します
+  const [dataLoadedForStore, setDataLoadedForStore] = useState<string | null>(null);
 
   const [selectedMasterCatalogIds, setSelectedMasterCatalogIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (inventoryData?.inventory && selectedStoreId === inventoryData.store?.id) {
-      setSelectedWines(JSON.parse(JSON.stringify(inventoryData.inventory)));
-      setInitialWines(JSON.parse(JSON.stringify(inventoryData.inventory)));
+      // 【バグ修正】店舗を切り替えた「初回」だけデータをセットし、入力中の未保存データの上書き（リセット）を防ぐ
+      if (dataLoadedForStore !== selectedStoreId) {
+        setSelectedWines(JSON.parse(JSON.stringify(inventoryData.inventory)));
+        setInitialWines(JSON.parse(JSON.stringify(inventoryData.inventory)));
+        setDataLoadedForStore(selectedStoreId);
+      }
     } else if (!selectedStoreId) {
       setSelectedWines([]);
       setInitialWines([]);
+      setDataLoadedForStore(null);
     }
-  }, [selectedStoreId, inventoryData?.inventory]);
+  }, [selectedStoreId, inventoryData?.inventory, dataLoadedForStore]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -130,7 +137,6 @@ export const AdminView: React.FC = () => {
   const [editMasterData, setEditMasterData] = useState<Partial<WineMaster>>({});
   const [editStoreData, setEditStoreData] = useState<Partial<Store>>({});
   const [showCatalogSelection, setShowCatalogSelection] = useState(false);
-  const [selectedMasterIds, setSelectedMasterIds] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -317,25 +323,37 @@ export const AdminView: React.FC = () => {
     if (!selectedStoreId) return;
     setIsSaving(true);
     try {
-      let writeCount = 0;
+      let totalWriteCount = 0;
       const CHUNK_SIZE = 450;
       
       for (let i = 0; i < selectedWines.length; i += CHUNK_SIZE) {
         const chunk = selectedWines.slice(i, i + CHUNK_SIZE);
         const batch = writeBatch(db);
+        let chunkWriteCount = 0;
         
         chunk.forEach(wine => {
           const initialWine = initialWines.find(iw => iw.id === wine.id);
-          const isChanged = !initialWine || JSON.stringify(initialWine) !== JSON.stringify(wine);
+          // 【バグ修正】確実な差分検知を行い、変更が漏れて保存されないのを防ぐ
+          const isChanged = !initialWine || 
+            initialWine.price_bottle !== wine.price_bottle || 
+            initialWine.price_glass !== wine.price_glass || 
+            initialWine.cost !== wine.cost || 
+            initialWine.stock !== wine.stock || 
+            initialWine.visible !== wine.visible || 
+            initialWine.isFeatured !== wine.isFeatured || 
+            initialWine.promoLabel !== wine.promoLabel ||
+            initialWine.glasses_per_bottle !== wine.glasses_per_bottle;
 
           if (isChanged) {
-            const docRef = doc(db, 'stores', selectedStoreId, 'inventory', wine.id);
+            const compositeId = getWineDocId(wine);
+            const docRef = doc(db, 'stores', selectedStoreId, 'inventory', compositeId);
             batch.set(docRef, wine, { merge: true });
-            writeCount++;
+            chunkWriteCount++;
+            totalWriteCount++;
           }
         });
         
-        if (writeCount > 0) await batch.commit();
+        if (chunkWriteCount > 0) await batch.commit();
       }
 
       const richPublicMenu = selectedWines.filter(w => w.visible !== false && w.isActive !== false);
@@ -345,8 +363,9 @@ export const AdminView: React.FC = () => {
       });
 
       fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
+      
       setInitialWines(JSON.parse(JSON.stringify(selectedWines)));
-      setImportStatus({ type: 'success', message: `保存完了（変更点: ${writeCount}件）` });
+      setImportStatus({ type: 'success', message: `保存完了（更新件数: ${totalWriteCount}件）` });
     } catch (error) {
       console.error('一括保存に失敗しました:', error);
       alert('一括保存に失敗しました。');
@@ -634,7 +653,7 @@ export const AdminView: React.FC = () => {
   };
 
   const toggleMasterSelection = (id: string) => {
-    setSelectedMasterIds(prev => prev.includes(id) ? prev.filter(mid => mid !== id) : [...prev, id]);
+    setSelectedMasterCatalogIds(prev => prev.includes(id) ? prev.filter(mid => mid !== id) : [...prev, id]);
   };
 
   const renderMasterEditModal = () => (
@@ -779,7 +798,7 @@ export const AdminView: React.FC = () => {
               </h1>
               <button 
                 onClick={() => {
-                  setSelectedMasterCatalogIds([]); // 画面切替時に選択クリア
+                  setSelectedMasterCatalogIds([]); 
                   setShowMasterCatalog(!showMasterCatalog);
                 }}
                 className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest border transition-all flex items-center gap-2 ${showMasterCatalog ? 'bg-brand-wine text-white border-brand-wine' : 'bg-white text-slate-600 border-slate-200 hover:border-brand-wine hover:text-brand-wine'}`}
@@ -868,7 +887,6 @@ export const AdminView: React.FC = () => {
             wines={wines}
             masterSearchTerm={masterSearchTerm}
             onSearchMaster={handleSearchMaster}
-            // 【バグ修正】存在しないProps渡しを削除し、型エラークラッシュを解消
             onStartEditingMaster={startEditingMaster}
             selectedMasterCatalogIds={selectedMasterCatalogIds}
             setSelectedMasterCatalogIds={setSelectedMasterCatalogIds}
@@ -898,8 +916,7 @@ export const AdminView: React.FC = () => {
               <div className="lg:col-span-2">
                 <InventoryManager 
                   selectedStore={selectedStore}
-                  // 【バグ修正】型の厳密性を確保してクラッシュを防止
-                  selectedStoreId={selectedStoreId as string}
+                  selectedStoreId={selectedStoreId}
                   selectedWines={selectedWines}
                   setSelectedWines={setSelectedWines}
                   masterWines={wines}
