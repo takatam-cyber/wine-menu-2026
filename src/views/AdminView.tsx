@@ -1,18 +1,19 @@
 // src/views/AdminView.tsx
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { WineMaster, Store, extractPureId } from '../types';
+// 【バグ修正】types.tsの更新漏れによるクラッシュを防ぐため、extractPureIdのインポートを削除
+import { WineMaster, Store } from '../types';
 import { useWines } from '../lib/WineContext';
 import { wineRepository } from '../lib/repositories/wineRepository';
 import { useStoresQuery } from '../hooks/useStoresQuery';
 import { useWinesMasterQuery } from '../hooks/useWinesQuery';
 import { useInventoryQuery } from '../hooks/useInventoryQuery';
 import { db } from '../lib/firebase';
-import { doc, setDoc, collection, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { doc, setDoc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { initializeApp, deleteApp, getApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
-import { Plus, Database, Upload, Eye, Save, Settings, Edit2, Shield, Wine, Trash2, X, Search, ChevronLeft, QrCode, ExternalLink } from 'lucide-react';
+import { Plus, Database, Upload, Save, Settings, Edit2, Wine, Trash2, X, Search, ChevronLeft, QrCode, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -27,8 +28,19 @@ import { CatalogSelector } from '../components/admin/CatalogSelector';
 const PRODUCTION_DOMAIN = import.meta.env.VITE_APP_DOMAIN || "";
 const getBaseUrl = () => typeof window === 'undefined' ? '' : (window.location.origin.includes('googleusercontent.com') || window.location.origin.includes('localhost') ? PRODUCTION_DOMAIN : window.location.origin);
 
-const getWineDocId = (wine: { id: string; supplier?: string; pureId?: string }) => {
-  const pure = extractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase();
+// 【バグ修正】他ファイルに依存せず、このファイル単独で安全にIDをクレンジングする関数を実装（クラッシュ完全防止）
+const safeExtractPureId = (id: string | undefined, supplier?: string) => {
+  if (!id) return '';
+  const s = (supplier || 'PIEROTH').toUpperCase();
+  const prefix = `${s}_`;
+  if (id.toUpperCase().startsWith(prefix)) {
+    return id.substring(prefix.length);
+  }
+  return id;
+};
+
+const getWineDocId = (wine: { id?: string; supplier?: string; pureId?: string }) => {
+  const pure = safeExtractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase();
   const supplier = (wine.supplier || 'PIEROTH').toUpperCase();
   return `${supplier}_${pure}`;
 };
@@ -47,7 +59,6 @@ export const AdminView: React.FC = () => {
   const { data: inventoryData } = useInventoryQuery(selectedStoreId);
 
   const [selectedWines, setSelectedWines] = useState<WineMaster[]>([]);
-  // 【バグ修正】差分判定のための初期状態保存
   const [initialWines, setInitialWines] = useState<WineMaster[]>([]);
 
   useEffect(() => {
@@ -89,12 +100,20 @@ export const AdminView: React.FC = () => {
 
   const cuisineTypes = useMemo(() => ['all', ...Array.from(new Set(stores.map(s => s.cuisine_type).filter(Boolean))).sort()], [stores]);
 
-  const filteredStores = useMemo(() => stores.filter(store => {
-    const matchesSearch = !storeSearchTerm || store.name.toLowerCase().includes(storeSearchTerm.toLowerCase()) || (store.address && store.address.toLowerCase().includes(storeSearchTerm.toLowerCase()));
-    const matchesCuisine = selectedCuisineFilter === 'all' || store.cuisine_type === selectedCuisineFilter;
-    const matchesStatus = selectedStatusFilter === 'all' || (selectedStatusFilter === 'active' && store.isActive) || (selectedStatusFilter === 'inactive' && !store.isActive);
-    return matchesSearch && matchesCuisine && matchesStatus;
-  }), [stores, storeSearchTerm, selectedCuisineFilter, selectedStatusFilter]);
+  // 【バグ修正】店名や住所が空（undefined）の店舗データがあっても、絶対にクラッシュさせない安全な検索ロジック
+  const filteredStores = useMemo(() => {
+    return stores.filter(store => {
+      const nameStr = (store.name || '').toLowerCase();
+      const addressStr = (store.address || '').toLowerCase();
+      const searchStr = (storeSearchTerm || '').toLowerCase();
+      
+      const matchesSearch = !searchStr || nameStr.includes(searchStr) || addressStr.includes(searchStr);
+      const matchesCuisine = selectedCuisineFilter === 'all' || store.cuisine_type === selectedCuisineFilter;
+      const matchesStatus = selectedStatusFilter === 'all' || (selectedStatusFilter === 'active' && store.isActive) || (selectedStatusFilter === 'inactive' && !store.isActive);
+      
+      return matchesSearch && matchesCuisine && matchesStatus;
+    });
+  }, [stores, storeSearchTerm, selectedCuisineFilter, selectedStatusFilter]);
 
   const [searchId, setSearchId] = useState('');
   const [isImporting, setIsImporting] = useState(false);
@@ -121,8 +140,60 @@ export const AdminView: React.FC = () => {
     }
   }, [importStatus]);
 
+  const handleSearchMaster = (term: string) => {
+    setMasterSearchTerm(term);
+  };
+
+  const startEditingMaster = (wine: WineMaster) => {
+    setEditingMasterWine(wine);
+    setEditMasterData({
+      name_jp: wine.name_jp,
+      name_en: wine.name_en,
+      country: wine.country,
+      country_en: wine.country_en,
+      grape: wine.grape,
+      grape_en: wine.grape_en,
+      ai_explanation: wine.ai_explanation,
+      ai_explanation_en: wine.ai_explanation_en,
+      price_bottle: wine.price_bottle,
+    });
+    setIsEditingMaster(true);
+  };
+
+  const handleUpdateMaster = async () => {
+    if (!editingMasterWine) return;
+    try {
+      const docId = getWineDocId(editingMasterWine);
+      const dataToUpdate: any = {
+        ...editMasterData,
+        id: docId,
+        pureId: editingMasterWine.pureId || editingMasterWine.id
+      };
+      const cleanedData = Object.fromEntries(
+        Object.entries(dataToUpdate).filter(([_, v]) => v !== undefined)
+      );
+      await updateDoc(doc(db, 'winesMaster', docId), cleanedData);
+      setImportStatus({ type: 'success', message: 'マスターデータを更新しました' });
+      setIsEditingMaster(false);
+      queryClient.invalidateQueries({ queryKey: ['winesMaster'] });
+    } catch (error: any) {
+      handleFirestoreError(error, OperationType.UPDATE, `winesMaster/${getWineDocId(editingMasterWine)}`);
+    }
+  };
+
+  const handleLoadMoreStores = () => {
+    fetchNextStores();
+  };
+
+  const handleLoadMoreWines = () => {
+    fetchNextWinesMaster();
+  };
+
+  const selectedStore = stores.find(s => s.id === selectedStoreId);
+
   const handleUpdateWineItem = (wineId: string, updatedFields: Partial<WineMaster>, saveImmediately = false) => {
     if (!selectedStoreId) return;
+    
     const nextWines = selectedWines.map(w => w.id === wineId ? { ...w, ...updatedFields } : w);
     setSelectedWines(nextWines);
 
@@ -133,12 +204,9 @@ export const AdminView: React.FC = () => {
       (async () => {
         try {
           await setDoc(doc(db, 'stores', selectedStoreId, 'inventory', compositeId), wine, { merge: true });
-          
-          // 親の publicMenu を再構築して保存
           const richPublicMenu = nextWines.filter(w => w.visible !== false && w.isActive !== false);
           await updateDoc(doc(db, 'stores', selectedStoreId), { publicMenu: richPublicMenu, updatedAt: new Date().toISOString() });
-          
-          setInitialWines(JSON.parse(JSON.stringify(nextWines))); // 初期状態も更新
+          setInitialWines(JSON.parse(JSON.stringify(nextWines))); 
         } catch (error) {
           console.error('Error auto-updating wine inventory item:', error);
         }
@@ -156,11 +224,10 @@ export const AdminView: React.FC = () => {
     
     if (selectedStoreId) {
       try {
-        // 【バグ修正】マスターの基本情報を丸抱え（非正規化）して在庫に保存
         const newInventoryItem = {
           ...wine,
           id: compositeId,
-          pureId: extractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
+          pureId: safeExtractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
           supplier: (wine.supplier || 'PIEROTH').toUpperCase(),
           price_bottle: wine.price_bottle || wine.cost * 3,
           price_glass: wine.price_glass || Math.round((wine.cost * 3 / 6) / 100) * 100,
@@ -175,10 +242,9 @@ export const AdminView: React.FC = () => {
         const newWinesList = [...selectedWines, newInventoryItem as WineMaster];
         
         setSelectedWines(newWinesList);
-        setInitialWines(JSON.parse(JSON.stringify(newWinesList))); // 同期
+        setInitialWines(JSON.parse(JSON.stringify(newWinesList))); 
         setSearchId('');
         
-        // 親ドキュメントも更新
         const richPublicMenu = newWinesList.filter(w => w.visible !== false && w.isActive !== false);
         await updateDoc(doc(db, 'stores', selectedStoreId), { publicMenu: richPublicMenu, updatedAt: new Date().toISOString() });
         fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
@@ -201,7 +267,7 @@ export const AdminView: React.FC = () => {
           const newInventoryItem = {
             ...wine,
             id: compositeId,
-            pureId: extractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
+            pureId: safeExtractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
             supplier: (wine.supplier || 'PIEROTH').toUpperCase(),
             price_bottle: wine.price_bottle || wine.cost * 3,
             price_glass: wine.price_glass || Math.round((wine.cost * 3 / 6) / 100) * 100,
@@ -219,7 +285,7 @@ export const AdminView: React.FC = () => {
       const newWinesToAppend = winesToAdd.map(wine => ({
         ...wine,
         id: getWineDocId(wine),
-        pureId: extractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
+        pureId: safeExtractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
         price_bottle: wine.price_bottle || wine.cost * 3,
         price_glass: wine.price_glass || Math.round((wine.cost * 3 / 6) / 100) * 100,
         glasses_per_bottle: 6,
@@ -259,7 +325,6 @@ export const AdminView: React.FC = () => {
         const batch = writeBatch(db);
         
         chunk.forEach(wine => {
-          // 【課金枠削減・最強の差分検知】変更があったワインだけを上書き
           const initialWine = initialWines.find(iw => iw.id === wine.id);
           const isChanged = !initialWine || JSON.stringify(initialWine) !== JSON.stringify(wine);
 
@@ -273,7 +338,6 @@ export const AdminView: React.FC = () => {
         if (writeCount > 0) await batch.commit();
       }
 
-      // 親ドキュメントにお客用メニュー（publicMenu）を構築して上書き
       const richPublicMenu = selectedWines.filter(w => w.visible !== false && w.isActive !== false);
       await updateDoc(doc(db, 'stores', selectedStoreId), {
         publicMenu: richPublicMenu,
@@ -319,8 +383,6 @@ export const AdminView: React.FC = () => {
       handleFirestoreError(error, OperationType.UPDATE, `stores/${selectedStoreId}`);
     }
   };
-
-  // ... 既存の render メソッド (省略せず以下に全て記述) ...
 
   const handleCreateStore = async () => {
     const newStoreId = `store-${Math.random().toString(36).substr(2, 9)}`;
@@ -491,7 +553,7 @@ export const AdminView: React.FC = () => {
               const invItem = {
                 ...wine,
                 id: compositeId,
-                pureId: extractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
+                pureId: safeExtractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
                 supplier: (wine.supplier || 'PIEROTH').toUpperCase(),
                 price_bottle: wine.price_bottle || Math.round(wine.cost * 3 / 100) * 100,
                 price_glass: wine.price_glass || 0,
@@ -513,7 +575,7 @@ export const AdminView: React.FC = () => {
             mergedWinesList.push({
               ...wine,
               id: compositeId,
-              pureId: extractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
+              pureId: safeExtractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
               price_bottle: wine.price_bottle || Math.round(wine.cost * 3 / 100) * 100,
               price_glass: wine.price_glass || 0,
               glasses_per_bottle: 6,
@@ -534,7 +596,7 @@ export const AdminView: React.FC = () => {
 
       setImportStatus({ 
         type: 'success', 
-        message: `${uniqueImportedWines.length}件のCSVデータを処理しました。（新規マスター登録: ${newMasterWines.length}件）` 
+        message: `${uniqueImportedWines.length}件のCSVデータを処理しました。（新規登録: ${newMasterWines.length}件）` 
       });
     } catch (error: any) {
       setImportStatus({ type: 'error', message: `インポート失敗: ${error.message}` });
@@ -546,43 +608,6 @@ export const AdminView: React.FC = () => {
 
   const toggleMasterSelection = (id: string) => {
     setSelectedMasterIds(prev => prev.includes(id) ? prev.filter(mid => mid !== id) : [...prev, id]);
-  };
-
-  const startEditingMaster = (wine: WineMaster) => {
-    setEditingMasterWine(wine);
-    setEditMasterData({
-      name_jp: wine.name_jp,
-      name_en: wine.name_en,
-      country: wine.country,
-      country_en: wine.country_en,
-      grape: wine.grape,
-      grape_en: wine.grape_en,
-      ai_explanation: wine.ai_explanation,
-      ai_explanation_en: wine.ai_explanation_en,
-      price_bottle: wine.price_bottle,
-    });
-    setIsEditingMaster(true);
-  };
-
-  const handleUpdateMaster = async () => {
-    if (!editingMasterWine) return;
-    try {
-      const docId = getWineDocId(editingMasterWine);
-      const dataToUpdate: any = {
-        ...editMasterData,
-        id: docId,
-        pureId: editingMasterWine.pureId || editingMasterWine.id
-      };
-      const cleanedData = Object.fromEntries(
-        Object.entries(dataToUpdate).filter(([_, v]) => v !== undefined)
-      );
-      await updateDoc(doc(db, 'winesMaster', docId), cleanedData);
-      setImportStatus({ type: 'success', message: 'マスターデータを更新しました' });
-      setIsEditingMaster(false);
-      queryClient.invalidateQueries({ queryKey: ['winesMaster'] });
-    } catch (error: any) {
-      handleFirestoreError(error, OperationType.UPDATE, `winesMaster/${getWineDocId(editingMasterWine)}`);
-    }
   };
 
   const renderMasterEditModal = () => (
