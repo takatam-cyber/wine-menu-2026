@@ -5,7 +5,6 @@ import { db } from '../lib/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { WineMaster, Store } from '../types';
 
-// 【バグ修正】インポートエラーによるホワイトアウトを防ぐため、ファイル単独で安全にIDをクレンジングする関数を使用
 const safeExtractPureId = (id: string | undefined, supplier?: string) => {
   if (!id) return '';
   const s = (supplier || 'PIEROTH').toUpperCase();
@@ -44,14 +43,13 @@ export function useInventoryQuery(storeId: string | null) {
         const pure = safeExtractPureId(item.id, item.supplier).toUpperCase();
         if (pure) {
           searchIds.add(pure);
-          searchIds.add(`${(item.supplier || 'PIEROTH').toUpperCase()}_${pure}`);
+          searchIds.add(`${String(item.supplier || 'PIEROTH').toUpperCase()}_${pure}`);
         }
       });
 
-      // Firebase の 'in' クエリに空文字が渡るとアプリが死ぬため、完全に除去
-      const searchIdsArray = Array.from(searchIds).filter(id => 
-        id && id.trim().length > 0 && id !== 'PIEROTH_' && id !== 'OTHER_'
-      );
+      const searchIdsArray = Array.from(searchIds)
+        .map(id => String(id))
+        .filter(id => id.trim().length > 0 && id !== 'PIEROTH_' && id !== 'OTHER_');
 
       const chunkPromises = [];
       for (let i = 0; i < searchIdsArray.length; i += 30) {
@@ -67,7 +65,7 @@ export function useInventoryQuery(storeId: string | null) {
       snapshotsArray.forEach(masterSnaps => {
         masterSnaps.forEach(docSnap => {
           const masterData = docSnap.data() as WineMaster;
-          const masterDocId = docSnap.id.toUpperCase();
+          const masterDocId = String(docSnap.id).toUpperCase();
           const masterPureId = safeExtractPureId(masterDocId, masterData.supplier).toUpperCase();
           
           const invItem = upperInventoryItems.find(item => {
@@ -78,7 +76,8 @@ export function useInventoryQuery(storeId: string | null) {
           if (invItem) {
             enrichedWines.push({ 
               ...masterData, 
-              id: masterDocId,
+              // 【バグ修正】ここでマスターのIDではなく、在庫の本来のID（PIEROTH_xxx）を維持する
+              id: invItem.id,
               pureId: masterPureId,
               price_bottle: invItem.price_bottle ?? masterData.price_bottle,
               price_glass: invItem.price_glass ?? masterData.price_glass,
