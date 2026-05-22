@@ -1,6 +1,6 @@
 // src/views/OwnerView.tsx
 import React, { useState, useEffect, useRef } from 'react';
-import { WineMaster, Store, extractPureId } from '../types';
+import { WineMaster, Store } from '../types';
 import { Wine, Save, Loader2, X, Plus, Search, Edit2, AlertCircle, Sparkles, Settings, QrCode, ExternalLink } from 'lucide-react';
 import { useWines } from '../lib/WineContext';
 import { db } from '../lib/firebase';
@@ -29,7 +29,6 @@ const safeExtractPureId = (id: string | undefined, supplier?: string) => {
   return id;
 };
 
-// 【バグ修正】IDが空文字になってクラッシュするのを防ぐ安全装置を追加
 const getWineDocId = (wine: { id?: string; supplier?: string; pureId?: string }) => {
   const pure = safeExtractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase();
   if (!pure) return wine.id || `UNKNOWN_${Date.now()}`;
@@ -43,7 +42,7 @@ export const OwnerView: React.FC = () => {
   const [selectedStoreId, setSelectedStoreId] = useState(new URLSearchParams(window.location.search).get('storeId') || user?.storeId || '');
   
   const { data: storesData } = useStoresQuery(user);
-  const stores = storesData?.pages.flatMap(p => p.data) || [];
+  const stores = (storesData?.pages.flatMap(p => p.data) || []).filter(Boolean);
 
   const { data: inventoryData, isLoading: inventoryLoading } = useInventoryQuery(selectedStoreId);
   const { updateStoreMutation } = useInventoryMutations(selectedStoreId);
@@ -52,13 +51,12 @@ export const OwnerView: React.FC = () => {
   const inventory = inventoryData?.inventory || [];
 
   const { data: masterWinesData, fetchNextPage: fetchNextWinesMaster, hasNextPage: hasMoreWinesMaster } = useWinesMasterQuery();
-  const masterWines = masterWinesData?.pages.flatMap(p => p.data) || [];
+  const masterWines = (masterWinesData?.pages.flatMap(p => p.data) || []).filter(Boolean);
   const [masterSearchTerm, setMasterSearchTerm] = useState('');
 
   const [selectedWines, setSelectedWines] = useState<WineMaster[]>([]);
   const [initialWines, setInitialWines] = useState<WineMaster[]>([]);
   
-  // 【バグ修正】入力した数字が消えるのを防ぐため、店舗ごとの「初回ロード」のフラグを管理します
   const [dataLoadedForStore, setDataLoadedForStore] = useState<string | null>(null);
 
   const [searchId, setSearchId] = useState('');
@@ -71,7 +69,6 @@ export const OwnerView: React.FC = () => {
 
   useEffect(() => {
     if (inventoryData?.inventory && selectedStoreId === inventoryData.store?.id) {
-      // 【バグ修正】店舗を切り替えた「初回」だけデータをセットし、入力中の未保存データの上書き（リセット）を防ぐ
       if (dataLoadedForStore !== selectedStoreId) {
         setSelectedWines(JSON.parse(JSON.stringify(inventoryData.inventory)));
         setInitialWines(JSON.parse(JSON.stringify(inventoryData.inventory)));
@@ -160,6 +157,8 @@ export const OwnerView: React.FC = () => {
           await setDoc(doc(db, 'stores', sid, 'inventory', compositeId), wine, { merge: true });
           const richPublicMenu = nextWines.filter(w => w.visible !== false && w.isActive !== false);
           await updateDoc(doc(db, 'stores', sid), { publicMenu: richPublicMenu, updatedAt: new Date().toISOString() });
+          
+          queryClient.invalidateQueries({ queryKey: ['publicMenu', sid] });
           setInitialWines(JSON.parse(JSON.stringify(nextWines)));
         } catch (error) {
           console.error('Error auto-updating wine inventory item:', error);
@@ -181,7 +180,6 @@ export const OwnerView: React.FC = () => {
         
         chunk.forEach(wine => {
           const initialWine = initialWines.find(iw => iw.id === wine.id);
-          // 【バグ修正】確実な差分検知を行い、変更が漏れて保存されないのを防ぐ
           const isChanged = !initialWine || 
             initialWine.price_bottle !== wine.price_bottle || 
             initialWine.price_glass !== wine.price_glass || 
@@ -210,6 +208,8 @@ export const OwnerView: React.FC = () => {
       });
 
       fetch(`/api/menu/${sid}/invalidate`, { method: 'POST' }).catch(() => {});
+      queryClient.invalidateQueries({ queryKey: ['publicMenu', sid] });
+      queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
       
       setInitialWines(JSON.parse(JSON.stringify(selectedWines)));
       alert(`保存完了（変更点: ${writeCount}件）`);
@@ -255,6 +255,7 @@ export const OwnerView: React.FC = () => {
         const richPublicMenu = newWinesList.filter(w => w.visible !== false && w.isActive !== false);
         await updateDoc(doc(db, 'stores', sid), { publicMenu: richPublicMenu, updatedAt: new Date().toISOString() });
         fetch(`/api/menu/${sid}/invalidate`, { method: 'POST' }).catch(() => {});
+        queryClient.invalidateQueries({ queryKey: ['publicMenu', sid] });
       } catch (error) {
         handleFirestoreError(error, OperationType.WRITE, `stores/${sid}/inventory/${compositeId}`);
       }
@@ -313,6 +314,8 @@ export const OwnerView: React.FC = () => {
       await updateDoc(doc(db, 'stores', sid), { publicMenu: richPublicMenu, updatedAt: new Date().toISOString() });
       
       fetch(`/api/menu/${sid}/invalidate`, { method: 'POST' }).catch(() => {});
+      queryClient.invalidateQueries({ queryKey: ['publicMenu', sid] });
+
       setShowCatalogSelection(false);
       setSelectedMasterIds([]);
     } catch (error) {
@@ -336,6 +339,7 @@ export const OwnerView: React.FC = () => {
       const richPublicMenu = filteredList.filter(w => w.visible !== false && w.isActive !== false);
       await updateDoc(doc(db, 'stores', sid), { publicMenu: richPublicMenu, updatedAt: new Date().toISOString() });
       fetch(`/api/menu/${sid}/invalidate`, { method: 'POST' }).catch(() => {});
+      queryClient.invalidateQueries({ queryKey: ['publicMenu', sid] });
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `stores/${sid}/inventory/${wineId}`);
     }
