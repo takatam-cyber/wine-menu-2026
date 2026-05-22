@@ -1,5 +1,5 @@
 // src/views/CustomerView.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { WineMaster } from '../types';
 import { useWines } from '../lib/WineContext';
@@ -12,6 +12,20 @@ import { motion, AnimatePresence } from 'motion/react';
 import { usePublicMenuQuery } from '../hooks/usePublicMenuQuery';
 import { useWineDetailQuery } from '../hooks/useWinesQuery';
 
+interface FilterOption {
+  id: string;
+  label: string;
+  min?: number;
+  max?: number;
+}
+
+interface ConciergeOption {
+  id: number;
+  label: string;
+  min?: number;
+  max?: number;
+}
+
 export const CustomerView: React.FC = () => {
   const { storeId: routeStoreId } = useParams();
   const { user } = useWines();
@@ -20,11 +34,11 @@ export const CustomerView: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [currentLang, setCurrentLang] = useState<'ja' | 'en'>('ja');
 
-  // 各種フィルター・ソート状態
+  // 各種フィルター・ソート状態（構文エラーを修正）
   const [activeCuisine, setActiveCuisine] = useState<string | null>(null);
   const [activeColor, setActiveColor] = useState<string | null>(null);
   const [activeBudget, setActiveBudget] = useState<string | null>(null);
-  const [activeGlassOnly, useState<boolean>(false); 
+  const [activeGlassOnly, setActiveGlassOnly] = useState<boolean>(false); 
 
   const [step1Color, setStep1Color] = useState<string | null>(null);
   const [step2Style, setStep2Style] = useState<string | null>(null);
@@ -177,42 +191,35 @@ export const CustomerView: React.FC = () => {
 
   const getProxyUrl = (url: string) => `/api/proxy-image?url=${encodeURIComponent(url)}`;
 
-  interface FilterOption {
-    id: string;
-    label: string;
-    min?: number;
-    max?: number;
-  }
-
-  interface ConciergeOption {
-    id: number;
-    label: string;
-    min?: number;
-    max?: number;
-  }
-
+  // 予算ティア配列から動的にフィルターの最小・最大レンジを生成
   const budgetTiers = store?.budgetTiers || [];
   
-  const budgetFilters: FilterOption[] = budgetTiers.length > 0 
-    ? (budgetTiers.map((tier, idx, arr) => {
+  const budgetFilters: FilterOption[] = useMemo(() => {
+    if (budgetTiers.length > 0) {
+      return budgetTiers.map((tier, idx, arr) => {
         if (idx === 0) return { id: `b${idx}`, label: `${t.budgetUpTo}${tier.toLocaleString()}${t.yen}`, max: tier };
         return { id: `b${idx}`, label: `${t.budgetRange}${arr[idx-1].toLocaleString()}〜${t.budgetRange}${tier.toLocaleString()}${t.yen}`, min: arr[idx-1], max: tier };
-      }) as FilterOption[]).concat([{ id: 'blast', label: `${t.budgetRange}${budgetTiers[budgetTiers.length - 1].toLocaleString()}〜${t.yen}`, min: budgetTiers[budgetTiers.length - 1] }])
-    : [
-        { id: 'b1', label: `${t.budgetUpTo}5,000${t.yen}`, max: 5000 },
-        { id: 'b2', label: `${t.budgetUpTo}10,000${t.yen}`, max: 10000 },
-        { id: 'b3', label: `${t.budgetRange}10,000〜${t.yen}`, min: 10000 }
-      ];
+      }).concat([{ id: 'blast', label: `${t.budgetRange}${budgetTiers[budgetTiers.length - 1].toLocaleString()}〜${t.yen}`, min: budgetTiers[budgetTiers.length - 1] }]);
+    }
+    return [
+      { id: 'b1', label: `${t.budgetUpTo}5,000${t.yen}`, max: 5000 },
+      { id: 'b2', label: `${t.budgetUpTo}10,000${t.yen}`, max: 10000 },
+      { id: 'b3', label: `${t.budgetRange}10,000〜${t.yen}`, min: 10000 }
+    ];
+  }, [budgetTiers, t]);
 
-  const conciergeBudgets: ConciergeOption[] = budgetTiers.length > 0
-    ? (budgetTiers.map(tier => ({ id: tier, label: `${t.budgetUpTo}${tier.toLocaleString()}${t.yen}`, max: tier })) as ConciergeOption[])
-        .concat([{ id: 999999, label: `${t.budgetMoreThan}${budgetTiers[budgetTiers.length - 1].toLocaleString()}${t.yen}`, min: budgetTiers[budgetTiers.length - 1] }])
-    : [
-        { id: 5000, label: `${t.budgetUpTo}5,000${t.yen}`, max: 5000 },
-        { id: 10000, label: `${t.budgetUpTo}10,000${t.yen}`, max: 10000 },
-        { id: 20000, label: `${t.budgetUpTo}20,000${t.yen}`, max: 20000 },
-        { id: 999999, label: `${t.budgetMoreThan}20,000${t.yen}`, min: 20000 }
-      ];
+  const conciergeBudgets: ConciergeOption[] = useMemo(() => {
+    if (budgetTiers.length > 0) {
+      return budgetTiers.map(tier => ({ id: tier, label: `${t.budgetUpTo}${tier.toLocaleString()}${t.yen}`, max: tier }))
+        .concat([{ id: 999999, label: `${t.budgetMoreThan}${budgetTiers[budgetTiers.length - 1].toLocaleString()}${t.yen}`, min: budgetTiers[budgetTiers.length - 1] }]);
+    }
+    return [
+      { id: 5000, label: `${t.budgetUpTo}5,000${t.yen}`, max: 5000 },
+      { id: 10000, label: `${t.budgetUpTo}10,000${t.yen}`, max: 10000 },
+      { id: 20000, label: `${t.budgetUpTo}20,000${t.yen}`, max: 20000 },
+      { id: 999999, label: `${t.budgetMoreThan}20,000${t.yen}`, min: 20000 }
+    ];
+  }, [budgetTiers, t]);
 
   const cuisineFilters = [
     { id: 'meat', label: t.meat, match: /肉|ステーキ|ラム|牛|豚/i },
@@ -240,6 +247,81 @@ export const CustomerView: React.FC = () => {
       }, 800);
     }
   };
+
+  // 【追加】欠落していた高精度多重フィルタリングロジック
+  const filteredInventory = useMemo(() => {
+    return inventory.filter(wine => {
+      // 1. 通常の色フィルター
+      if (activeColor && wine.color !== activeColor) return false;
+      
+      // 2. グラスワイン限定フィルター
+      if (activeGlassOnly && !(wine.price_glass && wine.price_glass > 0)) return false;
+      
+      // 3. 通常のペアリング料理フィルター
+      if (activeCuisine) {
+        const filter = cuisineFilters.find(c => c.id === activeCuisine);
+        const pairingStr = `${wine.pairing || ''} ${wine.pairing_en || ''}`;
+        if (filter && !filter.match.test(pairingStr)) return false;
+      }
+      
+      // 4. 通常の予算フィルター
+      if (activeBudget) {
+        const filter = budgetFilters.find(b => b.id === activeBudget);
+        if (filter) {
+          if (filter.min !== undefined && wine.price_bottle < filter.min) return false;
+          if (filter.max !== undefined && wine.price_bottle > filter.max) return false;
+        }
+      }
+      
+      // 5. コンシェルジュ：色 (step1Color)
+      if (step1Color && wine.color !== step1Color) return false;
+      
+      // 6. コンシェルジュ：スタイル (step2Style)
+      if (step2Style) {
+        if (step1Color === '赤') {
+          if (step2Style === t.fullBody && wine.body < 4) return false;
+          if (step2Style === t.mediumBody && wine.body !== 3) return false;
+          if (step2Style === t.lightBody && wine.body > 2) return false;
+        } else {
+          const isDry = step2Style.includes('辛口') || step2Style.includes('Dry') || step2Style.includes('Brut');
+          const isMedium = step2Style.includes('中辛口') || step2Style.includes('Extra Dry');
+          const isSweet = step2Style.includes('甘口') || step2Style.includes('Sweet') || step2Style.includes('Demi-Sec');
+          
+          if (isDry && wine.sweetness > 2) return false;
+          if (isMedium && wine.sweetness !== 3) return false;
+          if (isSweet && wine.sweetness < 4) return false;
+        }
+      }
+      
+      // 7. コンシェルジュ：予算 (step3Budget)
+      if (step3Budget) {
+        const budgetOpt = conciergeBudgets.find(b => b.id === step3Budget);
+        if (budgetOpt) {
+          if (budgetOpt.min !== undefined && wine.price_bottle < budgetOpt.min) return false;
+          if (budgetOpt.max !== undefined && wine.price_bottle > budgetOpt.max) return false;
+        }
+      }
+      
+      return true;
+    });
+  }, [inventory, activeColor, activeGlassOnly, activeCuisine, activeBudget, step1Color, step2Style, step3Budget, t]);
+
+  // 【追加】結果0件時の判定フラグ
+  const hasNoResults = filteredInventory.length === 0;
+
+  // 【追加】フォールバック戦略対応の最終表示用メニューデータ
+  const displayedInventory = useMemo(() => {
+    // 該当なしの場合は、全件（フォールバック）を割り当ててユーザー離脱を防ぐ
+    const list = hasNoResults ? [...inventory] : [...filteredInventory];
+    
+    if (sortBy === 'price_desc') {
+      return list.sort((a, b) => (b.price_bottle || 0) - (a.price_bottle || 0));
+    }
+    if (sortBy === 'price_asc') {
+      return list.sort((a, b) => (a.price_bottle || 0) - (b.price_bottle || 0));
+    }
+    return list; // featured (デフォルト順)
+  }, [filteredInventory, hasNoResults, inventory, sortBy]);
 
   const SkeletonItem = () => (
     <div className="flex gap-5 p-4 rounded-[2rem] border border-brand-wine/5 animate-in fade-in duration-700">
@@ -708,7 +790,7 @@ export const CustomerView: React.FC = () => {
                                   ? `${wine.country} / ${wine.region}` 
                                   : `${wine.country_en || wine.country} / ${wine.region_en || wine.region}`} / <span className="text-brand-wine font-black">{t.majorGrape}: {currentLang === 'ja' ? wine.grape : (wine.grape_en || wine.grape)}</span>
                               </div>
-                              {(currentLang === 'ja' ? wine.tags : (wine.tags_en || wine.tags))?.split('、').slice(0, 2).map(tag => (
+                              {(currentLang === 'ja' ? wine.tags : (wine.tags_en || wine.tags))?.split('、').map(tag => (
                                 <div key={tag} className="px-1.5 py-0.5 bg-brand-wine/5 rounded text-xs text-brand-wine/40 font-bold tracking-wider">
                                   #{tag.trim()}
                                 </div>
