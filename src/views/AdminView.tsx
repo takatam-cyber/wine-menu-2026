@@ -1,6 +1,5 @@
 // src/views/AdminView.tsx
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-// 【バグ修正】types.tsの更新漏れによるクラッシュを防ぐため、extractPureIdのインポートを削除
 import { WineMaster, Store } from '../types';
 import { useWines } from '../lib/WineContext';
 import { wineRepository } from '../lib/repositories/wineRepository';
@@ -28,7 +27,6 @@ import { CatalogSelector } from '../components/admin/CatalogSelector';
 const PRODUCTION_DOMAIN = import.meta.env.VITE_APP_DOMAIN || "";
 const getBaseUrl = () => typeof window === 'undefined' ? '' : (window.location.origin.includes('googleusercontent.com') || window.location.origin.includes('localhost') ? PRODUCTION_DOMAIN : window.location.origin);
 
-// 【バグ修正】他ファイルに依存せず、このファイル単独で安全にIDをクレンジングする関数を実装（クラッシュ完全防止）
 const safeExtractPureId = (id: string | undefined, supplier?: string) => {
   if (!id) return '';
   const s = (supplier || 'PIEROTH').toUpperCase();
@@ -60,6 +58,9 @@ export const AdminView: React.FC = () => {
 
   const [selectedWines, setSelectedWines] = useState<WineMaster[]>([]);
   const [initialWines, setInitialWines] = useState<WineMaster[]>([]);
+
+  // 【新機能】マスターカタログ一括削除用の選択ステート
+  const [selectedMasterCatalogIds, setSelectedMasterCatalogIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (inventoryData?.inventory && selectedStoreId === inventoryData.store?.id) {
@@ -100,7 +101,6 @@ export const AdminView: React.FC = () => {
 
   const cuisineTypes = useMemo(() => ['all', ...Array.from(new Set(stores.map(s => s.cuisine_type).filter(Boolean))).sort()], [stores]);
 
-  // 【バグ修正】店名や住所が空（undefined）の店舗データがあっても、絶対にクラッシュさせない安全な検索ロジック
   const filteredStores = useMemo(() => {
     return stores.filter(store => {
       const nameStr = (store.name || '').toLowerCase();
@@ -139,57 +139,6 @@ export const AdminView: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [importStatus]);
-
-  const handleSearchMaster = (term: string) => {
-    setMasterSearchTerm(term);
-  };
-
-  const startEditingMaster = (wine: WineMaster) => {
-    setEditingMasterWine(wine);
-    setEditMasterData({
-      name_jp: wine.name_jp,
-      name_en: wine.name_en,
-      country: wine.country,
-      country_en: wine.country_en,
-      grape: wine.grape,
-      grape_en: wine.grape_en,
-      ai_explanation: wine.ai_explanation,
-      ai_explanation_en: wine.ai_explanation_en,
-      price_bottle: wine.price_bottle,
-    });
-    setIsEditingMaster(true);
-  };
-
-  const handleUpdateMaster = async () => {
-    if (!editingMasterWine) return;
-    try {
-      const docId = getWineDocId(editingMasterWine);
-      const dataToUpdate: any = {
-        ...editMasterData,
-        id: docId,
-        pureId: editingMasterWine.pureId || editingMasterWine.id
-      };
-      const cleanedData = Object.fromEntries(
-        Object.entries(dataToUpdate).filter(([_, v]) => v !== undefined)
-      );
-      await updateDoc(doc(db, 'winesMaster', docId), cleanedData);
-      setImportStatus({ type: 'success', message: 'マスターデータを更新しました' });
-      setIsEditingMaster(false);
-      queryClient.invalidateQueries({ queryKey: ['winesMaster'] });
-    } catch (error: any) {
-      handleFirestoreError(error, OperationType.UPDATE, `winesMaster/${getWineDocId(editingMasterWine)}`);
-    }
-  };
-
-  const handleLoadMoreStores = () => {
-    fetchNextStores();
-  };
-
-  const handleLoadMoreWines = () => {
-    fetchNextWinesMaster();
-  };
-
-  const selectedStore = stores.find(s => s.id === selectedStoreId);
 
   const handleUpdateWineItem = (wineId: string, updatedFields: Partial<WineMaster>, saveImmediately = false) => {
     if (!selectedStoreId) return;
@@ -381,6 +330,34 @@ export const AdminView: React.FC = () => {
       setIsEditingStore(false);
     } catch (error: any) {
       handleFirestoreError(error, OperationType.UPDATE, `stores/${selectedStoreId}`);
+    }
+  };
+
+  // 【新機能】マスターカタログからチェックされたワインを一括削除する関数
+  const handleBulkDeleteMasterWines = async () => {
+    if (selectedMasterCatalogIds.length === 0) return;
+    
+    if (!window.confirm(`選択された ${selectedMasterCatalogIds.length} 件のワインをマスターカタログから完全に削除しますか？\n\n※この操作は取り消せません。現在各店舗に登録されている在庫データから即時消滅することはありませんが、大元のカタログから完全消去されます。`)) {
+      return;
+    }
+
+    try {
+      const CHUNK_SIZE = 450;
+      for (let i = 0; i < selectedMasterCatalogIds.length; i += CHUNK_SIZE) {
+        const chunk = selectedMasterCatalogIds.slice(i, i + CHUNK_SIZE);
+        const batch = writeBatch(db);
+        chunk.forEach(id => {
+          batch.delete(doc(db, 'winesMaster', id));
+        });
+        await batch.commit();
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['winesMaster'] });
+      setSelectedMasterCatalogIds([]);
+      setImportStatus({ type: 'success', message: '選択したマスター銘柄を一括削除しました' });
+    } catch (error) {
+      console.error('マスターカタログの一括削除に失敗しました:', error);
+      alert('一括削除に失敗しました。');
     }
   };
 
@@ -596,7 +573,7 @@ export const AdminView: React.FC = () => {
 
       setImportStatus({ 
         type: 'success', 
-        message: `${uniqueImportedWines.length}件のCSVデータを処理しました。（新規登録: ${newMasterWines.length}件）` 
+        message: `${uniqueImportedWines.length}件のCSVデータを処理しました。（新規マスター登録: ${newMasterWines.length}件）` 
       });
     } catch (error: any) {
       setImportStatus({ type: 'error', message: `インポート失敗: ${error.message}` });
@@ -687,7 +664,9 @@ export const AdminView: React.FC = () => {
                     type="text"
                     className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
                     value={editMasterData.grape_en || ''}
-                    onChange={e => setEditMasterData({...editMasterData, grape_en: e.target.value})}
+                    onChange={e => {
+                      setEditMasterData({...editMasterData, grape_en: e.target.value});
+                    }}
                   />
                 </div>
                 <div className="md:col-span-2">
@@ -749,7 +728,10 @@ export const AdminView: React.FC = () => {
                 {showMasterCatalog ? 'マスターカタログ' : '営業統括ダッシュボード'}
               </h1>
               <button 
-                onClick={() => setShowMasterCatalog(!showMasterCatalog)}
+                onClick={() => {
+                  setSelectedMasterCatalogIds([]); // 画面切替時に選択クリア
+                  setShowMasterCatalog(!showMasterCatalog);
+                }}
                 className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest border transition-all flex items-center gap-2 ${showMasterCatalog ? 'bg-brand-wine text-white border-brand-wine' : 'bg-white text-slate-600 border-slate-200 hover:border-brand-wine hover:text-brand-wine'}`}
               >
                 <Database className="w-3.5 h-3.5" />
@@ -843,6 +825,12 @@ export const AdminView: React.FC = () => {
             onStartEditingMaster={startEditingMaster}
             onUpdateMaster={handleUpdateMaster}
             onCancelEditMaster={() => setIsEditingMaster(false)}
+            // 追加プロップス
+            selectedMasterCatalogIds={selectedMasterCatalogIds}
+            setSelectedMasterCatalogIds={setSelectedMasterCatalogIds}
+            onBulkDeleteWines={handleBulkDeleteMasterWines}
+            hasMoreWines={hasMoreWinesMaster}
+            onLoadMoreWines={handleLoadMoreWines}
           />
         ) : selectedStoreId ? (
           <div className="space-y-8 animate-in fade-in duration-500">
