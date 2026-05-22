@@ -27,20 +27,23 @@ import { CatalogSelector } from '../components/admin/CatalogSelector';
 const PRODUCTION_DOMAIN = import.meta.env.VITE_APP_DOMAIN || "";
 const getBaseUrl = () => typeof window === 'undefined' ? '' : (window.location.origin.includes('googleusercontent.com') || window.location.origin.includes('localhost') ? PRODUCTION_DOMAIN : window.location.origin);
 
-const safeExtractPureId = (id: string | undefined, supplier?: string) => {
+const safeExtractPureId = (id: any, supplier?: any) => {
   if (!id) return '';
-  const s = (supplier || 'PIEROTH').toUpperCase();
+  const strId = String(id);
+  const s = String(supplier || 'PIEROTH').toUpperCase();
   const prefix = `${s}_`;
-  if (id.toUpperCase().startsWith(prefix)) {
-    return id.substring(prefix.length);
+  if (strId.toUpperCase().startsWith(prefix)) {
+    return strId.substring(prefix.length);
   }
-  return id;
+  return strId;
 };
 
-const getWineDocId = (wine: { id?: string; supplier?: string; pureId?: string }) => {
+// 【バグ修正】引数が undefined でも絶対にクラッシュさせない最強の防御壁
+const getWineDocId = (wine: any) => {
+  if (!wine) return `UNKNOWN_${Date.now()}`;
   const pure = safeExtractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase();
-  if (!pure) return wine.id || `UNKNOWN_${Date.now()}`;
-  const supplier = (wine.supplier || 'PIEROTH').toUpperCase();
+  if (!pure) return String(wine.id || `UNKNOWN_${Date.now()}`);
+  const supplier = String(wine.supplier || 'PIEROTH').toUpperCase();
   return `${supplier}_${pure}`;
 };
 
@@ -51,7 +54,6 @@ export const AdminView: React.FC = () => {
   const { data: winesMasterData, fetchNextPage: fetchNextWinesMaster, hasNextPage: hasMoreWinesMaster } = useWinesMasterQuery();
   const [masterSearchTerm, setMasterSearchTerm] = useState('');
 
-  // 【バグ修正】データ内に null や undefined が混ざってクラッシュ（画面が戻れなくなる）のを防ぐ防御壁を追加
   const stores = useMemo(() => (storesData?.pages.flatMap(page => page.data) || []).filter(Boolean), [storesData]);
   const wines = useMemo(() => (winesMasterData?.pages.flatMap(page => page.data) || []).filter(Boolean), [winesMasterData]);
 
@@ -60,7 +62,6 @@ export const AdminView: React.FC = () => {
 
   const [selectedWines, setSelectedWines] = useState<WineMaster[]>([]);
   const [initialWines, setInitialWines] = useState<WineMaster[]>([]);
-
   const [dataLoadedForStore, setDataLoadedForStore] = useState<string | null>(null);
   const [selectedMasterCatalogIds, setSelectedMasterCatalogIds] = useState<string[]>([]);
 
@@ -104,15 +105,18 @@ export const AdminView: React.FC = () => {
   const [selectedCuisineFilter, setSelectedCuisineFilter] = useState('all');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
 
-  const cuisineTypes = useMemo(() => ['all', ...Array.from(new Set(stores.map(s => s.cuisine_type).filter(Boolean))).sort()], [stores]);
+  // 【バグ修正】空の cuisine_type があっても絶対にクラッシュさせない
+  const cuisineTypes = useMemo(() => {
+    const types = stores.map(s => String(s?.cuisine_type || '')).filter(t => t && t !== 'all');
+    return ['all', ...Array.from(new Set(types)).sort()];
+  }, [stores]);
 
   const filteredStores = useMemo(() => {
     return stores.filter(store => {
-      // 防御壁
       if (!store) return false;
-      const nameStr = (store.name || '').toLowerCase();
-      const addressStr = (store.address || '').toLowerCase();
-      const searchStr = (storeSearchTerm || '').toLowerCase();
+      const nameStr = String(store.name || '').toLowerCase();
+      const addressStr = String(store.address || '').toLowerCase();
+      const searchStr = String(storeSearchTerm || '').toLowerCase();
       
       const matchesSearch = !searchStr || nameStr.includes(searchStr) || addressStr.includes(searchStr);
       const matchesCuisine = selectedCuisineFilter === 'all' || store.cuisine_type === selectedCuisineFilter;
@@ -209,13 +213,15 @@ export const AdminView: React.FC = () => {
       const compositeId = getWineDocId(wine);
       (async () => {
         try {
-          await setDoc(doc(db, 'stores', selectedStoreId, 'inventory', compositeId), wine, { merge: true });
-          const richPublicMenu = nextWines.filter(w => w.visible !== false && w.isActive !== false);
+          await setDoc(doc(db, 'stores', selectedStoreId, 'inventory', compositeId), { ...wine, id: compositeId }, { merge: true });
+          
+          const richPublicMenu = nextWines
+            .filter(w => w.visible !== false && w.isActive !== false)
+            .map(w => ({ ...w, id: getWineDocId(w) }));
+
           await updateDoc(doc(db, 'stores', selectedStoreId), { publicMenu: richPublicMenu, updatedAt: new Date().toISOString() });
           
-          // 【バグ修正】お客様メニューに即時反映させるためのキャッシュクリア
           queryClient.invalidateQueries({ queryKey: ['publicMenu', selectedStoreId] });
-          
           setInitialWines(JSON.parse(JSON.stringify(nextWines))); 
         } catch (error) {
           console.error('Error auto-updating wine inventory item:', error);
@@ -233,12 +239,23 @@ export const AdminView: React.FC = () => {
     if (selectedWines.some(sw => getWineDocId(sw) === compositeId)) return alert('このワインは既にメニューに登録されています。');
     
     if (selectedStoreId) {
+      const allowed = Array.isArray(selectedStore?.allowedSuppliers) 
+        ? selectedStore!.allowedSuppliers.map(s => String(s).toUpperCase())
+        : ['PIEROTH'];
+        
+      const wineSupplier = String(wine.supplier || 'PIEROTH').toUpperCase();
+      
+      if (!allowed.includes(wineSupplier)) {
+        alert(`この店舗には指定サプライヤー「${wineSupplier}」のワインを登録する権限がありません`);
+        return;
+      }
+
       try {
         const newInventoryItem = {
           ...wine,
           id: compositeId,
           pureId: safeExtractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
-          supplier: (wine.supplier || 'PIEROTH').toUpperCase(),
+          supplier: wineSupplier,
           price_bottle: wine.price_bottle || wine.cost * 3,
           price_glass: wine.price_glass || Math.round((wine.cost * 3 / 6) / 100) * 100,
           glasses_per_bottle: 6,
@@ -255,7 +272,10 @@ export const AdminView: React.FC = () => {
         setInitialWines(JSON.parse(JSON.stringify(newWinesList))); 
         setSearchId('');
         
-        const richPublicMenu = newWinesList.filter(w => w.visible !== false && w.isActive !== false);
+        const richPublicMenu = newWinesList
+          .filter(w => w.visible !== false && w.isActive !== false)
+          .map(w => ({ ...w, id: getWineDocId(w) }));
+
         await updateDoc(doc(db, 'stores', selectedStoreId), { publicMenu: richPublicMenu, updatedAt: new Date().toISOString() });
         fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
         queryClient.invalidateQueries({ queryKey: ['publicMenu', selectedStoreId] });
@@ -268,7 +288,19 @@ export const AdminView: React.FC = () => {
   const handleBulkAddWines = async () => {
     if (!selectedStoreId || selectedMasterCatalogIds.length === 0) return;
     try {
-      const winesToAdd = wines.filter(w => selectedMasterCatalogIds.includes(w.id));
+      let winesToAdd = wines.filter(w => selectedMasterCatalogIds.includes(w.id));
+      
+      const allowed = Array.isArray(selectedStore?.allowedSuppliers) 
+        ? selectedStore!.allowedSuppliers.map(s => String(s).toUpperCase())
+        : ['PIEROTH'];
+
+      const unauthorized = winesToAdd.filter(w => !allowed.includes(String(w.supplier || 'PIEROTH').toUpperCase()));
+      if (unauthorized.length > 0) {
+        const unauthorizedSet = Array.from(new Set(unauthorized.map(w => String(w.supplier || 'PIEROTH').toUpperCase())));
+        alert(`許可されていないサプライヤーが含まれています: ${unauthorizedSet.join(', ')}`);
+        return;
+      }
+
       const CHUNK_SIZE = 450;
       for (let i = 0; i < winesToAdd.length; i += CHUNK_SIZE) {
         const chunk = winesToAdd.slice(i, i + CHUNK_SIZE);
@@ -279,7 +311,7 @@ export const AdminView: React.FC = () => {
             ...wine,
             id: compositeId,
             pureId: safeExtractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
-            supplier: (wine.supplier || 'PIEROTH').toUpperCase(),
+            supplier: String(wine.supplier || 'PIEROTH').toUpperCase(),
             price_bottle: wine.price_bottle || wine.cost * 3,
             price_glass: wine.price_glass || Math.round((wine.cost * 3 / 6) / 100) * 100,
             glasses_per_bottle: 6,
@@ -312,7 +344,10 @@ export const AdminView: React.FC = () => {
       setSelectedWines(mergedList);
       setInitialWines(JSON.parse(JSON.stringify(mergedList)));
       
-      const richPublicMenu = mergedList.filter(w => w.visible !== false && w.isActive !== false);
+      const richPublicMenu = mergedList
+        .filter(w => w.visible !== false && w.isActive !== false)
+        .map(w => ({ ...w, id: getWineDocId(w) }));
+
       await updateDoc(doc(db, 'stores', selectedStoreId), { publicMenu: richPublicMenu, updatedAt: new Date().toISOString() });
       
       fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
@@ -351,8 +386,10 @@ export const AdminView: React.FC = () => {
             initialWine.glasses_per_bottle !== wine.glasses_per_bottle;
 
           if (isChanged) {
-            const docRef = doc(db, 'stores', selectedStoreId, 'inventory', wine.id);
-            batch.set(docRef, wine, { merge: true });
+            // 【バグ修正】確実に複合IDで保存する
+            const compositeId = getWineDocId(wine);
+            const docRef = doc(db, 'stores', selectedStoreId, 'inventory', compositeId);
+            batch.set(docRef, { ...wine, id: compositeId }, { merge: true });
             chunkWriteCount++;
             totalWriteCount++;
           }
@@ -361,15 +398,17 @@ export const AdminView: React.FC = () => {
         if (chunkWriteCount > 0) await batch.commit();
       }
 
-      const richPublicMenu = selectedWines.filter(w => w.visible !== false && w.isActive !== false);
+      // 【バグ修正】お客様メニューに保存されるデータにも確実に複合IDを付与して保存
+      const richPublicMenu = selectedWines
+        .filter(w => w.visible !== false && w.isActive !== false)
+        .map(w => ({ ...w, id: getWineDocId(w) }));
+
       await updateDoc(doc(db, 'stores', selectedStoreId), {
         publicMenu: richPublicMenu,
         updatedAt: new Date().toISOString()
       });
 
       fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
-      
-      // 【バグ修正】一括保存後、即座にお客様メニューにも価格を反映させる
       queryClient.invalidateQueries({ queryKey: ['publicMenu', selectedStoreId] });
       queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
       
@@ -391,7 +430,10 @@ export const AdminView: React.FC = () => {
       setSelectedWines(filteredList);
       setInitialWines(JSON.parse(JSON.stringify(filteredList)));
       
-      const richPublicMenu = filteredList.filter(w => w.visible !== false && w.isActive !== false);
+      const richPublicMenu = filteredList
+        .filter(w => w.visible !== false && w.isActive !== false)
+        .map(w => ({ ...w, id: getWineDocId(w) }));
+
       await updateDoc(doc(db, 'stores', selectedStoreId), { publicMenu: richPublicMenu, updatedAt: new Date().toISOString() });
       fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
       queryClient.invalidateQueries({ queryKey: ['publicMenu', selectedStoreId] });
@@ -589,10 +631,11 @@ export const AdminView: React.FC = () => {
 
       if (selectedStoreId) {
         let winesToAdd = uniqueImportedWines;
-        if (selectedStore?.allowedSuppliers) {
-          const allowed = selectedStore.allowedSuppliers.map(s => s.toUpperCase());
-          winesToAdd = winesToAdd.filter(w => allowed.includes((w.supplier || 'PIEROTH').toUpperCase()));
-        }
+        const allowed = Array.isArray(selectedStore?.allowedSuppliers) 
+          ? selectedStore!.allowedSuppliers.map(s => String(s).toUpperCase())
+          : ['PIEROTH'];
+          
+        winesToAdd = winesToAdd.filter(w => allowed.includes(String(w.supplier || 'PIEROTH').toUpperCase()));
 
         const newInventoryWines = winesToAdd.filter(wine => {
           const compositeId = getWineDocId(wine);
@@ -610,7 +653,7 @@ export const AdminView: React.FC = () => {
                 ...wine,
                 id: compositeId,
                 pureId: safeExtractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
-                supplier: (wine.supplier || 'PIEROTH').toUpperCase(),
+                supplier: String(wine.supplier || 'PIEROTH').toUpperCase(),
                 price_bottle: wine.price_bottle || Math.round(wine.cost * 3 / 100) * 100,
                 price_glass: wine.price_glass || 0,
                 glasses_per_bottle: 6,
@@ -644,7 +687,10 @@ export const AdminView: React.FC = () => {
           setSelectedWines(mergedWinesList);
           setInitialWines(JSON.parse(JSON.stringify(mergedWinesList)));
           
-          const richPublicMenu = mergedWinesList.filter(w => w.visible !== false && w.isActive !== false);
+          const richPublicMenu = mergedWinesList
+            .filter(w => w.visible !== false && w.isActive !== false)
+            .map(w => ({ ...w, id: getWineDocId(w) }));
+
           await updateDoc(doc(db, 'stores', selectedStoreId), { publicMenu: richPublicMenu, updatedAt: new Date().toISOString() });
           fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
           queryClient.invalidateQueries({ queryKey: ['publicMenu', selectedStoreId] });
@@ -744,7 +790,9 @@ export const AdminView: React.FC = () => {
                     type="text"
                     className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
                     value={editMasterData.grape_en || ''}
-                    onChange={e => setEditMasterData({...editMasterData, grape_en: e.target.value})}
+                    onChange={e => {
+                      setEditMasterData({...editMasterData, grape_en: e.target.value});
+                    }}
                   />
                 </div>
                 <div className="md:col-span-2">
@@ -1017,7 +1065,9 @@ export const AdminView: React.FC = () => {
                       <input 
                         type="text"
                         placeholder="5000, 10000, 20000"
-                        value={isEditingStore ? (editStoreData.budgetTiers?.join(', ') || '') : (selectedStore?.budgetTiers?.join(', ') || '')}
+                        value={isEditingStore 
+                          ? (Array.isArray(editStoreData.budgetTiers) ? editStoreData.budgetTiers.join(', ') : String(editStoreData.budgetTiers || '')) 
+                          : (Array.isArray(selectedStore?.budgetTiers) ? selectedStore!.budgetTiers.join(', ') : String(selectedStore?.budgetTiers || ''))}
                         onChange={e => {
                           const tiers = e.target.value.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
                           setEditStoreData({...editStoreData, budgetTiers: tiers});
