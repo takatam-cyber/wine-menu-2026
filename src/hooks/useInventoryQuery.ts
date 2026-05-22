@@ -5,7 +5,7 @@ import { db } from '../lib/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { WineMaster, Store } from '../types';
 
-// ファイル単独で安全にIDをクレンジングする関数
+// 【バグ修正】インポートエラーによるホワイトアウトを防ぐため、ファイル単独で安全にIDをクレンジングする関数を使用
 const safeExtractPureId = (id: string | undefined, supplier?: string) => {
   if (!id) return '';
   const s = (supplier || 'PIEROTH').toUpperCase();
@@ -48,9 +48,7 @@ export function useInventoryQuery(storeId: string | null) {
         }
       });
 
-      // 【致命的クラッシュの修正】
-      // Firebase の 'in' クエリに空文字が渡るとアプリが死ぬ（Invalid document ID）ため、
-      // 空文字・空白・不正な接頭辞だけの文字列をここで完全に除去します。
+      // Firebase の 'in' クエリに空文字が渡るとアプリが死ぬため、完全に除去
       const searchIdsArray = Array.from(searchIds).filter(id => 
         id && id.trim().length > 0 && id !== 'PIEROTH_' && id !== 'OTHER_'
       );
@@ -58,7 +56,6 @@ export function useInventoryQuery(storeId: string | null) {
       const chunkPromises = [];
       for (let i = 0; i < searchIdsArray.length; i += 30) {
         const chunk = searchIdsArray.slice(i, i + 30);
-        // chunkが空のままクエリを投げないようにブロック
         if (chunk.length > 0) {
           const q = query(collection(db, 'winesMaster'), where('__name__', 'in', chunk));
           chunkPromises.push(getDocs(q));
@@ -75,7 +72,6 @@ export function useInventoryQuery(storeId: string | null) {
           
           const invItem = upperInventoryItems.find(item => {
             const itemPureId = safeExtractPureId(item.id, item.supplier || masterData.supplier).toUpperCase();
-            // 純粋なID同士、または完全一致で照合
             return itemPureId === masterPureId || item.id === masterDocId;
           });
 
@@ -98,7 +94,6 @@ export function useInventoryQuery(storeId: string | null) {
         });
       });
 
-      // 重複排除とソート（pureId がない場合は id をキーにする）
       const uniqueWines = Array.from(new Map(enrichedWines.map(w => [w.pureId || w.id, w])).values());
       const sortedWines = uniqueWines.sort((a, b) => (a.name_jp || '').localeCompare(b.name_jp || ''));
 
