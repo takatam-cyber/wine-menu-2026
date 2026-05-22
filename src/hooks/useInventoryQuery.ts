@@ -5,6 +5,16 @@ import { db } from '../lib/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { WineMaster, Store, extractPureId } from '../types';
 
+const safeExtractPureId = (id: string | undefined, supplier?: string) => {
+  if (!id) return '';
+  const s = (supplier || 'PIEROTH').toUpperCase();
+  const prefix = `${s}_`;
+  if (id.toUpperCase().startsWith(prefix)) {
+    return id.substring(prefix.length);
+  }
+  return id;
+};
+
 export function useInventoryQuery(storeId: string | null) {
   return useQuery({
     queryKey: ['inventory', storeId],
@@ -27,11 +37,19 @@ export function useInventoryQuery(storeId: string | null) {
         id: item.id.toUpperCase()
       }));
 
-      const compositeItemIds = upperInventoryItems.map(item => item.id);
+      // 【バグ修正】古いID（A1234）と新しいID（PIEROTH_A1234）の混在を吸収するため、両方のパターンでマスターを検索します
+      const searchIds = new Set<string>();
+      upperInventoryItems.forEach(item => {
+        searchIds.add(item.id);
+        const pure = safeExtractPureId(item.id, item.supplier).toUpperCase();
+        searchIds.add(pure); // 古いID用
+        searchIds.add(`${(item.supplier || 'PIEROTH').toUpperCase()}_${pure}`); // 新しいID用
+      });
 
       const chunkPromises = [];
-      for (let i = 0; i < compositeItemIds.length; i += 30) {
-        const chunk = compositeItemIds.slice(i, i + 30);
+      const searchIdsArray = Array.from(searchIds);
+      for (let i = 0; i < searchIdsArray.length; i += 30) {
+        const chunk = searchIdsArray.slice(i, i + 30);
         const q = query(collection(db, 'winesMaster'), where('__name__', 'in', chunk));
         chunkPromises.push(getDocs(q));
       }
@@ -42,14 +60,19 @@ export function useInventoryQuery(storeId: string | null) {
         masterSnaps.forEach(docSnap => {
           const masterData = docSnap.data() as WineMaster;
           const masterDocId = docSnap.id.toUpperCase();
+          const masterPureId = safeExtractPureId(masterDocId, masterData.supplier).toUpperCase();
           
-          const invItem = upperInventoryItems.find(item => item.id === masterDocId);
+          // IDの形式が違っても、純粋なコード（pureId）同士で確実にマッチングさせます
+          const invItem = upperInventoryItems.find(item => {
+            const itemPureId = safeExtractPureId(item.id, item.supplier || masterData.supplier).toUpperCase();
+            return itemPureId === masterPureId;
+          });
 
           if (invItem) {
             enrichedWines.push({ 
               ...masterData, 
               id: masterDocId,
-              pureId: extractPureId(masterDocId, masterData.supplier).toUpperCase(),
+              pureId: masterPureId,
               price_bottle: invItem.price_bottle ?? masterData.price_bottle,
               price_glass: invItem.price_glass ?? masterData.price_glass,
               cost: invItem.cost ?? masterData.cost ?? 2000,
@@ -64,7 +87,9 @@ export function useInventoryQuery(storeId: string | null) {
         });
       });
 
-      const sortedWines = enrichedWines.sort((a, b) => (a.name_jp || '').localeCompare(b.name_jp || ''));
+      // 重複排除とソート
+      const uniqueWines = Array.from(new Map(enrichedWines.map(w => [w.pureId, w])).values());
+      const sortedWines = uniqueWines.sort((a, b) => (a.name_jp || '').localeCompare(b.name_jp || ''));
 
       return {
         store: storeData,
