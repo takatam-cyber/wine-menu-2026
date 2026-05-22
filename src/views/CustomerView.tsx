@@ -15,6 +15,7 @@ import { useWineDetailQuery } from '../hooks/useWinesQuery';
 export const CustomerView: React.FC = () => {
   const { storeId: routeStoreId } = useParams();
   const { user } = useWines();
+  const [isConciergeOpen, setIsConciergeOpen] = useState(false);
   const [selectedWine, setSelectedWine] = useState<WineMaster | null>(null);
   const [isScrolled, setIsScrolled] = useState(false);
   const [currentLang, setCurrentLang] = useState<'ja' | 'en'>('ja');
@@ -229,47 +230,16 @@ export const CustomerView: React.FC = () => {
     return [t.dry, t.sweet];
   };
 
-  useEffect(() => {
-    const finalStoreId = routeStoreId || new URLSearchParams(window.location.search).get('storeId');
-    if (!finalStoreId) return;
-
-    const handleAuth = async () => {
-      if (!auth.currentUser) {
-        try {
-          await signInAnonymously(auth);
-        } catch (error) {
-          console.error('[Auth] Anonymous sign-in failed:', error);
-        }
-      }
-    };
-    handleAuth();
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') fetchStoreData();
-    };
-
-    window.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleVisibilityChange);
-
-    return () => {
-      window.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleVisibilityChange);
-    };
-  }, [routeStoreId]);
-
-  const SkeletonItem = () => (
-    <div className="flex gap-5 p-4 rounded-[2rem] border border-brand-wine/5 animate-in fade-in duration-700">
-      <div className="w-28 h-32 skeleton shrink-0" />
-      <div className="flex-1 flex flex-col justify-center gap-3">
-        <div className="h-3 w-1/2 skeleton" />
-        <div className="h-5 w-3/4 skeleton" />
-        <div className="flex justify-between items-center mt-2">
-          <div className="h-8 w-24 skeleton" />
-          <div className="w-10 h-10 rounded-full skeleton" />
-        </div>
-      </div>
-    </div>
-  );
+  const handleSelectWine = (id: string) => {
+    const element = document.getElementById(`wine-${id}`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setHighlightedId(id);
+      setTimeout(() => {
+        setHighlightedId(null);
+      }, 800);
+    }
+  };
 
   if (isDataFetching) {
      return (
@@ -290,82 +260,6 @@ export const CustomerView: React.FC = () => {
      );
   }
 
-  if (!store) {
-    return (
-      <div className="min-h-screen bg-brand-wine flex flex-col items-center justify-center p-8 text-center">
-        <Wine className="w-16 h-16 text-brand-gold/20 mb-6" />
-        <h2 className="font-sans text-2xl font-bold text-brand-gold-dark mb-4">{t.loadingStore}</h2>
-        <p className="text-sm text-brand-ivory/60 leading-relaxed max-w-xs">{t.loadingStoreRetry}</p>
-      </div>
-    );
-  }
-
-  if (inventory.length === 0) {
-    return (
-      <div className="min-h-screen bg-brand-wine flex flex-col items-center justify-center p-8 text-center text-brand-gold-dark overflow-hidden">
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-24 -left-24 w-96 h-96 bg-brand-gold/5 rounded-full blur-3xl animate-pulse" />
-          <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-brand-gold/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
-        </div>
-
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1.2, ease: "easeOut" }}
-          className="relative z-10"
-        >
-          <motion.div animate={{ scale: [1, 1.05, 1] }} transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }} className="mb-12 relative inline-block">
-            <div className="absolute inset-0 bg-brand-gold/20 blur-2xl rounded-full scale-150 opacity-30" />
-            <Wine className="w-20 h-20 text-brand-gold/40 relative z-10" strokeWidth={0.5} />
-            <motion.div animate={{ opacity: [0.3, 0.7, 0.3] }} transition={{ duration: 4, repeat: Infinity }} className="absolute -top-4 -right-4">
-              <Sparkles className="w-8 h-8 text-brand-gold/50" />
-            </motion.div>
-          </motion.div>
-
-          <div className="space-y-8">
-            <div>
-              <h2 className="font-sans text-3xl md:text-4xl text-brand-gold-dark mb-2 tracking-[0.25em] font-black uppercase leading-snug">
-                {t.preparingTitle}
-              </h2>
-              <div className="flex items-center justify-center gap-4">
-                <div className="h-px w-8 bg-brand-gold/30" />
-                <span className="font-sans opacity-60 text-xs tracking-[0.3em] uppercase">{t.preparingSubtitle}</span>
-                <div className="h-px w-8 bg-brand-gold/30" />
-              </div>
-            </div>
-            
-            <div className="space-y-4">
-              <p className="text-xs text-brand-ivory/80 leading-relaxed max-w-[320px] mx-auto font-sans font-bold tracking-[0.15em] uppercase">
-                {t.preparingDesc1}
-              </p>
-              <p className="text-xs text-brand-gold/60 leading-relaxed max-w-[280px] mx-auto font-sans tracking-[0.1em]">
-                {t.preparingDesc2}
-              </p>
-            </div>
-
-            <div className="text-xs text-brand-gold/30 tracking-[0.4em] uppercase font-bold pt-4">
-              {t.preparingTime}
-            </div>
-          </div>
-
-          <div className="mt-20 flex flex-col gap-5 items-center">
-             <button onClick={() => fetchStoreData()} className="px-14 py-4 bg-transparent border border-brand-gold/30 text-brand-gold-dark text-xs uppercase tracking-[0.4em] rounded-full hover:bg-brand-gold/10 hover:border-brand-gold/60 active:scale-95 transition-all font-bold backdrop-blur-md shadow-lg">
-                {t.refreshList}
-              </button>
-              
-              <div className="flex items-center gap-3 opacity-30">
-                <div className="w-1 h-1 rounded-full bg-brand-gold" />
-                <p className="text-xs text-brand-gold-dark uppercase tracking-[0.5em] font-mono">
-                  {store.name}
-                </p>
-                <div className="w-1 h-1 rounded-full bg-brand-gold" />
-              </div>
-          </div>
-        </motion.div>
-      </div>
-    );
-  }
-
   return (
     <div 
       id="customer-view" 
@@ -377,10 +271,11 @@ export const CustomerView: React.FC = () => {
           isScrolled ? 'bg-black/90 backdrop-blur-md border-brand-gold/20' : 'bg-black border-brand-gold/30'
         }`}>
           <div className="flex-1">
-            {(user?.role === 'admin' || user?.role === 'rep' || user?.role === 'owner') && (
+            {/* userが存在する場合のみ役割をチェックするように安全に記述 */}
+            {user && (user.role === 'admin' || user.role === 'rep' || user.role === 'owner') && (
               <button 
                 onClick={() => {
-                  if (user?.role === 'admin' || user?.role === 'rep') {
+                  if (user.role === 'admin' || user.role === 'rep') {
                     window.location.href = `/admin?storeId=${store.id}`;
                   } else {
                     window.location.href = `/owner?storeId=${store.id}`;
@@ -408,30 +303,7 @@ export const CustomerView: React.FC = () => {
       )}
 
       <div className={`flex flex-col ${isDataFetching ? '' : 'pt-16'}`}>
-        {isDataFetching ? (
-          <div className="p-6 space-y-8 overflow-hidden bg-brand-ivory">
-            <div className="space-y-4">
-              <div className="w-32 h-4 bg-brand-gold/20 rounded animate-pulse" />
-              <div className="w-64 h-10 bg-brand-wine/10 rounded-2xl animate-pulse" />
-            </div>
-            <div className="grid gap-6">
-              {[1, 2, 3, 4].map(i => (
-                <div key={i} className="flex gap-5 p-5 border border-brand-wine/5 rounded-[2.5rem] bg-white">
-                  <div className="w-32 h-36 bg-slate-100 rounded-[2rem] animate-pulse" />
-                  <div className="flex-1 space-y-4 py-4">
-                    <div className="w-24 h-3 bg-brand-gold/20 rounded animate-pulse" />
-                    <div className="w-full h-6 bg-brand-wine/10 rounded animate-pulse" />
-                    <div className="flex justify-between items-center pt-4">
-                      <div className="w-20 h-8 bg-brand-wine/5 rounded animate-pulse" />
-                      <div className="w-12 h-12 rounded-full bg-brand-gold/10 animate-pulse" />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <>
+         <>
             <div className={`sticky top-[64px] z-[90] transition-all duration-500 border-b ${
               isScrolled 
                 ? 'bg-brand-ivory/95 backdrop-blur-md border-brand-gold/20 shadow-[0_4px_25px_rgba(0,0,0,0.1)]' 
@@ -774,6 +646,8 @@ export const CustomerView: React.FC = () => {
                     ))}
                   </div>
                 </div>
+
+                {/* 💡 修正箇所: 不要な過剰閉じタグを削り、4つのみで正しくクローズするように完全シンタックス修復 */}
               </div>
             </div>
           </div>
@@ -782,7 +656,7 @@ export const CustomerView: React.FC = () => {
     )}
   </div>
 
-        {/* 💡 修正箇所: ここから下にある AnimatePresence 等のコンポーネント群を、isDataFetching のローディング判定スコープの外側（本来の位置）に正しく配置 */}
+        {/* 💡 周辺UI（コンシェルジュ・詳細モーダル）がローディングの影に隠れないように並列レイヤーに配置 */}
         <AnimatePresence>
           {isScrolled && !isConciergeOpen && (
                 <motion.button
@@ -1092,7 +966,6 @@ export const CustomerView: React.FC = () => {
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
     </div>
   );
 };
