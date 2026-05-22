@@ -19,8 +19,20 @@ import { StoreAnalytics } from '../components/admin/StoreAnalytics';
 const PRODUCTION_DOMAIN = import.meta.env.VITE_APP_DOMAIN || "";
 const getBaseUrl = () => typeof window === 'undefined' ? '' : (window.location.origin.includes('googleusercontent.com') || window.location.origin.includes('localhost') ? PRODUCTION_DOMAIN : window.location.origin);
 
+const safeExtractPureId = (id: string | undefined, supplier?: string) => {
+  if (!id) return '';
+  const s = (supplier || 'PIEROTH').toUpperCase();
+  const prefix = `${s}_`;
+  if (id.toUpperCase().startsWith(prefix)) {
+    return id.substring(prefix.length);
+  }
+  return id;
+};
+
+// 【バグ修正】IDが空文字になってクラッシュするのを防ぐ安全装置を追加
 const getWineDocId = (wine: { id?: string; supplier?: string; pureId?: string }) => {
-  const pure = extractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase();
+  const pure = safeExtractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase();
+  if (!pure) return wine.id || `UNKNOWN_${Date.now()}`;
   const supplier = (wine.supplier || 'PIEROTH').toUpperCase();
   return `${supplier}_${pure}`;
 };
@@ -360,7 +372,7 @@ export const OwnerView: React.FC = () => {
         <div className="lg:col-span-2">
           <InventoryManager 
             selectedStore={store || undefined}
-            selectedStoreId={sid}
+            selectedStoreId={sid as string}
             selectedWines={selectedWines}
             setSelectedWines={setSelectedWines}
             masterWines={masterWines}
@@ -541,7 +553,7 @@ export const OwnerView: React.FC = () => {
         isOpen={showCatalogSelection}
         onClose={() => setShowCatalogSelection(false)}
         selectedStore={store || undefined}
-        wines={wines}
+        wines={masterWines}
         masterSearchTerm={masterSearchTerm}
         setMasterSearchTerm={setMasterSearchTerm}
         selectedWines={selectedWines}
