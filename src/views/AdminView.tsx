@@ -1,6 +1,6 @@
 // src/views/AdminView.tsx
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { WineMaster, Store, extractPureId } from '../types';
+import { WineMaster, Store } from '../types';
 import { useWines } from '../lib/WineContext';
 import { wineRepository } from '../lib/repositories/wineRepository';
 import { useStoresQuery } from '../hooks/useStoresQuery';
@@ -27,8 +27,20 @@ import { CatalogSelector } from '../components/admin/CatalogSelector';
 const PRODUCTION_DOMAIN = import.meta.env.VITE_APP_DOMAIN || "";
 const getBaseUrl = () => typeof window === 'undefined' ? '' : (window.location.origin.includes('googleusercontent.com') || window.location.origin.includes('localhost') ? PRODUCTION_DOMAIN : window.location.origin);
 
+const safeExtractPureId = (id: string | undefined, supplier?: string) => {
+  if (!id) return '';
+  const s = (supplier || 'PIEROTH').toUpperCase();
+  const prefix = `${s}_`;
+  if (id.toUpperCase().startsWith(prefix)) {
+    return id.substring(prefix.length);
+  }
+  return id;
+};
+
+// 【バグ修正】IDが空文字になってクラッシュするのを防ぐ安全装置を追加
 const getWineDocId = (wine: { id?: string; supplier?: string; pureId?: string }) => {
-  const pure = extractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase();
+  const pure = safeExtractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase();
+  if (!pure) return wine.id || `UNKNOWN_${Date.now()}`;
   const supplier = (wine.supplier || 'PIEROTH').toUpperCase();
   return `${supplier}_${pure}`;
 };
@@ -118,6 +130,7 @@ export const AdminView: React.FC = () => {
   const [editMasterData, setEditMasterData] = useState<Partial<WineMaster>>({});
   const [editStoreData, setEditStoreData] = useState<Partial<Store>>({});
   const [showCatalogSelection, setShowCatalogSelection] = useState(false);
+  const [selectedMasterIds, setSelectedMasterIds] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -214,7 +227,7 @@ export const AdminView: React.FC = () => {
         const newInventoryItem = {
           ...wine,
           id: compositeId,
-          pureId: extractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
+          pureId: safeExtractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
           supplier: (wine.supplier || 'PIEROTH').toUpperCase(),
           price_bottle: wine.price_bottle || wine.cost * 3,
           price_glass: wine.price_glass || Math.round((wine.cost * 3 / 6) / 100) * 100,
@@ -242,9 +255,9 @@ export const AdminView: React.FC = () => {
   };
 
   const handleBulkAddWines = async () => {
-    if (!selectedStoreId || selectedMasterCatalogIds.length === 0) return;
+    if (!selectedStoreId || selectedMasterIds.length === 0) return;
     try {
-      const winesToAdd = wines.filter(w => selectedMasterCatalogIds.includes(w.id));
+      const winesToAdd = wines.filter(w => selectedMasterIds.includes(w.id));
       const CHUNK_SIZE = 450;
       for (let i = 0; i < winesToAdd.length; i += CHUNK_SIZE) {
         const chunk = winesToAdd.slice(i, i + CHUNK_SIZE);
@@ -254,7 +267,7 @@ export const AdminView: React.FC = () => {
           const newInventoryItem = {
             ...wine,
             id: compositeId,
-            pureId: extractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
+            pureId: safeExtractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
             supplier: (wine.supplier || 'PIEROTH').toUpperCase(),
             price_bottle: wine.price_bottle || wine.cost * 3,
             price_glass: wine.price_glass || Math.round((wine.cost * 3 / 6) / 100) * 100,
@@ -272,7 +285,7 @@ export const AdminView: React.FC = () => {
       const newWinesToAppend = winesToAdd.map(wine => ({
         ...wine,
         id: getWineDocId(wine),
-        pureId: extractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
+        pureId: safeExtractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
         price_bottle: wine.price_bottle || wine.cost * 3,
         price_glass: wine.price_glass || Math.round((wine.cost * 3 / 6) / 100) * 100,
         glasses_per_bottle: 6,
@@ -292,9 +305,9 @@ export const AdminView: React.FC = () => {
       await updateDoc(doc(db, 'stores', selectedStoreId), { publicMenu: richPublicMenu, updatedAt: new Date().toISOString() });
       
       fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
-      setImportStatus({ type: 'success', message: `${selectedMasterCatalogIds.length}件のワインを追加しました` });
+      setImportStatus({ type: 'success', message: `${selectedMasterIds.length}件のワインを追加しました` });
       setShowCatalogSelection(false);
-      setSelectedMasterCatalogIds([]);
+      setSelectedMasterIds([]);
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `stores/${selectedStoreId}/bulk`);
     }
@@ -304,37 +317,25 @@ export const AdminView: React.FC = () => {
     if (!selectedStoreId) return;
     setIsSaving(true);
     try {
-      let totalWriteCount = 0;
+      let writeCount = 0;
       const CHUNK_SIZE = 450;
       
       for (let i = 0; i < selectedWines.length; i += CHUNK_SIZE) {
         const chunk = selectedWines.slice(i, i + CHUNK_SIZE);
         const batch = writeBatch(db);
-        let chunkWriteCount = 0;
         
         chunk.forEach(wine => {
           const initialWine = initialWines.find(iw => iw.id === wine.id);
-          // 【バグ修正】確実な差分検知を行い、変更が漏れて保存されないのを防ぐ
-          const isChanged = !initialWine || 
-            initialWine.price_bottle !== wine.price_bottle || 
-            initialWine.price_glass !== wine.price_glass || 
-            initialWine.cost !== wine.cost || 
-            initialWine.stock !== wine.stock || 
-            initialWine.visible !== wine.visible || 
-            initialWine.isFeatured !== wine.isFeatured || 
-            initialWine.promoLabel !== wine.promoLabel ||
-            initialWine.glasses_per_bottle !== wine.glasses_per_bottle;
+          const isChanged = !initialWine || JSON.stringify(initialWine) !== JSON.stringify(wine);
 
           if (isChanged) {
             const docRef = doc(db, 'stores', selectedStoreId, 'inventory', wine.id);
             batch.set(docRef, wine, { merge: true });
-            chunkWriteCount++;
-            totalWriteCount++;
+            writeCount++;
           }
         });
         
-        // 【バグ修正】チャンク内に変更があった時だけコミットを走らせる
-        if (chunkWriteCount > 0) await batch.commit();
+        if (writeCount > 0) await batch.commit();
       }
 
       const richPublicMenu = selectedWines.filter(w => w.visible !== false && w.isActive !== false);
@@ -344,11 +345,8 @@ export const AdminView: React.FC = () => {
       });
 
       fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
-      
-      // 保存完了後に最新の状態を再取得し、画面と同期させる
-      queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
       setInitialWines(JSON.parse(JSON.stringify(selectedWines)));
-      setImportStatus({ type: 'success', message: `保存完了（更新件数: ${totalWriteCount}件）` });
+      setImportStatus({ type: 'success', message: `保存完了（変更点: ${writeCount}件）` });
     } catch (error) {
       console.error('一括保存に失敗しました:', error);
       alert('一括保存に失敗しました。');
@@ -388,7 +386,10 @@ export const AdminView: React.FC = () => {
 
   const handleBulkDeleteMasterWines = async () => {
     if (selectedMasterCatalogIds.length === 0) return;
-    if (!window.confirm(`選択された ${selectedMasterCatalogIds.length} 件のワインをマスターから削除しますか？`)) return;
+    
+    if (!window.confirm(`選択された ${selectedMasterCatalogIds.length} 件のワインをマスターカタログから完全に削除しますか？\n\n※この操作は取り消せません。現在各店舗に登録されている在庫データから即時消滅することはありませんが、大元のカタログから完全消去されます。`)) {
+      return;
+    }
 
     try {
       const CHUNK_SIZE = 450;
@@ -405,6 +406,7 @@ export const AdminView: React.FC = () => {
       setSelectedMasterCatalogIds([]);
       setImportStatus({ type: 'success', message: '選択したマスター銘柄を一括削除しました' });
     } catch (error) {
+      console.error('マスターカタログの一括削除に失敗しました:', error);
       alert('一括削除に失敗しました。');
     }
   };
@@ -578,7 +580,7 @@ export const AdminView: React.FC = () => {
               const invItem = {
                 ...wine,
                 id: compositeId,
-                pureId: extractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
+                pureId: safeExtractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
                 supplier: (wine.supplier || 'PIEROTH').toUpperCase(),
                 price_bottle: wine.price_bottle || Math.round(wine.cost * 3 / 100) * 100,
                 price_glass: wine.price_glass || 0,
@@ -600,7 +602,7 @@ export const AdminView: React.FC = () => {
             mergedWinesList.push({
               ...wine,
               id: compositeId,
-              pureId: extractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
+              pureId: safeExtractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
               price_bottle: wine.price_bottle || Math.round(wine.cost * 3 / 100) * 100,
               price_glass: wine.price_glass || 0,
               glasses_per_bottle: 6,
@@ -632,7 +634,7 @@ export const AdminView: React.FC = () => {
   };
 
   const toggleMasterSelection = (id: string) => {
-    setSelectedMasterCatalogIds(prev => prev.includes(id) ? prev.filter(mid => mid !== id) : [...prev, id]);
+    setSelectedMasterIds(prev => prev.includes(id) ? prev.filter(mid => mid !== id) : [...prev, id]);
   };
 
   const renderMasterEditModal = () => (
@@ -712,7 +714,9 @@ export const AdminView: React.FC = () => {
                     type="text"
                     className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
                     value={editMasterData.grape_en || ''}
-                    onChange={e => setEditMasterData({...editMasterData, grape_en: e.target.value})}
+                    onChange={e => {
+                      setEditMasterData({...editMasterData, grape_en: e.target.value});
+                    }}
                   />
                 </div>
                 <div className="md:col-span-2">
@@ -775,7 +779,7 @@ export const AdminView: React.FC = () => {
               </h1>
               <button 
                 onClick={() => {
-                  setSelectedMasterCatalogIds([]); 
+                  setSelectedMasterCatalogIds([]); // 画面切替時に選択クリア
                   setShowMasterCatalog(!showMasterCatalog);
                 }}
                 className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest border transition-all flex items-center gap-2 ${showMasterCatalog ? 'bg-brand-wine text-white border-brand-wine' : 'bg-white text-slate-600 border-slate-200 hover:border-brand-wine hover:text-brand-wine'}`}
@@ -864,6 +868,7 @@ export const AdminView: React.FC = () => {
             wines={wines}
             masterSearchTerm={masterSearchTerm}
             onSearchMaster={handleSearchMaster}
+            // 【バグ修正】存在しないProps渡しを削除し、型エラークラッシュを解消
             onStartEditingMaster={startEditingMaster}
             selectedMasterCatalogIds={selectedMasterCatalogIds}
             setSelectedMasterCatalogIds={setSelectedMasterCatalogIds}
@@ -893,7 +898,8 @@ export const AdminView: React.FC = () => {
               <div className="lg:col-span-2">
                 <InventoryManager 
                   selectedStore={selectedStore}
-                  selectedStoreId={selectedStoreId}
+                  // 【バグ修正】型の厳密性を確保してクラッシュを防止
+                  selectedStoreId={selectedStoreId as string}
                   selectedWines={selectedWines}
                   setSelectedWines={setSelectedWines}
                   masterWines={wines}
