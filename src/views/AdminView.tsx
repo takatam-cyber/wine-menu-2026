@@ -38,7 +38,6 @@ const safeExtractPureId = (id: any, supplier?: any) => {
   return strId;
 };
 
-// 【バグ修正】引数が undefined でも絶対にクラッシュさせない最強の防御壁
 const getWineDocId = (wine: any) => {
   if (!wine) return `UNKNOWN_${Date.now()}`;
   const pure = safeExtractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase();
@@ -64,6 +63,7 @@ export const AdminView: React.FC = () => {
   const [initialWines, setInitialWines] = useState<WineMaster[]>([]);
   const [dataLoadedForStore, setDataLoadedForStore] = useState<string | null>(null);
   const [selectedMasterCatalogIds, setSelectedMasterCatalogIds] = useState<string[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (inventoryData?.inventory && selectedStoreId === inventoryData.store?.id) {
@@ -105,7 +105,6 @@ export const AdminView: React.FC = () => {
   const [selectedCuisineFilter, setSelectedCuisineFilter] = useState('all');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
 
-  // 【バグ修正】空の cuisine_type があっても絶対にクラッシュさせない
   const cuisineTypes = useMemo(() => {
     const types = stores.map(s => String(s?.cuisine_type || '')).filter(t => t && t !== 'all');
     return ['all', ...Array.from(new Set(types)).sort()];
@@ -386,7 +385,6 @@ export const AdminView: React.FC = () => {
             initialWine.glasses_per_bottle !== wine.glasses_per_bottle;
 
           if (isChanged) {
-            // 【バグ修正】確実に複合IDで保存する
             const compositeId = getWineDocId(wine);
             const docRef = doc(db, 'stores', selectedStoreId, 'inventory', compositeId);
             batch.set(docRef, { ...wine, id: compositeId }, { merge: true });
@@ -398,7 +396,6 @@ export const AdminView: React.FC = () => {
         if (chunkWriteCount > 0) await batch.commit();
       }
 
-      // 【バグ修正】お客様メニューに保存されるデータにも確実に複合IDを付与して保存
       const richPublicMenu = selectedWines
         .filter(w => w.visible !== false && w.isActive !== false)
         .map(w => ({ ...w, id: getWineDocId(w) }));
@@ -930,7 +927,7 @@ export const AdminView: React.FC = () => {
                     <option value="inactive">停止中</option>
                   </select>
                 </div>
-                <div className="ml-auto lg:ml-0 flex items-center gap-2 px-4 py-2.5 bg-brand-wine shadow-lg rounded-xl">
+                <div className="col-span-full lg:col-span-1 flex items-center gap-2 px-4 py-2.5 bg-brand-wine shadow-lg rounded-xl">
                   <span className="text-[10px] font-black uppercase tracking-widest text-white/60">Hits</span>
                   <span className="text-sm font-black text-white">{filteredStores.length}</span>
                 </div>
@@ -1193,7 +1190,7 @@ export const AdminView: React.FC = () => {
               masterSearchTerm={masterSearchTerm}
               setMasterSearchTerm={setMasterSearchTerm}
               selectedWines={selectedWines}
-              selectedMasterIds={selectedMasterIds}
+              selectedMasterIds={selectedMasterCatalogIds} // 💡 バグ修正: selectedMasterIds から selectedMasterCatalogIds に修正
               toggleMasterSelection={toggleMasterSelection}
               handleBulkAddWines={handleBulkAddWines}
               hasMoreWines={!!hasMoreWinesMaster}
