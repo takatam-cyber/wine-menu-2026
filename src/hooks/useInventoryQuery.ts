@@ -22,18 +22,22 @@ export function useInventoryQuery(storeId: string | null) {
       }
 
       const enrichedWines: WineMaster[] = [];
+      
+      // サブコレクションから取得したドキュメントIDを大文字に統一
       const upperInventoryItems = inventoryItems.map(item => ({
         ...item,
         id: item.id.toUpperCase()
       }));
 
-      const pureItemIds = upperInventoryItems.map(item => 
-        extractPureId(item.pureId || item.id, item.supplier || 'PIEROTH').toUpperCase()
-      );
+      // 【致命的バグの修正】
+      // winesMaster コレクションのドキュメントIDは「PIEROTH_A1234」のような【複合ID】です。
+      // 純粋なIDで検索すると空振りして0件になってしまうため、必ず複合IDのまま検索にかけます。
+      const compositeItemIds = upperInventoryItems.map(item => item.id);
 
       const chunkPromises = [];
-      for (let i = 0; i < pureItemIds.length; i += 30) {
-        const chunk = pureItemIds.slice(i, i + 30);
+      for (let i = 0; i < compositeItemIds.length; i += 30) {
+        const chunk = compositeItemIds.slice(i, i + 30);
+        // 複合IDで検索するため、マスターデータから100%確実にヒットします
         const q = query(collection(db, 'winesMaster'), where('__name__', 'in', chunk));
         chunkPromises.push(getDocs(q));
       }
@@ -45,11 +49,8 @@ export function useInventoryQuery(storeId: string | null) {
           const masterData = docSnap.data() as WineMaster;
           const masterDocId = docSnap.id.toUpperCase();
           
-          const invItem = upperInventoryItems.find(item => {
-            const itemCompId = extractPureId(item.id, item.supplier || masterData.supplier).toUpperCase();
-            const masterCompId = extractPureId(masterDocId, masterData.supplier).toUpperCase();
-            return itemCompId === masterCompId;
-          });
+          // 大文字に統一した複合ID同士で、在庫データとマスターデータを確実に結合します
+          const invItem = upperInventoryItems.find(item => item.id === masterDocId);
 
           if (invItem) {
             enrichedWines.push({ 
@@ -70,6 +71,7 @@ export function useInventoryQuery(storeId: string | null) {
         });
       });
 
+      // 日本語の名称順に綺麗にソート
       const sortedWines = enrichedWines.sort((a, b) => (a.name_jp || '').localeCompare(b.name_jp || ''));
 
       return {
@@ -80,7 +82,6 @@ export function useInventoryQuery(storeId: string | null) {
     enabled: !!storeId,
     staleTime: 0, 
     gcTime: 1000 * 60 * 1,
-    // 【バグ修正】他のタブに移動して戻ってきた時に、入力中の未保存データが消えるのを防ぐ
     refetchOnWindowFocus: false,
   });
 }
