@@ -24,7 +24,7 @@ export const CustomerView: React.FC = () => {
   const [activeCuisine, setActiveCuisine] = useState<string | null>(null);
   const [activeColor, setActiveColor] = useState<string | null>(null);
   const [activeBudget, setActiveBudget] = useState<string | null>(null);
-  const [activeGlassOnly, setActiveGlassOnly] = useState<boolean>(false); 
+  const [activeGlassOnly, useState<boolean>(false); 
 
   const [step1Color, setStep1Color] = useState<string | null>(null);
   const [step2Style, setStep2Style] = useState<string | null>(null);
@@ -241,6 +241,20 @@ export const CustomerView: React.FC = () => {
     }
   };
 
+  const SkeletonItem = () => (
+    <div className="flex gap-5 p-4 rounded-[2rem] border border-brand-wine/5 animate-in fade-in duration-700">
+      <div className="w-28 h-32 skeleton shrink-0" />
+      <div className="flex-1 flex flex-col justify-center gap-3">
+        <div className="h-3 w-1/2 skeleton" />
+        <div className="h-5 w-3/4 skeleton" />
+        <div className="flex justify-between items-center mt-2">
+          <div className="h-8 w-24 skeleton" />
+          <div className="w-10 h-10 rounded-full skeleton" />
+        </div>
+      </div>
+    </div>
+  );
+
   if (isDataFetching) {
      return (
        <div className="min-h-screen bg-brand-ivory flex justify-center items-start md:items-center">
@@ -260,6 +274,82 @@ export const CustomerView: React.FC = () => {
      );
   }
 
+  if (!store) {
+    return (
+      <div className="min-h-screen bg-brand-wine flex flex-col items-center justify-center p-8 text-center">
+        <Wine className="w-16 h-16 text-brand-gold/20 mb-6" />
+        <h2 className="font-sans text-2xl font-bold text-brand-gold-dark mb-4">{t.loadingStore}</h2>
+        <p className="text-sm text-brand-ivory/60 leading-relaxed max-w-xs">{t.loadingStoreRetry}</p>
+      </div>
+    );
+  }
+
+  if (inventory.length === 0) {
+    return (
+      <div className="min-h-screen bg-brand-wine flex flex-col items-center justify-center p-8 text-center text-brand-gold-dark overflow-hidden">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-24 -left-24 w-96 h-96 bg-brand-gold/5 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-brand-gold/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
+        </div>
+
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 1.2, ease: "easeOut" }}
+          className="relative z-10"
+        >
+          <motion.div animate={{ scale: [1, 1.05, 1] }} transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }} className="mb-12 relative inline-block">
+            <div className="absolute inset-0 bg-brand-gold/20 blur-2xl rounded-full scale-150 opacity-30" />
+            <Wine className="w-20 h-20 text-brand-gold/40 relative z-10" strokeWidth={0.5} />
+            <motion.div animate={{ opacity: [0.3, 0.7, 0.3] }} transition={{ duration: 4, repeat: Infinity }} className="absolute -top-4 -right-4">
+              <Sparkles className="w-8 h-8 text-brand-gold/50" />
+            </motion.div>
+          </motion.div>
+
+          <div className="space-y-8">
+            <div>
+              <h2 className="font-sans text-3xl md:text-4xl text-brand-gold-dark mb-2 tracking-[0.25em] font-black uppercase leading-snug">
+                {t.preparingTitle}
+              </h2>
+              <div className="flex items-center justify-center gap-4">
+                <div className="h-px w-8 bg-brand-gold/30" />
+                <span className="font-sans opacity-60 text-xs tracking-[0.3em] uppercase">{t.preparingSubtitle}</span>
+                <div className="h-px w-8 bg-brand-gold/30" />
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              <p className="text-xs text-brand-ivory/80 leading-relaxed max-w-[320px] mx-auto font-sans font-bold tracking-[0.15em] uppercase">
+                {t.preparingDesc1}
+              </p>
+              <p className="text-xs text-brand-gold/60 leading-relaxed max-w-[280px] mx-auto font-sans tracking-[0.1em]">
+                {t.preparingDesc2}
+              </p>
+            </div>
+
+            <div className="text-xs text-brand-gold/30 tracking-[0.4em] uppercase font-bold pt-4">
+              {t.preparingTime}
+            </div>
+          </div>
+
+          <div className="mt-20 flex flex-col gap-5 items-center">
+             <button onClick={() => fetchStoreData()} className="px-14 py-4 bg-transparent border border-brand-gold/30 text-brand-gold-dark text-xs uppercase tracking-[0.4em] rounded-full hover:bg-brand-gold/10 hover:border-brand-gold/60 active:scale-95 transition-all font-bold backdrop-blur-md shadow-lg">
+                {t.refreshList}
+              </button>
+              
+              <div className="flex items-center gap-3 opacity-30">
+                <div className="w-1 h-1 rounded-full bg-brand-gold" />
+                <p className="text-xs text-brand-gold-dark uppercase tracking-[0.5em] font-mono">
+                  {store.name}
+                </p>
+                <div className="w-1 h-1 rounded-full bg-brand-gold" />
+              </div>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
   return (
     <div 
       id="customer-view" 
@@ -271,7 +361,6 @@ export const CustomerView: React.FC = () => {
           isScrolled ? 'bg-black/90 backdrop-blur-md border-brand-gold/20' : 'bg-black border-brand-gold/30'
         }`}>
           <div className="flex-1">
-            {/* userが存在する場合のみ役割をチェックするように安全に記述 */}
             {user && (user.role === 'admin' || user.role === 'rep' || user.role === 'owner') && (
               <button 
                 onClick={() => {
@@ -646,326 +735,321 @@ export const CustomerView: React.FC = () => {
                     ))}
                   </div>
                 </div>
-
-                {/* 💡 修正箇所: 不要な過剰閉じタグを削り、4つのみで正しくクローズするように完全シンタックス修復 */}
               </div>
             </div>
-          </div>
-        </div>
-      </>
-    )}
-  </div>
+          </>
+        )}
+      </div>
 
-        {/* 💡 周辺UI（コンシェルジュ・詳細モーダル）がローディングの影に隠れないように並列レイヤーに配置 */}
-        <AnimatePresence>
-          {isScrolled && !isConciergeOpen && (
-                <motion.button
-                  initial={{ opacity: 0, scale: 0.5, y: 50 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.5, y: 50 }}
-                  onClick={() => setIsConciergeOpen(true)}
-                  className="fixed bottom-24 right-6 z-[110] flex items-center bg-brand-gold-dark text-brand-ivory p-1.5 rounded-full shadow-[0_10px_40px_rgba(184,134,11,0.5)] border border-brand-gold/30 hover:scale-105 active:scale-95 transition-all group overflow-hidden"
-                >
-                  <div className="flex items-center gap-0 group-hover:gap-2 transition-all px-2">
-                    <span className="text-sm font-bold tracking-tighter whitespace-nowrap overflow-hidden max-w-0 group-hover:max-w-[120px] transition-all duration-500">
-                      {t.concierge}
-                    </span>
-                    <div className="w-10 h-10 rounded-full bg-brand-ivory text-brand-gold-dark flex items-center justify-center shadow-inner shrink-0 scale-100 group-hover:scale-90 transition-transform">
-                      <Sparkles className="w-5 h-5" />
-                    </div>
-                  </div>
-                </motion.button>
-          )}
-        </AnimatePresence>
-
-        <AnimatePresence>
-          {isConciergeOpen && (
-            <>
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsConciergeOpen(false)} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[115]" />
-              <motion.div
-                initial={{ y: "100%" }}
-                animate={{ y: 0 }}
-                exit={{ y: "100%" }}
-                transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                className="fixed bottom-0 inset-x-0 bg-brand-ivory rounded-t-[3rem] z-[120] border-t border-brand-gold/30 px-6 pt-10 pb-12 shadow-[0_-20px_60px_rgba(0,0,0,0.3)] max-h-[90dvh] overflow-y-auto"
+      <AnimatePresence>
+        {isScrolled && !isConciergeOpen && (
+              <motion.button
+                initial={{ opacity: 0, scale: 0.5, y: 50 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.5, y: 50 }}
+                onClick={() => setIsConciergeOpen(true)}
+                className="fixed bottom-24 right-6 z-[110] flex items-center bg-brand-gold-dark text-brand-ivory p-1.5 rounded-full shadow-[0_10px_40px_rgba(184,134,11,0.5)] border border-brand-gold/30 hover:scale-105 active:scale-95 transition-all group overflow-hidden"
               >
-                <div className="absolute top-4 left-1/2 -translate-x-1/2 w-12 h-1 bg-brand-gold-dark/20 rounded-full" />
-                
-                <div className="flex items-center justify-between mb-8">
-                  <div className="flex items-center gap-3">
-                    <ChefHat className="w-6 h-6 text-brand-gold-dark" />
-                    <h3 className="font-sans text-xl text-brand-wine font-extrabold tracking-widest uppercase">{t.concierge}</h3>
-                  </div>
-                  <button 
-                    onClick={() => setIsConciergeOpen(false)}
-                    className="w-8 h-8 rounded-full bg-brand-gold/10 flex items-center justify-center text-brand-gold-dark"
-                  >{t.close}</button>
-                </div>
-
-                <div className="space-y-10">
-                  <div className="space-y-4">
-                    <p className="text-sm text-brand-gold-dark font-black uppercase tracking-[0.3em] flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold-dark flex items-center justify-center text-xs font-black shadow-inner">1</span>
-                      {t.conciergeStep1}
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                        {['赤', '白', '泡'].map(color => (
-                          <button
-                            key={color}
-                            onClick={() => {
-                              setStep1Color(color);
-                              setStep2Style(null);
-                              setStep3Budget(null);
-                              setSelectedDish(null);
-                            }}
-                            className={`px-8 py-3 rounded-full text-sm font-bold transition-all border ${
-                              step1Color === color 
-                                ? 'bg-brand-wine text-brand-gold-dark border-brand-gold shadow-lg font-black' 
-                                : 'bg-white border-brand-gold/10 text-brand-wine/60'
-                            }`}
-                          >
-                            {color === '赤' ? t.red : color === '白' ? t.white : t.sparkling}
-                          </button>
-                        ))}
-                    </div>
-                  </div>
-
-                  {step1Color && (
-                    <motion.div 
-                      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                      className="space-y-4 pt-6 border-t border-brand-gold/10"
-                    >
-                      <p className="text-sm text-brand-gold-dark font-black uppercase tracking-[0.3em] flex items-center gap-2">
-                        <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold-dark flex items-center justify-center text-xs font-black shadow-inner">2</span>
-                        {t.conciergeStep2}
-                      </p>
-                    <div className="flex flex-wrap gap-2">
-                        {getDynamicStyles(step1Color).map(style => {
-                          return (
-                            <button
-                              key={style}
-                              onClick={() => {
-                                setStep2Style(style);
-                                setStep3Budget(null);
-                              }}
-                              className={`px-5 py-3 rounded-2xl text-sm font-bold transition-all border ${step2Style === style ? 'bg-brand-gold-dark text-white border-brand-gold-dark shadow-md font-black' : 'bg-white border-brand-gold/10 text-brand-wine/60'}`}
-                            >
-                              {style}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </motion.div>
-                  )}
-
-                  {step2Style && (
-                    <motion.div 
-                      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                      className="space-y-4 pt-6 border-t border-brand-gold/10"
-                    >
-                      <p className="text-sm text-brand-gold-dark font-black uppercase tracking-[0.3em] flex items-center gap-2">
-                        <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold-dark flex items-center justify-center text-xs font-black shadow-inner">3</span>
-                        {t.conciergeStep3}
-                      </p>
-                      <div className="grid grid-cols-2 gap-2">
-                        {conciergeBudgets.map(budget => (
-                          <button
-                            key={budget.id}
-                            onClick={() => setStep3Budget(budget.id)}
-                            className={`px-4 py-3 rounded-2xl text-xs font-bold transition-all border ${
-                              step3Budget === budget.id 
-                                ? 'bg-brand-wine text-brand-gold-dark border-brand-gold shadow-md' 
-                                : 'bg-white border-brand-gold/10 text-brand-wine/50'
-                            }`}
-                          >
-                            {budget.label}
-                          </button>
-                        ))}
-                      </div>
-                    </motion.div>
-                  )}
-
-                  <div className="pt-6">
-                    <button
-                      onClick={() => {
-                        setIsConciergeOpen(false);
-                        setTimeout(() => {
-                          const resultsElement = document.getElementById('wine-list-results');
-                          if (resultsElement) {
-                            resultsElement.scrollIntoView({ 
-                              behavior: 'smooth', 
-                              block: 'start' 
-                            });
-                          }
-                        }, 400);
-                      }}
-                      className="w-full py-4 bg-brand-wine text-brand-gold-dark rounded-full font-black uppercase tracking-[0.4em] shadow-xl active:scale-95 transition-all"
-                    >
-                      {t.conciergeResult}
-                    </button>
+                <div className="flex items-center gap-0 group-hover:gap-2 transition-all px-2">
+                  <span className="text-sm font-bold tracking-tighter whitespace-nowrap overflow-hidden max-w-0 group-hover:max-w-[120px] transition-all duration-500">
+                    {t.concierge}
+                  </span>
+                  <div className="w-10 h-10 rounded-full bg-brand-ivory text-brand-gold-dark flex items-center justify-center shadow-inner shrink-0 scale-100 group-hover:scale-90 transition-transform">
+                    <Sparkles className="w-5 h-5" />
                   </div>
                 </div>
-              </motion.div>
-            </>
-          )}
-        </AnimatePresence>
+              </motion.button>
+        )}
+      </AnimatePresence>
 
-        <div className="fixed bottom-6 inset-x-6 z-40 flex justify-center pointer-events-none">
-          <div className="bg-black/90 backdrop-blur-xl border border-brand-gold/30 px-8 py-3 rounded-full shadow-2xl animate-in slide-in-from-bottom duration-1000 pointer-events-auto">
-            <p className="text-sm md:text-base text-brand-gold-dark font-bold uppercase tracking-[0.15em] text-center">
-              {t.footerWarning}
-            </p>
-          </div>
-        </div>
-
-        <AnimatePresence>
-          {selectedWine && (
+      <AnimatePresence>
+        {isConciergeOpen && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsConciergeOpen(false)} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[115]" />
             <motion.div
-              initial={{ y: "100%", opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: "100%", opacity: 0 }}
-              transition={{ 
-                type: "spring", 
-                damping: 32, 
-                stiffness: 280,
-                mass: 1.2
-              }}
-              className="fixed inset-0 z-[130] bg-black/98 backdrop-blur-3xl overflow-hidden flex flex-col h-[100dvh] md:h-auto md:bottom-0 md:top-12 md:rounded-t-[2.5rem] border-t border-brand-gold/30 shadow-[0_-20px_500px_rgba(0,0,0,1)]"
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="fixed bottom-0 inset-x-0 bg-brand-ivory rounded-t-[3rem] z-[120] border-t border-brand-gold/30 px-6 pt-10 pb-12 shadow-[0_-20px_60px_rgba(0,0,0,0.3)] max-h-[90dvh] overflow-y-auto"
             >
-              <div className="sticky top-0 z-[140] bg-black/95 backdrop-blur-md p-8 pb-4 flex justify-between items-center border-b border-white/5">
-                <span className="text-sm text-gray-400 font-bold uppercase tracking-[0.2em] opacity-60">
-                  {t.vintage} {effectiveWine?.vintage || selectedWine?.vintage}
-                </span>
-                <button 
-                  onClick={() => setSelectedWine(null)} 
-                  className="w-10 h-10 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-brand-gold-dark text-xl hover:bg-white/20 transition-all font-light"
-                >✕</button>
-              </div>
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 w-12 h-1 bg-brand-gold-dark/20 rounded-full" />
               
-                <div className="flex-1 overflow-y-auto overscroll-behavior-contain px-6 md:px-8 pb-10 space-y-10 custom-scrollbar scroll-smooth">
-                  <div className="text-center pt-4">
-                    <div className="w-full aspect-square md:aspect-[4/5] bg-brand-dark/40 border border-brand-gold/20 rounded-3xl mb-8 flex items-center justify-center p-8 relative shadow-inner group overflow-hidden">
-                      <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,rgba(184,134,11,0.25),transparent_70%)]" />
-                      {selectedWine?.image_url && <img src={getProxyUrl(selectedWine.image_url)} alt="" loading="lazy" className="h-full object-contain relative z-10 transition-transform duration-2000 group-hover:scale-105" />}
-                    </div>
-                    <h2 className="font-sans text-3xl md:text-5xl font-black text-brand-gold-dark mb-3 tracking-tight leading-tight">
-                      {currentLang === 'ja' ? selectedWine?.name_jp : (selectedWine?.name_en || selectedWine?.name_jp)}
-                    </h2>
-                    {currentLang === 'ja' && selectedWine?.name_en && (
-                      <p className="text-sm md:text-base text-gray-400 tracking-[0.3em] uppercase font-bold mb-2">
-                        {selectedWine.name_en}
-                      </p>
-                    )}
-                    <p className="text-sm md:text-base text-brand-gold-dark font-bold uppercase tracking-widest border-t border-brand-gold/20 pt-2 inline-block">
-                      {t.majorGrape}: {currentLang === 'ja' ? selectedWine?.grape : (selectedWine?.grape_en || selectedWine?.grape)}
-                    </p>
-                  </div>
-
-                <div className="space-y-6 pt-8 border-t border-white/10">
-                  <div className="flex items-center gap-3 text-brand-gold-dark">
-                    <Award className="w-6 h-6 opacity-70" />
-                    <h4 className="text-sm font-bold uppercase tracking-[0.3em]">{t.tasteProfile}</h4>
-                  </div>
-                  <WineProfile wine={effectiveWine || selectedWine} lang={currentLang} />
+              <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-3">
+                  <ChefHat className="w-6 h-6 text-brand-gold-dark" />
+                  <h3 className="font-sans text-xl text-brand-wine font-extrabold tracking-widest uppercase">{t.concierge}</h3>
                 </div>
-
-                <div className="space-y-6">
-                  <div className="flex items-center gap-3 text-brand-gold-dark">
-                    <Info className="w-6 h-6 opacity-70" />
-                    <h4 className="text-sm font-bold uppercase tracking-[0.3em]">{t.sommelierComment}</h4>
-                  </div>
-                  <div className="relative">
-                    <div className="absolute top-4 left-4 text-brand-gold/20"><Sparkles className="w-8 h-8" /></div>
-                    <div className="bg-brand-gold/5 p-6 pt-10 rounded-2xl border border-brand-gold/10 shadow-inner min-h-[200px] flex flex-col justify-center">
-                      {isDetailLoading ? (
-                        <div className="flex flex-col items-center justify-center p-12 gap-4">
-                          <motion.div
-                            animate={{ rotate: 360 }}
-                            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                            className="w-12 h-12 border-2 border-brand-gold/20 border-t-brand-gold rounded-full"
-                          />
-                          <p className="text-xs text-brand-gold-dark/40 font-bold uppercase tracking-[0.3em] animate-pulse">Fetching sommelier notes...</p>
-                        </div>
-                      ) : (
-                        <div className="space-y-6 animate-in fade-in duration-700">
-                          <p className="text-xl md:text-2xl leading-relaxed text-brand-gold-dark font-sans font-bold first-letter:text-5xl first-letter:float-left first-letter:mr-3 first-letter:mt-1 first-letter:text-brand-gold-dark italic">
-                            {currentLang === 'ja' 
-                              ? (effectiveWine?.ai_explanation || effectiveWine?.aroma_features || '...') 
-                              : (effectiveWine?.ai_explanation_en || effectiveWine?.aroma_features_en || '...')}
-                          </p>
-                          
-                          {(currentLang === 'ja' ? effectiveWine?.aroma_features : (effectiveWine?.aroma_features_en || effectiveWine?.aroma_features)) && (
-                            <div className="pt-4 border-t border-brand-gold/10">
-                              <p className="text-xs text-brand-gold-dark/40 font-black uppercase tracking-widest mb-2">{t.aroma}</p>
-                              <p className="text-sm md:text-base text-gray-300 leading-relaxed font-sans">
-                                {currentLang === 'ja' ? effectiveWine?.aroma_features : (effectiveWine?.aroma_features_en || effectiveWine?.aroma_features)}
-                              </p>
-                            </div>
-                          )}
-
-                          <div className="flex flex-wrap gap-2 pt-4 border-t border-brand-gold/10">
-                            {(currentLang === 'ja' ? selectedWine?.tags : (selectedWine?.tags_en || selectedWine?.tags))?.split('、').map(tag => (
-                              <span key={tag} className="px-3 py-1 bg-brand-gold/10 rounded-full text-xs md:text-sm text-brand-gold-dark font-bold tracking-widest whitespace-nowrap border border-brand-gold/20">
-                                #{tag.trim()}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {!store?.hideWinePairing && (
-                  <div className="space-y-6">
-                    <div className="flex items-center gap-3 text-brand-gold-dark">
-                      <Utensils className="w-6 h-6 opacity-70" />
-                      <h4 className="text-sm font-bold uppercase tracking-[0.3em]">{t.pairing}</h4>
-                    </div>
-                    <div className="flex flex-wrap gap-2 md:gap-3">
-                      {isDetailLoading ? (
-                        <div className="w-full flex gap-3">
-                          {[1, 2, 3].map(i => <div key={i} className="h-10 w-24 bg-brand-gold/10 rounded-full animate-pulse" />)}
-                        </div>
-                      ) : (
-                        (currentLang === 'ja' ? effectiveWine?.pairing : (effectiveWine?.pairing_en || effectiveWine?.pairing))?.split('、').map(p => (
-                          <span key={p} className="bg-brand-gold/10 border border-brand-gold/30 px-5 py-3 rounded-full text-sm md:text-base text-brand-gold-dark font-bold tracking-wider animate-in zoom-in-95 duration-500">
-                            {p.trim()}
-                          </span>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                )}
+                <button 
+                  onClick={() => setIsConciergeOpen(false)}
+                  className="w-8 h-8 rounded-full bg-brand-gold/10 flex items-center justify-center text-brand-gold-dark"
+                >{t.close}</button>
               </div>
 
-              <div className="sticky bottom-0 z-[140] p-6 md:p-8 pt-4 pb-[env(safe-area-inset-bottom,24px)] bg-black/95 backdrop-blur-2xl border-t border-brand-gold/20 flex flex-col gap-6 safe-bottom">
-                  <div className={`flex items-center px-2 ${selectedWine?.price_glass && selectedWine.price_glass > 0 ? 'justify-between' : 'justify-center'}`}>
-                    <div className={`flex flex-col ${!(selectedWine?.price_glass && selectedWine.price_glass > 0) ? 'items-center text-center' : ''}`}>
-                      <span className="text-sm text-gray-500 uppercase font-bold tracking-widest mb-1">{t.bottle}</span>
-                      <span className="font-sans text-2xl md:text-3xl text-brand-gold-dark font-black tracking-tighter">
-                        {selectedWine?.price_bottle ? `¥${selectedWine.price_bottle.toLocaleString()}` : '-'}
-                      </span>
-                    </div>
-                    {selectedWine?.price_glass && selectedWine.price_glass > 0 && (
-                      <>
-                        <div className="h-10 w-px bg-brand-gold/20" />
-                        <div className="flex flex-col text-right">
-                          <span className="text-sm text-gray-500 uppercase font-bold tracking-widest mb-1">{t.glass}</span>
-                          <span className="font-sans text-2xl md:text-3xl text-brand-gold-dark font-black tracking-tighter">
-                            ¥{selectedWine.price_glass.toLocaleString()}
-                          </span>
-                        </div>
-                      </>
-                    )}
+              <div className="space-y-10">
+                <div className="space-y-4">
+                  <p className="text-sm text-brand-gold-dark font-black uppercase tracking-[0.3em] flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold-dark flex items-center justify-center text-xs font-black shadow-inner">1</span>
+                    {t.conciergeStep1}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                      {['赤', '白', '泡'].map(color => (
+                        <button
+                          key={color}
+                          onClick={() => {
+                            setStep1Color(color);
+                            setStep2Style(null);
+                            setStep3Budget(null);
+                            setSelectedDish(null);
+                          }}
+                          className={`px-8 py-3 rounded-full text-sm font-bold transition-all border ${
+                            step1Color === color 
+                              ? 'bg-brand-wine text-brand-gold-dark border-brand-gold shadow-lg font-black' 
+                              : 'bg-white border-brand-gold/10 text-brand-wine/60'
+                          }`}
+                        >
+                          {color === '赤' ? t.red : color === '白' ? t.white : t.sparkling}
+                        </button>
+                      ))}
                   </div>
-                 <div className="text-center">
-                   <p className="text-sm text-brand-gold-dark font-bold uppercase tracking-[0.3em] opacity-40">{t.ageNotice}</p>
-                 </div>
+                </div>
+
+                {step1Color && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                    className="space-y-4 pt-6 border-t border-brand-gold/10"
+                  >
+                    <p className="text-sm text-brand-gold-dark font-black uppercase tracking-[0.3em] flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold-dark flex items-center justify-center text-xs font-black shadow-inner">2</span>
+                      {t.conciergeStep2}
+                    </p>
+                  <div className="flex flex-wrap gap-2">
+                      {getDynamicStyles(step1Color).map(style => {
+                        return (
+                          <button
+                            key={style}
+                            onClick={() => {
+                              setStep2Style(style);
+                              setStep3Budget(null);
+                            }}
+                            className={`px-5 py-3 rounded-2xl text-sm font-bold transition-all border ${step2Style === style ? 'bg-brand-gold-dark text-white border-brand-gold-dark shadow-md font-black' : 'bg-white border-brand-gold/10 text-brand-wine/60'}`}
+                          >
+                            {style}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </motion.div>
+                )}
+
+                {step2Style && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                    className="space-y-4 pt-6 border-t border-brand-gold/10"
+                  >
+                    <p className="text-sm text-brand-gold-dark font-black uppercase tracking-[0.3em] flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold-dark flex items-center justify-center text-xs font-black shadow-inner">3</span>
+                      {t.conciergeStep3}
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {conciergeBudgets.map(budget => (
+                        <button
+                          key={budget.id}
+                          onClick={() => setStep3Budget(budget.id)}
+                          className={`px-4 py-3 rounded-2xl text-xs font-bold transition-all border ${
+                            step3Budget === budget.id 
+                              ? 'bg-brand-wine text-brand-gold-dark border-brand-gold shadow-md' 
+                              : 'bg-white border-brand-gold/10 text-brand-wine/50'
+                          }`}
+                        >
+                          {budget.label}
+                        </button>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+
+                <div className="pt-6">
+                  <button
+                    onClick={() => {
+                      setIsConciergeOpen(false);
+                      setTimeout(() => {
+                        const resultsElement = document.getElementById('wine-list-results');
+                        if (resultsElement) {
+                          resultsElement.scrollIntoView({ 
+                            behavior: 'smooth', 
+                            block: 'start' 
+                          });
+                        }
+                      }, 400);
+                    }}
+                    className="w-full py-4 bg-brand-wine text-brand-gold-dark rounded-full font-black uppercase tracking-[0.4em] shadow-xl active:scale-95 transition-all"
+                  >
+                    {t.conciergeResult}
+                  </button>
+                </div>
               </div>
             </motion.div>
-          )}
-        </AnimatePresence>
+          </>
+        )}
+      </AnimatePresence>
+
+      <div className="fixed bottom-6 inset-x-6 z-40 flex justify-center pointer-events-none">
+        <div className="bg-black/90 backdrop-blur-xl border border-brand-gold/30 px-8 py-3 rounded-full shadow-2xl animate-in slide-in-from-bottom duration-1000 pointer-events-auto">
+          <p className="text-sm md:text-base text-brand-gold-dark font-bold uppercase tracking-[0.15em] text-center">
+            {t.footerWarning}
+          </p>
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {selectedWine && (
+          <motion.div
+            initial={{ y: "100%", opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: "100%", opacity: 0 }}
+            transition={{ 
+              type: "spring", 
+              damping: 32, 
+              stiffness: 280,
+              mass: 1.2
+            }}
+            className="fixed inset-0 z-[130] bg-black/98 backdrop-blur-3xl overflow-hidden flex flex-col h-[100dvh] md:h-auto md:bottom-0 md:top-12 md:rounded-t-[2.5rem] border-t border-brand-gold/30 shadow-[0_-20px_500px_rgba(0,0,0,1)]"
+          >
+            <div className="sticky top-0 z-[140] bg-black/95 backdrop-blur-md p-8 pb-4 flex justify-between items-center border-b border-white/5">
+              <span className="text-sm text-gray-400 font-bold uppercase tracking-[0.2em] opacity-60">
+                {t.vintage} {effectiveWine?.vintage || selectedWine?.vintage}
+              </span>
+              <button 
+                onClick={() => setSelectedWine(null)} 
+                className="w-10 h-10 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-brand-gold-dark text-xl hover:bg-white/20 transition-all font-light"
+              >✕</button>
+            </div>
+            
+              <div className="flex-1 overflow-y-auto overscroll-behavior-contain px-6 md:px-8 pb-10 space-y-10 custom-scrollbar scroll-smooth">
+                <div className="text-center pt-4">
+                  <div className="w-full aspect-square md:aspect-[4/5] bg-brand-dark/40 border border-brand-gold/20 rounded-3xl mb-8 flex items-center justify-center p-8 relative shadow-inner group overflow-hidden">
+                    <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,rgba(184,134,11,0.25),transparent_70%)]" />
+                    {selectedWine?.image_url && <img src={getProxyUrl(selectedWine.image_url)} alt="" loading="lazy" className="h-full object-contain relative z-10 transition-transform duration-2000 group-hover:scale-105" />}
+                  </div>
+                  <h2 className="font-sans text-3xl md:text-5xl font-black text-brand-gold-dark mb-3 tracking-tight leading-tight">
+                    {currentLang === 'ja' ? selectedWine?.name_jp : (selectedWine?.name_en || selectedWine?.name_jp)}
+                  </h2>
+                  {currentLang === 'ja' && selectedWine?.name_en && (
+                    <p className="text-sm md:text-base text-gray-400 tracking-[0.3em] uppercase font-bold mb-2">
+                      {selectedWine.name_en}
+                    </p>
+                  )}
+                  <p className="text-sm md:text-base text-brand-gold-dark font-bold uppercase tracking-widest border-t border-brand-gold/20 pt-2 inline-block">
+                    {t.majorGrape}: {currentLang === 'ja' ? selectedWine?.grape : (selectedWine?.grape_en || selectedWine?.grape)}
+                  </p>
+                </div>
+
+              <div className="space-y-6 pt-8 border-t border-white/10">
+                <div className="flex items-center gap-3 text-brand-gold-dark">
+                  <Award className="w-6 h-6 opacity-70" />
+                  <h4 className="text-sm font-bold uppercase tracking-[0.3em]">{t.tasteProfile}</h4>
+                </div>
+                <WineProfile wine={effectiveWine || selectedWine} lang={currentLang} />
+              </div>
+
+              <div className="space-y-6">
+                <div className="flex items-center gap-3 text-brand-gold-dark">
+                  <Info className="w-6 h-6 opacity-70" />
+                  <h4 className="text-sm font-bold uppercase tracking-[0.3em]">{t.sommelierComment}</h4>
+                </div>
+                <div className="relative">
+                  <div className="absolute top-4 left-4 text-brand-gold/20"><Sparkles className="w-8 h-8" /></div>
+                  <div className="bg-brand-gold/5 p-6 pt-10 rounded-2xl border border-brand-gold/10 shadow-inner min-h-[200px] flex flex-col justify-center">
+                    {isDetailLoading ? (
+                      <div className="flex flex-col items-center justify-center p-12 gap-4">
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                          className="w-12 h-12 border-2 border-brand-gold/20 border-t-brand-gold rounded-full"
+                        />
+                        <p className="text-xs text-brand-gold-dark/40 font-bold uppercase tracking-[0.3em] animate-pulse">Fetching sommelier notes...</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-6 animate-in fade-in duration-700">
+                        <p className="text-xl md:text-2xl leading-relaxed text-brand-gold-dark font-sans font-bold first-letter:text-5xl first-letter:float-left first-letter:mr-3 first-letter:mt-1 first-letter:text-brand-gold-dark italic">
+                          {currentLang === 'ja' 
+                            ? (effectiveWine?.ai_explanation || effectiveWine?.aroma_features || '...') 
+                            : (effectiveWine?.ai_explanation_en || effectiveWine?.aroma_features_en || '...')}
+                        </p>
+                        
+                        {(currentLang === 'ja' ? effectiveWine?.aroma_features : (effectiveWine?.aroma_features_en || effectiveWine?.aroma_features)) && (
+                          <div className="pt-4 border-t border-brand-gold/10">
+                            <p className="text-xs text-brand-gold-dark/40 font-black uppercase tracking-widest mb-2">{t.aroma}</p>
+                            <p className="text-sm md:text-base text-gray-300 leading-relaxed font-sans">
+                              {currentLang === 'ja' ? effectiveWine?.aroma_features : (effectiveWine?.aroma_features_en || effectiveWine?.aroma_features)}
+                            </p>
+                          </div>
+                        )}
+
+                        <div className="flex flex-wrap gap-2 pt-4 border-t border-brand-gold/10">
+                          {(currentLang === 'ja' ? selectedWine?.tags : (selectedWine?.tags_en || selectedWine?.tags))?.split('、').map(tag => (
+                            <span key={tag} className="px-3 py-1 bg-brand-gold/10 rounded-full text-xs md:text-sm text-brand-gold-dark font-bold tracking-widest whitespace-nowrap border border-brand-gold/20">
+                              #{tag.trim()}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {!store?.hideWinePairing && (
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3 text-brand-gold-dark">
+                    <Utensils className="w-6 h-6 opacity-70" />
+                    <h4 className="text-sm font-bold uppercase tracking-[0.3em]">{t.pairing}</h4>
+                  </div>
+                  <div className="flex flex-wrap gap-2 md:gap-3">
+                    {isDetailLoading ? (
+                      <div className="w-full flex gap-3">
+                        {[1, 2, 3].map(i => <div key={i} className="h-10 w-24 bg-brand-gold/10 rounded-full animate-pulse" />)}
+                      </div>
+                    ) : (
+                      (currentLang === 'ja' ? effectiveWine?.pairing : (effectiveWine?.pairing_en || effectiveWine?.pairing))?.split('、').map(p => (
+                        <span key={p} className="bg-brand-gold/10 border border-brand-gold/30 px-5 py-3 rounded-full text-sm md:text-base text-brand-gold-dark font-bold tracking-wider animate-in zoom-in-95 duration-500">
+                          {p.trim()}
+                        </span>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="sticky bottom-0 z-[140] p-6 md:p-8 pt-4 pb-[env(safe-area-inset-bottom,24px)] bg-black/95 backdrop-blur-2xl border-t border-brand-gold/20 flex flex-col gap-6 safe-bottom">
+                <div className={`flex items-center px-2 ${selectedWine?.price_glass && selectedWine.price_glass > 0 ? 'justify-between' : 'justify-center'}`}>
+                  <div className={`flex flex-col ${!(selectedWine?.price_glass && selectedWine.price_glass > 0) ? 'items-center text-center' : ''}`}>
+                    <span className="text-sm text-gray-500 uppercase font-bold tracking-widest mb-1">{t.bottle}</span>
+                    <span className="font-sans text-2xl md:text-3xl text-brand-gold-dark font-black tracking-tighter">
+                      {selectedWine?.price_bottle ? `¥${selectedWine.price_bottle.toLocaleString()}` : '-'}
+                    </span>
+                  </div>
+                  {selectedWine?.price_glass && selectedWine.price_glass > 0 && (
+                    <>
+                      <div className="h-10 w-px bg-brand-gold/20" />
+                      <div className="flex flex-col text-right">
+                        <span className="text-sm text-gray-500 uppercase font-bold tracking-widest mb-1">{t.glass}</span>
+                        <span className="font-sans text-2xl md:text-3xl text-brand-gold-dark font-black tracking-tighter">
+                          ¥{selectedWine.price_glass.toLocaleString()}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                </div>
+               <div className="text-center">
+                 <p className="text-sm text-brand-gold-dark font-bold uppercase tracking-[0.3em] opacity-40">{t.ageNotice}</p>
+               </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
