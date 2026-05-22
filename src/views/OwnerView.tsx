@@ -58,6 +58,9 @@ export const OwnerView: React.FC = () => {
   const [selectedWines, setSelectedWines] = useState<WineMaster[]>([]);
   const [initialWines, setInitialWines] = useState<WineMaster[]>([]);
   
+  // 【バグ修正】入力した数字が消えるのを防ぐため、店舗ごとの「初回ロード」のフラグを管理します
+  const [dataLoadedForStore, setDataLoadedForStore] = useState<string | null>(null);
+
   const [searchId, setSearchId] = useState('');
   const [isEditingStore, setIsEditingStore] = useState(false);
   const [editStoreData, setEditStoreData] = useState<Partial<Store>>({});
@@ -68,13 +71,18 @@ export const OwnerView: React.FC = () => {
 
   useEffect(() => {
     if (inventoryData?.inventory && selectedStoreId === inventoryData.store?.id) {
-      setSelectedWines(JSON.parse(JSON.stringify(inventoryData.inventory)));
-      setInitialWines(JSON.parse(JSON.stringify(inventoryData.inventory)));
+      // 【バグ修正】店舗を切り替えた「初回」だけデータをセットし、入力中の未保存データの上書き（リセット）を防ぐ
+      if (dataLoadedForStore !== selectedStoreId) {
+        setSelectedWines(JSON.parse(JSON.stringify(inventoryData.inventory)));
+        setInitialWines(JSON.parse(JSON.stringify(inventoryData.inventory)));
+        setDataLoadedForStore(selectedStoreId);
+      }
     } else if (!selectedStoreId) {
       setSelectedWines([]);
       setInitialWines([]);
+      setDataLoadedForStore(null);
     }
-  }, [selectedStoreId, inventoryData?.inventory]);
+  }, [selectedStoreId, inventoryData?.inventory, dataLoadedForStore]);
 
   useEffect(() => {
     if (store) {
@@ -173,6 +181,7 @@ export const OwnerView: React.FC = () => {
         
         chunk.forEach(wine => {
           const initialWine = initialWines.find(iw => iw.id === wine.id);
+          // 【バグ修正】確実な差分検知を行い、変更が漏れて保存されないのを防ぐ
           const isChanged = !initialWine || 
             initialWine.price_bottle !== wine.price_bottle || 
             initialWine.price_glass !== wine.price_glass || 
@@ -225,7 +234,7 @@ export const OwnerView: React.FC = () => {
         const newInventoryItem = {
           ...wine,
           id: compositeId,
-          pureId: extractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
+          pureId: safeExtractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
           supplier: (wine.supplier || 'PIEROTH').toUpperCase(),
           price_bottle: wine.price_bottle || wine.cost * 3,
           price_glass: wine.price_glass || Math.round((wine.cost * 3 / 6) / 100) * 100,
@@ -266,7 +275,7 @@ export const OwnerView: React.FC = () => {
           const newInventoryItem = {
             ...wine,
             id: compositeId,
-            pureId: extractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
+            pureId: safeExtractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
             supplier: (wine.supplier || 'PIEROTH').toUpperCase(),
             price_bottle: wine.price_bottle || wine.cost * 3,
             price_glass: wine.price_glass || Math.round((wine.cost * 3 / 6) / 100) * 100,
@@ -284,7 +293,7 @@ export const OwnerView: React.FC = () => {
       const newWinesToAppend = winesToAdd.map(wine => ({
         ...wine,
         id: getWineDocId(wine),
-        pureId: extractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
+        pureId: safeExtractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
         price_bottle: wine.price_bottle || wine.cost * 3,
         price_glass: wine.price_glass || Math.round((wine.cost * 3 / 6) / 100) * 100,
         glasses_per_bottle: 6,
