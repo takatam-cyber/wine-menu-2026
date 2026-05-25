@@ -30,7 +30,6 @@ const safeExtractPureId = (id: any, supplier?: any) => {
   return strId;
 };
 
-// 【バグ修正】引数が undefined でも絶対にクラッシュさせない最強の防御壁
 const getWineDocId = (wine: any) => {
   if (!wine) return `UNKNOWN_${Date.now()}`;
   const pure = safeExtractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase();
@@ -40,7 +39,7 @@ const getWineDocId = (wine: any) => {
 };
 
 export const OwnerView: React.FC = () => {
-  const { user } = useWines();
+  const { user, showToast, showConfirm } = useWines();
   const queryClient = useQueryClient();
   const [selectedStoreId, setSelectedStoreId] = useState(new URLSearchParams(window.location.search).get('storeId') || user?.storeId || '');
   
@@ -137,6 +136,7 @@ export const OwnerView: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['stores'] });
 
       setIsEditingStore(false);
+      showToast('店舗情報を更新しました。', 'success');
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `stores/${sid}`);
     } finally {
@@ -164,7 +164,6 @@ export const OwnerView: React.FC = () => {
           
           await updateDoc(doc(db, 'stores', sid), { publicMenu: richPublicMenu, updatedAt: new Date().toISOString() });
           
-          // 【バグ修正】即座にお客様メニューにも反映させるためのキャッシュクリア
           queryClient.invalidateQueries({ queryKey: ['publicMenu', sid] });
           setInitialWines(JSON.parse(JSON.stringify(nextWines)));
         } catch (error) {
@@ -224,10 +223,10 @@ export const OwnerView: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
       
       setInitialWines(JSON.parse(JSON.stringify(selectedWines)));
-      alert(`保存完了（更新件数: ${totalWriteCount}件）`);
+      showToast(`セラー情報を完全に同期・保存しました（更新: ${totalWriteCount}件）`, 'success');
     } catch (error) {
       console.error('一括保存に失敗しました:', error);
-      alert('一括保存に失敗しました。');
+      showToast('一括保存に失敗しました。', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -236,10 +235,10 @@ export const OwnerView: React.FC = () => {
   const handleAddWine = async (wineId?: string) => {
     const idToUse = wineId || searchId;
     let wine = masterWines.find(w => w.id === idToUse);
-    if (!wine) return alert('該当するワインコードが見つかりません。');
+    if (!wine) return showToast('該当するワインコードが見つかりません。', 'error');
 
     const compositeId = getWineDocId(wine);
-    if (selectedWines.some(sw => getWineDocId(sw) === compositeId)) return alert('このワインは既にメニューに登録されています。');
+    if (selectedWines.some(sw => getWineDocId(sw) === compositeId)) return showToast('このワインは既に登録されています。', 'info');
 
     if (sid) {
       try {
@@ -271,6 +270,7 @@ export const OwnerView: React.FC = () => {
         await updateDoc(doc(db, 'stores', sid), { publicMenu: richPublicMenu, updatedAt: new Date().toISOString() });
         fetch(`/api/menu/${sid}/invalidate`, { method: 'POST' }).catch(() => {});
         queryClient.invalidateQueries({ queryKey: ['publicMenu', sid] });
+        showToast('ワインをセラーに追加しました。', 'success');
       } catch (error) {
         handleFirestoreError(error, OperationType.WRITE, `stores/${sid}/inventory/${compositeId}`);
       }
@@ -336,6 +336,7 @@ export const OwnerView: React.FC = () => {
 
       setShowCatalogSelection(false);
       setSelectedMasterIds([]);
+      showToast(`${winesToAdd.length}本の銘柄を一括追加しました。`, 'success');
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `stores/${sid}/bulk`);
     }
@@ -346,24 +347,31 @@ export const OwnerView: React.FC = () => {
   };
 
   const handleDeleteWine = async (wineId: string) => {
-    if (!sid || !window.confirm('このワインをメニューから削除しますか？')) return;
-    try {
-      await deleteDoc(doc(db, 'stores', sid, 'inventory', wineId));
-      const filteredList = selectedWines.filter(w => w.id !== wineId);
-      
-      setSelectedWines(filteredList);
-      setInitialWines(JSON.parse(JSON.stringify(filteredList)));
-      
-      const richPublicMenu = filteredList
-        .filter(w => w.visible !== false && w.isActive !== false)
-        .map(w => ({ ...w, id: getWineDocId(w) }));
+    if (!sid) return;
+    showConfirm(
+      'このワインをメニューから削除しますか？',
+      async () => {
+        try {
+          await deleteDoc(doc(db, 'stores', sid, 'inventory', wineId));
+          const filteredList = selectedWines.filter(w => w.id !== wineId);
+          
+          setSelectedWines(filteredList);
+          setInitialWines(JSON.parse(JSON.stringify(filteredList)));
+          
+          const richPublicMenu = filteredList
+            .filter(w => w.visible !== false && w.isActive !== false)
+            .map(w => ({ ...w, id: getWineDocId(w) }));
 
-      await updateDoc(doc(db, 'stores', sid), { publicMenu: richPublicMenu, updatedAt: new Date().toISOString() });
-      fetch(`/api/menu/${sid}/invalidate`, { method: 'POST' }).catch(() => {});
-      queryClient.invalidateQueries({ queryKey: ['publicMenu', sid] });
-    } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `stores/${sid}/inventory/${wineId}`);
-    }
+          await updateDoc(doc(db, 'stores', sid), { publicMenu: richPublicMenu, updatedAt: new Date().toISOString() });
+          fetch(`/api/menu/${sid}/invalidate`, { method: 'POST' }).catch(() => {});
+          queryClient.invalidateQueries({ queryKey: ['publicMenu', sid] });
+          showToast('ワインを削除しました。', 'success');
+        } catch (error) {
+          handleFirestoreError(error, OperationType.DELETE, `stores/${sid}/inventory/${wineId}`);
+        }
+      },
+      '削除すると、お客様用メニュー画面からも即座に反映され非表示になります。'
+    );
   };
 
   if (inventoryLoading) {
@@ -414,7 +422,7 @@ export const OwnerView: React.FC = () => {
             setSearchId={setSearchId}
             handleAddWine={handleAddWine}
             onShowCatalogSelection={() => setShowCatalogSelection(true)}
-            onFileUpload={() => { alert('オーナー権限での一括CSVインポートは現在制限されています。') }}
+            onFileUpload={() => { showToast('オーナー権限での一括CSVインポートは制限されています。', 'info'); }}
             onSaveInventory={handleSaveInventory}
             onDeleteWine={handleDeleteWine}
             fileInputRef={fileInputRef}
@@ -563,7 +571,7 @@ export const OwnerView: React.FC = () => {
               </div>
               
               <p className="text-[11px] text-gray-400 text-center leading-relaxed">
-                このQRコードを印刷して店内に掲示し、お客様がマイスマホでスキャンできるようにしてください。
+                このQRコードを印刷して店内に掲示し、お客様がマイススマホでスキャンできるようにしてください。
               </p>
 
               <div className="w-full flex flex-col gap-2">
