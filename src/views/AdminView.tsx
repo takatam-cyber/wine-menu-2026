@@ -4,7 +4,7 @@ import { WineMaster, Store } from '../types';
 import { useWines } from '../lib/WineContext';
 import { useStoresQuery } from '../hooks/useStoresQuery';
 import { useWinesMasterQuery } from '../hooks/useWinesQuery';
-import { useInventoryQuery } from '../hooks/useInventoryQuery';
+import { useInventoryQuery, useInventoryMutations } from '../hooks/useInventoryQuery'; // 💡 修正: useInventoryMutations を復元
 import { db } from '../lib/firebase';
 import { doc, setDoc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
@@ -46,8 +46,8 @@ const getWineDocId = (wine: any) => {
 };
 
 export const AdminView: React.FC = () => {
-  // 💡 修正の核心: 古いWineContextに合わせ、存在しない showToast/showConfirm の抽出を削除
-  const { user } = useWines(); 
+  // 💡 修正の核心: ホワイトアウト・ビルドエラーの原因だった showToast と showConfirm の受け取りを復元
+  const { user, showToast, showConfirm } = useWines(); 
   const queryClient = useQueryClient();
   const { data: storesData, fetchNextPage: fetchNextStores, hasNextPage: hasMoreStores } = useStoresQuery(user);
   const { data: winesMasterData, fetchNextPage: fetchNextWinesMaster, hasNextPage: hasMoreWinesMaster } = useWinesMasterQuery();
@@ -57,7 +57,10 @@ export const AdminView: React.FC = () => {
   const wines = useMemo(() => (winesMasterData?.pages.flatMap(page => page.data) || []).filter(Boolean), [winesMasterData]);
 
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
+  
+  // 💡 修正: 店舗情報の保存・更新に必要な useInventoryMutations を復元
   const { data: inventoryData } = useInventoryQuery(selectedStoreId);
+  const { updateStoreMutation } = useInventoryMutations(selectedStoreId || '');
 
   const [selectedWines, setSelectedWines] = useState<WineMaster[]>([]);
   const [initialWines, setInitialWines] = useState<WineMaster[]>([]);
@@ -127,7 +130,6 @@ export const AdminView: React.FC = () => {
 
   const [searchId, setSearchId] = useState('');
   const [isImporting, setIsImporting] = useState(false);
-  const [importStatus, setImportStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
   const [showOwnerForm, setShowOwnerForm] = useState(false);
   const [isEditingOwner, setIsEditingOwner] = useState(false);
   const [showMasterCatalog, setShowMasterCatalog] = useState(false);
@@ -141,13 +143,6 @@ export const AdminView: React.FC = () => {
   const [editStoreData, setEditStoreData] = useState<Partial<Store>>({});
   const [showCatalogSelection, setShowCatalogSelection] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (importStatus) {
-      const timer = setTimeout(() => setImportStatus(null), 4000);
-      return () => clearTimeout(timer);
-    }
-  }, [importStatus]);
 
   const handleSearchMaster = (term: string) => {
     setMasterSearchTerm(term);
@@ -182,7 +177,7 @@ export const AdminView: React.FC = () => {
         Object.entries(dataToUpdate).filter(([_, v]) => v !== undefined)
       );
       await updateDoc(doc(db, 'winesMaster', docId), cleanedData);
-      setImportStatus({ type: 'success', message: 'マスターデータを更新しました' });
+      showToast('マスターカタログ情報を更新しました。', 'success');
       setIsEditingMaster(false);
       queryClient.invalidateQueries({ queryKey: ['winesMaster'] });
     } catch (error: any) {
@@ -232,10 +227,10 @@ export const AdminView: React.FC = () => {
   const handleAddWine = async (wineId?: string) => {
     const idToUse = wineId || searchId;
     let wine = wines.find(w => w.id === idToUse);
-    if (!wine) return alert('該当するワインコードが見つかりません。');
+    if (!wine) return showToast('該当するワインコードが見つかりません。', 'error');
     
     const compositeId = getWineDocId(wine);
-    if (selectedWines.some(sw => getWineDocId(sw) === compositeId)) return alert('このワインは既にメニューに登録されています。');
+    if (selectedWines.some(sw => getWineDocId(sw) === compositeId)) return showToast('このワインは既にメニューに登録されています。', 'info');
     
     if (selectedStoreId) {
       const allowed = Array.isArray(selectedStore?.allowedSuppliers) 
@@ -245,7 +240,7 @@ export const AdminView: React.FC = () => {
       const wineSupplier = String(wine.supplier || 'PIEROTH').toUpperCase();
       
       if (!allowed.includes(wineSupplier)) {
-        alert(`この店舗には指定サプライヤー「${wineSupplier}」のワインを登録する権限がありません`);
+        showToast(`この店舗には指定サプライヤー「${wineSupplier}」のワインを登録する権限がありません`, 'error');
         return;
       }
 
@@ -278,6 +273,7 @@ export const AdminView: React.FC = () => {
         await updateDoc(doc(db, 'stores', selectedStoreId), { publicMenu: richPublicMenu, updatedAt: new Date().toISOString() });
         fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
         queryClient.invalidateQueries({ queryKey: ['publicMenu', selectedStoreId] });
+        showToast('ワインをセラーに追加しました。', 'success');
       } catch (error) {
         handleFirestoreError(error, OperationType.WRITE, `stores/${selectedStoreId}`);
       }
@@ -296,7 +292,7 @@ export const AdminView: React.FC = () => {
       const unauthorized = winesToAdd.filter(w => !allowed.includes(String(w.supplier || 'PIEROTH').toUpperCase()));
       if (unauthorized.length > 0) {
         const unauthorizedSet = Array.from(new Set(unauthorized.map(w => String(w.supplier || 'PIEROTH').toUpperCase())));
-        alert(`許可されていないサプライヤーが含まれています: ${unauthorizedSet.join(', ')}`);
+        showToast(`許可されていないサプライヤーが含まれています: ${unauthorizedSet.join(', ')}`, 'error');
         return;
       }
 
@@ -352,7 +348,7 @@ export const AdminView: React.FC = () => {
       fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
       queryClient.invalidateQueries({ queryKey: ['publicMenu', selectedStoreId] });
       
-      setImportStatus({ type: 'success', message: `${selectedMasterCatalogIds.length}件のワインを追加しました` });
+      showToast(`${selectedMasterCatalogIds.length}件のワインをセラーに一括導入しました。`, 'success');
       setShowCatalogSelection(false);
       setSelectedMasterCatalogIds([]);
     } catch (error) {
@@ -410,42 +406,65 @@ export const AdminView: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
       
       setInitialWines(JSON.parse(JSON.stringify(selectedWines)));
-      setImportStatus({ type: 'success', message: `保存完了（更新件数: ${totalWriteCount}件）` });
+      showToast(`一括保存が完了しました（更新: ${totalWriteCount}件）`, 'success');
     } catch (error) {
       console.error('一括保存に失敗しました:', error);
-      alert('一括保存に失敗しました。');
+      showToast('セラー情報の保存に失敗しました。', 'error');
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDeleteWine = async (wineId: string) => {
-    if (!selectedStoreId || !window.confirm('このワインをメニューから削除しますか？')) return;
-    try {
-      await deleteDoc(doc(db, 'stores', selectedStoreId, 'inventory', wineId));
-      const filteredList = selectedWines.filter(w => w.id !== wineId);
-      setSelectedWines(filteredList);
-      setInitialWines(JSON.parse(JSON.stringify(filteredList)));
-      
-      const richPublicMenu = filteredList
-        .filter(w => w.visible !== false && w.isActive !== false)
-        .map(w => ({ ...w, id: getWineDocId(w) }));
+    if (!selectedStoreId) return;
+    showConfirm(
+      'このワインをメニューから削除しますか？',
+      async () => {
+        try {
+          await deleteDoc(doc(db, 'stores', selectedStoreId, 'inventory', wineId));
+          const filteredList = selectedWines.filter(w => w.id !== wineId);
+          setSelectedWines(filteredList);
+          setInitialWines(JSON.parse(JSON.stringify(filteredList)));
+          
+          const richPublicMenu = filteredList
+            .filter(w => w.visible !== false && w.isActive !== false)
+            .map(w => ({ ...w, id: getWineDocId(w) }));
 
-      await updateDoc(doc(db, 'stores', selectedStoreId), { publicMenu: richPublicMenu, updatedAt: new Date().toISOString() });
-      fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
-      queryClient.invalidateQueries({ queryKey: ['publicMenu', selectedStoreId] });
-    } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `stores/${selectedStoreId}`);
-    }
+          await updateDoc(doc(db, 'stores', selectedStoreId), { publicMenu: richPublicMenu, updatedAt: new Date().toISOString() });
+          fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
+          queryClient.invalidateQueries({ queryKey: ['publicMenu', selectedStoreId] });
+          showToast('対象の銘柄を削除しました。', 'success');
+        } catch (error) {
+          handleFirestoreError(error, OperationType.DELETE, `stores/${selectedStoreId}`);
+        }
+      },
+      '削除すると、店舗のお客様用メニューからもリアルタイムに非表示になります。'
+    );
   };
 
   const handleUpdateStore = async () => {
     if (!selectedStoreId) return;
     try {
-      await updateDoc(doc(db, 'stores', selectedStoreId), { ...editStoreData, updatedAt: new Date().toISOString() });
+      await updateStoreMutation.mutateAsync({
+        name: editStoreData.name,
+        cuisine_type: editStoreData.cuisine_type,
+        address: editStoreData.address,
+        hidePairingFilter: editStoreData.hidePairingFilter,
+        hideWinePairing: editStoreData.hideWinePairing,
+        budgetTiers: editStoreData.budgetTiers,
+      });
+
+      if (editStoreData.name !== selectedStore?.name && user?.uid) {
+        await updateDoc(doc(db, 'users', user.uid), {
+          name: editStoreData.name
+        });
+      }
+
       fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
+      queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
       queryClient.invalidateQueries({ queryKey: ['stores'] });
-      setImportStatus({ type: 'success', message: '店舗情報を更新しました' });
+      
+      showToast('店舗の基本設定情報を更新しました。', 'success');
       setIsEditingStore(false);
     } catch (error: any) {
       handleFirestoreError(error, OperationType.UPDATE, `stores/${selectedStoreId}`);
@@ -455,28 +474,30 @@ export const AdminView: React.FC = () => {
   const handleBulkDeleteMasterWines = async () => {
     if (selectedMasterCatalogIds.length === 0) return;
     
-    if (!window.confirm(`選択された ${selectedMasterCatalogIds.length} 件のワインをマスターカタログから完全に削除しますか？\n\n※この操作は取り消せません。現在各店舗に登録されている在庫データから即時消滅することはありませんが、大元のカタログから完全消去されます。`)) {
-      return;
-    }
+    showConfirm(
+      `選択された ${selectedMasterCatalogIds.length} 件のワインをマスターから完全に削除しますか？`,
+      async () => {
+        try {
+          const CHUNK_SIZE = 450;
+          for (let i = 0; i < selectedMasterCatalogIds.length; i += CHUNK_SIZE) {
+            const chunk = selectedMasterCatalogIds.slice(i, i + CHUNK_SIZE);
+            const batch = writeBatch(db);
+            chunk.forEach(id => {
+              batch.delete(doc(db, 'winesMaster', id));
+            });
+            await batch.commit();
+          }
 
-    try {
-      const CHUNK_SIZE = 450;
-      for (let i = 0; i < selectedMasterCatalogIds.length; i += CHUNK_SIZE) {
-        const chunk = selectedMasterCatalogIds.slice(i, i + CHUNK_SIZE);
-        const batch = writeBatch(db);
-        chunk.forEach(id => {
-          batch.delete(doc(db, 'winesMaster', id));
-        });
-        await batch.commit();
-      }
-
-      queryClient.invalidateQueries({ queryKey: ['winesMaster'] });
-      setSelectedMasterCatalogIds([]);
-      setImportStatus({ type: 'success', message: '選択したマスター銘柄を一括削除しました' });
-    } catch (error) {
-      console.error('マスターカタログの一括削除に失敗しました:', error);
-      alert('一括削除に失敗しました。');
-    }
+          queryClient.invalidateQueries({ queryKey: ['winesMaster'] });
+          setSelectedMasterCatalogIds([]);
+          showToast('選択したマスター銘柄を一括削除しました。', 'success');
+        } catch (error) {
+          console.error('マスターカタログの一括削除に失敗しました:', error);
+          showToast('一括削除に失敗しました。', 'error');
+        }
+      },
+      '※この操作は取り消せません。大元の全社共有カタログからデータが完全消去されます。'
+    );
   };
 
   const handleCreateStore = async () => {
@@ -500,6 +521,7 @@ export const AdminView: React.FC = () => {
       
       await setDoc(doc(db, 'stores', newStoreId), newStore);
       queryClient.invalidateQueries({ queryKey: ['stores'] });
+      showToast('新しい店舗情報を発行・新規開拓しました。', 'success');
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, path);
     }
@@ -508,7 +530,7 @@ export const AdminView: React.FC = () => {
   const handleCreateOwner = async () => {
     if (!selectedStoreId || !ownerEmail) return;
     if (!isEditingOwner && (!ownerPassword || ownerPassword.length < 6)) {
-      setImportStatus({ type: 'error', message: '新規作成時は6文字以上のパスワードが必要です' });
+      showToast('新規作成時は6文字以上のパスワードが必要です。', 'error');
       return;
     }
 
@@ -524,7 +546,7 @@ export const AdminView: React.FC = () => {
         await updateDoc(doc(db, 'stores', selectedStoreId), {
           owner_email: emailToUse
         });
-        setImportStatus({ type: 'success', message: 'オーナー情報を更新しました' });
+        showToast('オーナーアカウント情報を更新しました。', 'success');
       } else {
         const secondaryAppName = `secondary-auth-${Date.now()}`;
         let secondaryApp;
@@ -541,7 +563,7 @@ export const AdminView: React.FC = () => {
           uid: ownerUid,
           email: emailToUse,
           name: selectedStore?.name || 'Store Owner',
-          role: 'owner',
+          role: 'owner' as const,
           storeId: selectedStoreId
         };
         await setDoc(doc(db, 'users', ownerUid), userProfile);
@@ -552,7 +574,7 @@ export const AdminView: React.FC = () => {
         });
         await signOut(secondaryAuth);
         await deleteApp(secondaryApp);
-        setImportStatus({ type: 'success', message: 'オーナーアカウントを新規作成しました' });
+        showToast('店舗統括用オーナーアカウントを新規発行しました。', 'success');
       }
 
       setShowOwnerForm(false);
@@ -561,7 +583,7 @@ export const AdminView: React.FC = () => {
       setOwnerPassword('');
       queryClient.invalidateQueries({ queryKey: ['stores'] });
     } catch (error: any) {
-      setImportStatus({ type: 'error', message: `操作失敗: ${error.message}` });
+      showToast(`操作失敗: ${error.message}`, 'error');
     } finally {
       setIsCreatingOwner(false);
     }
@@ -577,17 +599,23 @@ export const AdminView: React.FC = () => {
     setShowOwnerForm(!showOwnerForm);
   };
 
-  const handleDeleteStore = async (storeId: string) => {
-    try {
-      await deleteDoc(doc(db, 'stores', storeId));
-      setImportStatus({ type: 'success', message: '店舗を削除しました' });
-      if (selectedStoreId === storeId) {
-        setSelectedStoreId(null);
-      }
-      queryClient.invalidateQueries({ queryKey: ['stores'] });
-    } catch (error: any) {
-      handleFirestoreError(error, OperationType.DELETE, `stores/${storeId}`);
-    }
+  const handleDeleteStore = (storeId: string) => {
+    showConfirm(
+      'この店舗を完全にシステムから削除してよろしいですか？',
+      async () => {
+        try {
+          await deleteDoc(doc(db, 'stores', storeId));
+          showToast('対象店舗を削除しました。', 'success');
+          if (selectedStoreId === storeId) {
+            setSelectedStoreId(null);
+          }
+          queryClient.invalidateQueries({ queryKey: ['stores'] });
+        } catch (error: any) {
+          handleFirestoreError(error, OperationType.DELETE, `stores/${storeId}`);
+        }
+      },
+      '削除すると、店舗のお客様用メニューや蓄積されたセラー在庫データ、QRコードすべてが消失します。'
+    );
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -595,7 +623,6 @@ export const AdminView: React.FC = () => {
     if (!file) return;
 
     setIsImporting(true);
-    setImportStatus(null);
 
     try {
       const importedWines = await parseWineCSV(file);
@@ -694,12 +721,9 @@ export const AdminView: React.FC = () => {
         }
       }
 
-      setImportStatus({ 
-        type: 'success', 
-        message: `${uniqueImportedWines.length}件のCSVデータを処理しました。（新規マスター登録: ${newMasterWines.length}件）` 
-      });
+      showToast(`${uniqueImportedWines.length}件のCSV処理が正常完了しました。`, 'success');
     } catch (error: any) {
-      setImportStatus({ type: 'error', message: `インポート失敗: ${error.message}` });
+      showToast(`インポートに失敗しました: ${error.message}`, 'error');
     } finally {
       setIsImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -1190,7 +1214,7 @@ export const AdminView: React.FC = () => {
               masterSearchTerm={masterSearchTerm}
               setMasterSearchTerm={setMasterSearchTerm}
               selectedWines={selectedWines}
-              selectedMasterIds={selectedMasterCatalogIds} // 💡 バグ修正: selectedMasterIds から selectedMasterCatalogIds に修正
+              selectedMasterIds={selectedMasterCatalogIds} 
               toggleMasterSelection={toggleMasterSelection}
               handleBulkAddWines={handleBulkAddWines}
               hasMoreWines={!!hasMoreWinesMaster}
@@ -1215,4 +1239,4 @@ export const AdminView: React.FC = () => {
 };
 """
 
-print("Done")}
+print("Simulated finding issue in AdminView.")}
