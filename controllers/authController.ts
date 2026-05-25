@@ -73,11 +73,11 @@ export const syncClaims = async (req: AuthenticatedRequest, res: Response) => {
         role = "admin";
       }
     } else {
-      // 🚨 防御機構: 万が一メールアドレスが偽装（未認証）である、または対象外ドメインであるにもかかわらず、
-      // データベースやリクエスト上で `admin` 権限を要求しようとした場合、強制的に `owner` または `customer` に降格（制限）させる
-      if (role === "admin") {
+      // 🚨 【2重の防御機構】万が一データベース側が不正に改ざんされ、admin/rep権限が要求された場合も、
+      // ドメイン認証及びメール実在証明が無い場合は強制的に一般権限（owner/customer）にリセットして特権昇格を完璧に防ぐ
+      if (role === "admin" || role === "rep") {
         role = storeId ? "owner" : "customer"; 
-        console.warn(`[Security Alert] Blocked unverified admin claim attempt for UID: ${uid}, Email: ${email}`);
+        console.warn(`[Security Alert] Blocked unverified privilege claim attempt for UID: ${uid}, Email: ${email}`);
       }
     }
 
