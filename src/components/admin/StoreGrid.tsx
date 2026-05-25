@@ -1,7 +1,9 @@
+// src/components/admin/StoreGrid.tsx
 import React from 'react';
 import { Store } from '../../types';
 import { motion } from 'motion/react';
 import { Wine, Trash2, Shield } from 'lucide-react';
+import { useWines } from '../../lib/WineContext';
 
 interface StoreGridProps {
   stores: Store[];
@@ -20,6 +22,8 @@ export const StoreGrid: React.FC<StoreGridProps> = ({
   onDeleteStore,
   onSelectStore,
 }) => {
+  const { showConfirm } = useWines();
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
       {stores.map(store => (
@@ -41,9 +45,11 @@ export const StoreGrid: React.FC<StoreGridProps> = ({
                 <button 
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (confirm('この店舗を削除してよろしいですか？')) {
-                      onDeleteStore(store.id);
-                    }
+                    showConfirm(
+                      `「${store.name}」を完全にシステムから削除してよろしいですか？`,
+                      () => onDeleteStore(store.id),
+                      'この操作を行うと、店舗に関連付けられたセラー情報や公開メニューURLもすべて即座に無効化されます。'
+                    );
                   }}
                   className="flex items-center justify-center p-2.5 bg-red-500 text-white rounded-full hover:bg-red-600 transition-all shadow-xl active:scale-95 pointer-events-auto"
                   title="店舗を削除"
