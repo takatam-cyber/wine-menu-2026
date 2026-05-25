@@ -26,7 +26,7 @@ const performGC = () => {
 };
 setInterval(performGC, 10 * 60 * 1000).unref();
 
-export const getMenu = async (req: Request, res: Response) => {
+export const getMenu = async (req: Request, res: Response): Promise<void> => {
   try {
     const { storeId } = req.params;
     const now = Date.now();
@@ -149,7 +149,7 @@ export const getMenu = async (req: Request, res: Response) => {
   }
 };
 
-export const proxyImage = async (req: Request, res: Response) => {
+export const proxyImage = async (req: Request, res: Response): Promise<void> => {
   try {
     const imageUrl = req.query.url as string;
     if (!imageUrl) {
@@ -179,7 +179,7 @@ export const proxyImage = async (req: Request, res: Response) => {
   }
 };
 
-export const invalidateMenuCache = (req: Request, res: Response) => {
+export const invalidateMenuCache = (req: Request, res: Response): void => {
   try {
     const { storeId } = req.params;
     menuCache.delete(storeId);
@@ -190,14 +190,15 @@ export const invalidateMenuCache = (req: Request, res: Response) => {
 };
 
 /**
- * 💡 修正の核心: Expressの型システムに100%適応させ、マージ重複を一掃したクリーンな発注ハンドラ
+ * 💡 修正の核心: 引数を標準の Request 型に固定し、内部の重複コードやタイポを完全消去。
+ * 戻り値を Promise<void> に統一して、Vite/AppHosting等の本番ビルドを確実にパスさせます。
  */
-export const placeOrder = async (req: Request, res: Response) => {
+export const placeOrder = async (req: Request, res: Response): Promise<void> => {
   try {
     const { storeId } = req.params;
     const { items, orderNotes } = req.body;
     
-    // 安全にキャストして認証コンテキストを展開
+    // 安全にキャストして、ミドルウェアが付与したユーザー情報を抽出
     const callerUser = (req as any).user; 
 
     if (!items || items.length === 0) {
