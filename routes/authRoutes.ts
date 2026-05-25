@@ -1,4 +1,3 @@
-// routes/authRoutes.ts
 import { Router } from "express";
 import { setRole, syncClaims } from "../controllers/authController.js";
 import { authenticateUser } from "../middleware/auth.js";
