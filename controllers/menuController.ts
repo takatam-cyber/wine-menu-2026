@@ -189,16 +189,10 @@ export const invalidateMenuCache = (req: Request, res: Response): void => {
   }
 };
 
-/**
- * 💡 修正の核心: 引数を標準の Request 型に固定し、内部の重複コードやタイポを完全消去。
- * 戻り値を Promise<void> に統一して、Vite/AppHosting等の本番ビルドを確実にパスさせます。
- */
 export const placeOrder = async (req: Request, res: Response): Promise<void> => {
   try {
     const { storeId } = req.params;
     const { items, orderNotes } = req.body;
-    
-    // 安全にキャストして、ミドルウェアが付与したユーザー情報を抽出
     const callerUser = (req as any).user; 
 
     if (!items || items.length === 0) {
