@@ -2,9 +2,10 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { WineMaster, Store } from '../types';
 import { useWines } from '../lib/WineContext';
+import { wineRepository } from '../lib/repositories/wineRepository';
 import { useStoresQuery } from '../hooks/useStoresQuery';
 import { useWinesMasterQuery } from '../hooks/useWinesQuery';
-import { useInventoryQuery, useInventoryMutations } from '../hooks/useInventoryQuery'; // 💡 修正: useInventoryMutations を復元
+import { useInventoryQuery, useInventoryMutations } from '../hooks/useInventoryQuery';
 import { db } from '../lib/firebase';
 import { doc, setDoc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
@@ -46,8 +47,7 @@ const getWineDocId = (wine: any) => {
 };
 
 export const AdminView: React.FC = () => {
-  // 💡 修正の核心: ホワイトアウト・ビルドエラーの原因だった showToast と showConfirm の受け取りを復元
-  const { user, showToast, showConfirm } = useWines(); 
+  const { user, showToast, showConfirm } = useWines();
   const queryClient = useQueryClient();
   const { data: storesData, fetchNextPage: fetchNextStores, hasNextPage: hasMoreStores } = useStoresQuery(user);
   const { data: winesMasterData, fetchNextPage: fetchNextWinesMaster, hasNextPage: hasMoreWinesMaster } = useWinesMasterQuery();
@@ -57,8 +57,6 @@ export const AdminView: React.FC = () => {
   const wines = useMemo(() => (winesMasterData?.pages.flatMap(page => page.data) || []).filter(Boolean), [winesMasterData]);
 
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
-  
-  // 💡 修正: 店舗情報の保存・更新に必要な useInventoryMutations を復元
   const { data: inventoryData } = useInventoryQuery(selectedStoreId);
   const { updateStoreMutation } = useInventoryMutations(selectedStoreId || '');
 
@@ -273,7 +271,7 @@ export const AdminView: React.FC = () => {
         await updateDoc(doc(db, 'stores', selectedStoreId), { publicMenu: richPublicMenu, updatedAt: new Date().toISOString() });
         fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
         queryClient.invalidateQueries({ queryKey: ['publicMenu', selectedStoreId] });
-        showToast('ワインをセラーに追加しました。', 'success');
+        showToast('セラーへの銘柄追加が完了しました。', 'success');
       } catch (error) {
         handleFirestoreError(error, OperationType.WRITE, `stores/${selectedStoreId}`);
       }
@@ -1164,79 +1162,4 @@ export const AdminView: React.FC = () => {
                         />
                       </div>
                       
-                      <p className="text-[11px] text-slate-400 text-center leading-relaxed">
-                        このQRコードを印刷して店内に掲示し、お客様がマイスマホでスキャンできるようにしてください。
-                      </p>
-
-                      <div className="w-full flex flex-col gap-2">
-                        <button 
-                          onClick={() => window.open(`${getBaseUrl() || window.location.origin}/menu/${selectedStoreId}`, '_blank')}
-                          className="w-full py-3 bg-brand-wine text-white text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-brand-wine/90 hover:shadow-lg transition-all flex items-center justify-center gap-2"
-                        >
-                          <ExternalLink className="w-4 h-4" /> お客用メニューを開く
-                        </button>
-                        
-                        <div className="text-center">
-                          <span className="text-[9px] font-mono select-all break-all text-slate-400 text-center block max-w-full overflow-hidden truncate">
-                            {`${getBaseUrl() || window.location.origin}/menu/${selectedStoreId}`}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-xs text-slate-400 py-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                      店舗を選択すると、QRコードとメニューURLが生成されます。
-                    </p>
-                  )}
-                </div>
-
-                <OwnerAccountForm 
-                  selectedStore={selectedStore}
-                  ownerEmail={ownerEmail}
-                  setOwnerEmail={setOwnerEmail}
-                  ownerPassword={ownerPassword}
-                  setOwnerPassword={setOwnerPassword}
-                  isCreatingOwner={isCreatingOwner}
-                  isEditingOwner={isEditingOwner}
-                  onHandleCreateOwner={handleCreateOwner}
-                  showOwnerForm={showOwnerForm}
-                  setShowOwnerForm={setShowOwnerForm}
-                  onToggleEditMode={toggleOwnerEditMode}
-                />
-              </div>
-            </div>
-            
-            <CatalogSelector 
-              isOpen={showCatalogSelection}
-              onClose={() => setShowCatalogSelection(false)}
-              selectedStore={selectedStore}
-              wines={wines}
-              masterSearchTerm={masterSearchTerm}
-              setMasterSearchTerm={setMasterSearchTerm}
-              selectedWines={selectedWines}
-              selectedMasterIds={selectedMasterCatalogIds} 
-              toggleMasterSelection={toggleMasterSelection}
-              handleBulkAddWines={handleBulkAddWines}
-              hasMoreWines={!!hasMoreWinesMaster}
-              onLoadMoreWines={handleLoadMoreWines}
-            />
-          </div>
-        ) : (
-          <StoreGrid 
-            stores={filteredStores}
-            hasMoreStores={!!hasMoreStores}
-            onLoadMoreStores={handleLoadMoreStores}
-            onCreateStore={handleCreateStore}
-            onDeleteStore={handleDeleteStore}
-            onSelectStore={setSelectedStoreId}
-          />
-        )}
-
-        {renderMasterEditModal()}
-      </div>
-    </div>
-  );
-};
-"""
-
-print("Simulated finding issue in AdminView.")}
+                      <p className="text-[11px] text
