@@ -1235,6 +1235,3 @@ export const AdminView: React.FC = () => {
     </div>
   );
 };
-\"\"\"
-
-print("Simulated writing OwnerView file correctly")}
