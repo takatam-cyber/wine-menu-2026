@@ -1,8 +1,8 @@
 // controllers/authController.ts
-import { Request, Response } from "express";
+import { RequestHandler } from "express";
 import { authAdmin, dbAdmin, FieldValue } from "../lib/firebase-admin.js";
 
-export const setRole = async (req: Request, res: Response) => {
+export const setRole: RequestHandler = async (req, res, next) => {
   try {
     const { uid, role } = req.body;
     const caller = (req as any).user;
@@ -29,7 +29,7 @@ export const setRole = async (req: Request, res: Response) => {
   }
 };
 
-export const syncClaims = async (req: Request, res: Response) => {
+export const syncClaims: RequestHandler = async (req, res, next) => {
   try {
     const caller = (req as any).user;
     if (!caller) {
