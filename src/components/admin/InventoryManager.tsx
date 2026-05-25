@@ -33,10 +33,18 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
   onDeleteWine,
   fileInputRef,
   onUpdateWineItem,
+  // 💡 厳格な型チェック・未使用プロパティ警告を完璧に回避するため、Propsを全て明示的に受領
+  setSelectedWines,
+  masterWines,
+  searchId,
+  setSearchId,
+  handleAddWine,
+  hasMoreWines,
+  onLoadMoreWines,
 }) => {
   const { showToast, showConfirm } = useWines();
   
-  // 🌟 各銘柄の発注予定本数を個別に保持 (飲食店で一般的な1ケース=6本を初期値に採用)
+  // 各銘柄の発注予定本数を個別に保持 (飲食店で一般的な1ケース=6本を初期値に採用)
   const [orderQuantities, setOrderQuantities] = useState<Record<string, number>>({});
   const [isOrderSubmitting, setIsOrderSubmitting] = useState(false);
 
@@ -50,7 +58,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
     });
   };
 
-  // 🚨 ピーロートへのダイレクト発注キック処理
+  // ピーロートへのダイレクト発注キック処理
   const handlePlaceOrder = async (wine: WineMaster) => {
     const qty = getOrderQty(wine.id);
     
@@ -112,7 +120,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
         </div>
       </div>
      
-      {/* 老眼・スマホ完全配慮：1120pxの超ワイドスペースを確保し、押し間違いを物理的に撲滅 */}
+      {/* 💡 修正点: custom-scrollbar の後ろに入り込んでいた全角文字「规范」を完全抹消 */}
       <div className="w-full overflow-x-auto custom-scrollbar pb-4">
         <div className="min-w-[1120px] p-4 md:p-6 space-y-4">
           <div className="grid grid-cols-[2.8fr_1fr_1fr_2.2fr_1.2fr_0.8fr] gap-4 px-6 py-3 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100">
@@ -172,9 +180,8 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                   </div>
                 </div>
 
-                {/* 🚨 4. 老眼・現場対応：ワンタップ発注コントロール */}
+                {/* 4. 老眼・現場対応：ワンタップ発注コントロール */}
                 <div className="flex items-center justify-center bg-brand-wine/[0.02] p-2 rounded-2xl border border-brand-wine/10 gap-3">
-                  {/* キーボード完全不要の超巨大ステッパー */}
                   <div className="flex items-center bg-white rounded-xl p-1 border border-slate-200 shadow-sm">
                     <button
                       type="button"
@@ -185,7 +192,6 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                       <Minus className="w-4 h-4 stroke-[3]" />
                     </button>
                     
-                    {/* 爆大デジタル表示で老眼を完全サポート */}
                     <div className="w-16 text-center font-mono text-slate-900 font-black text-base select-none">
                       {currentQty}<span className="text-[10px] font-sans text-slate-400 ml-0.5">本</span>
                     </div>
@@ -199,7 +205,6 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                     </button>
                   </div>
 
-                  {/* プレミアム発注実行ボタン */}
                   <button
                     type="button"
                     disabled={isOrderSubmitting}
