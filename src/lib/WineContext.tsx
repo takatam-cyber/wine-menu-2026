@@ -16,20 +16,10 @@ interface WineContextType {
 
 const WineContext = createContext<WineContextType | undefined>(undefined);
 
-// カスタムフックをエクスポート (ここで追加)
-export const useWines = () => {
-  const context = useContext(WineContext);
-  if (context === undefined) {
-    throw new Error('useWines must be used within a WineProvider');
-  }
-  return context;
-};
-
 export const WineProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // 🌟 スマホ・老眼対応ラグジュアリー通知システム用ステート
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
   const [confirm, setConfirm] = useState<{ message: string; subMessage?: string; onConfirm: () => void } | null>(null);
 
@@ -117,7 +107,6 @@ export const WineProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     <WineContext.Provider value={contextValue}>
       {children}
 
-      {/* 🌟 視認性MAX・ラグジュアリートースト */}
       <AnimatePresence>
         {toast && (
           <motion.div
@@ -142,7 +131,6 @@ export const WineProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         )}
       </AnimatePresence>
 
-      {/* 🌟 老眼完全対応・超巨大ボタン付きプレミアムダイアログ */}
       <AnimatePresence>
         {confirm && (
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
@@ -174,7 +162,6 @@ export const WineProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 </p>
               )}
 
-              {/* 老眼対応：押し間違いを物理的に防ぐ56pxの超巨大ボタン */}
               <div className="flex flex-col gap-3">
                 <button
                   onClick={() => {
@@ -198,4 +185,12 @@ export const WineProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       </AnimatePresence>
     </WineContext.Provider>
   );
+};
+
+export const useWines = () => {
+  const context = useContext(WineContext);
+  if (!context) {
+    throw new Error('useWines must be used within a WineProvider');
+  }
+  return context;
 };
