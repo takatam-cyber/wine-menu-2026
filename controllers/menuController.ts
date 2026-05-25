@@ -1,7 +1,6 @@
 // controllers/menuController.ts
-import { Request, Response } from "express";
+import { RequestHandler } from "express";
 import { dbAdmin } from "../lib/firebase-admin.js";
-import { AuthenticatedRequest } from "../middleware/auth.js";
 
 interface CacheEntry {
   data: any;
@@ -27,7 +26,7 @@ const performGC = () => {
 };
 setInterval(performGC, 10 * 60 * 1000).unref();
 
-export const getMenu = async (req: Request, res: Response): Promise<void> => {
+export const getMenu: RequestHandler = async (req, res, next) => {
   try {
     const { storeId } = req.params;
     const now = Date.now();
@@ -121,6 +120,7 @@ export const getMenu = async (req: Request, res: Response): Promise<void> => {
             updatedAt: new Date().toISOString()
           };
           await dbAdmin.collection("stores").doc(storeId).update(updateData);
+          console.log(`[Consolidation-Engine] Successfully denormalized and consolidated publicMenu for store: ${storeId}`);
         }
       }
     }
@@ -145,11 +145,12 @@ export const getMenu = async (req: Request, res: Response): Promise<void> => {
     res.setHeader("Cache-Control", "public, max-age=15, s-maxage=15, stale-while-revalidate=30");
     res.json(responsePayload);
   } catch (error: any) {
+    console.error("Menu Fetch Error:", error);
     res.status(500).json({ error: "メニューの取得に失敗しました。" });
   }
 };
 
-export const proxyImage = async (req: Request, res: Response): Promise<void> => {
+export const proxyImage: RequestHandler = async (req, res, next) => {
   try {
     const imageUrl = req.query.url as string;
     if (!imageUrl) {
@@ -179,7 +180,7 @@ export const proxyImage = async (req: Request, res: Response): Promise<void> => 
   }
 };
 
-export const invalidateMenuCache = (req: Request, res: Response): void => {
+export const invalidateMenuCache: RequestHandler = (req, res, next) => {
   try {
     const { storeId } = req.params;
     menuCache.delete(storeId);
@@ -189,11 +190,13 @@ export const invalidateMenuCache = (req: Request, res: Response): void => {
   }
 };
 
-export const placeOrder = async (req: Request, res: Response): Promise<void> => {
+export const placeOrder: RequestHandler = async (req, res, next) => {
   try {
     const { storeId } = req.params;
     const { items, orderNotes } = req.body;
-    const callerUser = (req as AuthenticatedRequest).user; 
+    
+    // 安全にキャストして認証コンテキストを展開
+    const callerUser = (req as any).user; 
 
     if (!items || items.length === 0) {
       res.status(400).json({ error: "発注アイテムが空です。" });
@@ -268,6 +271,7 @@ ${orderNotes || "特になし"}
       message: "ピーロートへの発注が完了しました。ご登録のメールアドレスに控えをお送りしました。" 
     });
   } catch (error: any) {
+    console.error("Order Processing Error:", error);
     res.status(500).json({ error: "発注処理に失敗しました。" });
   }
 };
