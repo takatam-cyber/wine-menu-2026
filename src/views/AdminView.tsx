@@ -46,7 +46,8 @@ const getWineDocId = (wine: any) => {
 };
 
 export const AdminView: React.FC = () => {
-  const { user, showToast, showConfirm } = useWines();
+  // 💡 修正の核心: 古いWineContextに合わせ、存在しない showToast/showConfirm の抽出を削除
+  const { user } = useWines(); 
   const queryClient = useQueryClient();
   const { data: storesData, fetchNextPage: fetchNextStores, hasNextPage: hasMoreStores } = useStoresQuery(user);
   const { data: winesMasterData, fetchNextPage: fetchNextWinesMaster, hasNextPage: hasMoreWinesMaster } = useWinesMasterQuery();
@@ -126,6 +127,7 @@ export const AdminView: React.FC = () => {
 
   const [searchId, setSearchId] = useState('');
   const [isImporting, setIsImporting] = useState(false);
+  const [importStatus, setImportStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
   const [showOwnerForm, setShowOwnerForm] = useState(false);
   const [isEditingOwner, setIsEditingOwner] = useState(false);
   const [showMasterCatalog, setShowMasterCatalog] = useState(false);
@@ -139,6 +141,13 @@ export const AdminView: React.FC = () => {
   const [editStoreData, setEditStoreData] = useState<Partial<Store>>({});
   const [showCatalogSelection, setShowCatalogSelection] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (importStatus) {
+      const timer = setTimeout(() => setImportStatus(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [importStatus]);
 
   const handleSearchMaster = (term: string) => {
     setMasterSearchTerm(term);
@@ -173,7 +182,7 @@ export const AdminView: React.FC = () => {
         Object.entries(dataToUpdate).filter(([_, v]) => v !== undefined)
       );
       await updateDoc(doc(db, 'winesMaster', docId), cleanedData);
-      showToast('マスターデータを更新しました', 'success');
+      setImportStatus({ type: 'success', message: 'マスターデータを更新しました' });
       setIsEditingMaster(false);
       queryClient.invalidateQueries({ queryKey: ['winesMaster'] });
     } catch (error: any) {
@@ -223,10 +232,10 @@ export const AdminView: React.FC = () => {
   const handleAddWine = async (wineId?: string) => {
     const idToUse = wineId || searchId;
     let wine = wines.find(w => w.id === idToUse);
-    if (!wine) return showToast('該当するワインコードが見つかりません。', 'error');
+    if (!wine) return alert('該当するワインコードが見つかりません。');
     
     const compositeId = getWineDocId(wine);
-    if (selectedWines.some(sw => getWineDocId(sw) === compositeId)) return showToast('このワインは既にメニューに登録されています。', 'info');
+    if (selectedWines.some(sw => getWineDocId(sw) === compositeId)) return alert('このワインは既にメニューに登録されています。');
     
     if (selectedStoreId) {
       const allowed = Array.isArray(selectedStore?.allowedSuppliers) 
@@ -236,7 +245,7 @@ export const AdminView: React.FC = () => {
       const wineSupplier = String(wine.supplier || 'PIEROTH').toUpperCase();
       
       if (!allowed.includes(wineSupplier)) {
-        showToast(`この店舗には指定サプライヤー「${wineSupplier}」のワインを登録する権限がありません`, 'error');
+        alert(`この店舗には指定サプライヤー「${wineSupplier}」のワインを登録する権限がありません`);
         return;
       }
 
@@ -269,7 +278,6 @@ export const AdminView: React.FC = () => {
         await updateDoc(doc(db, 'stores', selectedStoreId), { publicMenu: richPublicMenu, updatedAt: new Date().toISOString() });
         fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
         queryClient.invalidateQueries({ queryKey: ['publicMenu', selectedStoreId] });
-        showToast('ワインを追加しました。', 'success');
       } catch (error) {
         handleFirestoreError(error, OperationType.WRITE, `stores/${selectedStoreId}`);
       }
@@ -288,7 +296,7 @@ export const AdminView: React.FC = () => {
       const unauthorized = winesToAdd.filter(w => !allowed.includes(String(w.supplier || 'PIEROTH').toUpperCase()));
       if (unauthorized.length > 0) {
         const unauthorizedSet = Array.from(new Set(unauthorized.map(w => String(w.supplier || 'PIEROTH').toUpperCase())));
-        showToast(`許可されていないサプライヤーが含まれています: ${unauthorizedSet.join(', ')}`, 'error');
+        alert(`許可されていないサプライヤーが含まれています: ${unauthorizedSet.join(', ')}`);
         return;
       }
 
@@ -344,7 +352,7 @@ export const AdminView: React.FC = () => {
       fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
       queryClient.invalidateQueries({ queryKey: ['publicMenu', selectedStoreId] });
       
-      showToast(`${selectedMasterCatalogIds.length}件のワインを追加しました`, 'success');
+      setImportStatus({ type: 'success', message: `${selectedMasterCatalogIds.length}件のワインを追加しました` });
       setShowCatalogSelection(false);
       setSelectedMasterCatalogIds([]);
     } catch (error) {
@@ -402,39 +410,33 @@ export const AdminView: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
       
       setInitialWines(JSON.parse(JSON.stringify(selectedWines)));
-      showToast(`保存完了（更新件数: ${totalWriteCount}件）`, 'success');
+      setImportStatus({ type: 'success', message: `保存完了（更新件数: ${totalWriteCount}件）` });
     } catch (error) {
       console.error('一括保存に失敗しました:', error);
-      showToast('一括保存に失敗しました。', 'error');
+      alert('一括保存に失敗しました。');
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDeleteWine = async (wineId: string) => {
-    if (!selectedStoreId) return;
-    showConfirm(
-      'このワインをメニューから削除しますか？',
-      async () => {
-        try {
-          await deleteDoc(doc(db, 'stores', selectedStoreId, 'inventory', wineId));
-          const filteredList = selectedWines.filter(w => w.id !== wineId);
-          setSelectedWines(filteredList);
-          setInitialWines(JSON.parse(JSON.stringify(filteredList)));
-          
-          const richPublicMenu = filteredList
-            .filter(w => w.visible !== false && w.isActive !== false)
-            .map(w => ({ ...w, id: getWineDocId(w) }));
+    if (!selectedStoreId || !window.confirm('このワインをメニューから削除しますか？')) return;
+    try {
+      await deleteDoc(doc(db, 'stores', selectedStoreId, 'inventory', wineId));
+      const filteredList = selectedWines.filter(w => w.id !== wineId);
+      setSelectedWines(filteredList);
+      setInitialWines(JSON.parse(JSON.stringify(filteredList)));
+      
+      const richPublicMenu = filteredList
+        .filter(w => w.visible !== false && w.isActive !== false)
+        .map(w => ({ ...w, id: getWineDocId(w) }));
 
-          await updateDoc(doc(db, 'stores', selectedStoreId), { publicMenu: richPublicMenu, updatedAt: new Date().toISOString() });
-          fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
-          queryClient.invalidateQueries({ queryKey: ['publicMenu', selectedStoreId] });
-          showToast('ワインを削除しました。', 'success');
-        } catch (error) {
-          handleFirestoreError(error, OperationType.DELETE, `stores/${selectedStoreId}`);
-        }
-      }
-    );
+      await updateDoc(doc(db, 'stores', selectedStoreId), { publicMenu: richPublicMenu, updatedAt: new Date().toISOString() });
+      fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
+      queryClient.invalidateQueries({ queryKey: ['publicMenu', selectedStoreId] });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `stores/${selectedStoreId}`);
+    }
   };
 
   const handleUpdateStore = async () => {
@@ -443,7 +445,7 @@ export const AdminView: React.FC = () => {
       await updateDoc(doc(db, 'stores', selectedStoreId), { ...editStoreData, updatedAt: new Date().toISOString() });
       fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
       queryClient.invalidateQueries({ queryKey: ['stores'] });
-      showToast('店舗情報を更新しました', 'success');
+      setImportStatus({ type: 'success', message: '店舗情報を更新しました' });
       setIsEditingStore(false);
     } catch (error: any) {
       handleFirestoreError(error, OperationType.UPDATE, `stores/${selectedStoreId}`);
@@ -453,30 +455,28 @@ export const AdminView: React.FC = () => {
   const handleBulkDeleteMasterWines = async () => {
     if (selectedMasterCatalogIds.length === 0) return;
     
-    showConfirm(
-      `選択された ${selectedMasterCatalogIds.length} 件のワインをマスターカタログから完全に削除しますか？`,
-      async () => {
-        try {
-          const CHUNK_SIZE = 450;
-          for (let i = 0; i < selectedMasterCatalogIds.length; i += CHUNK_SIZE) {
-            const chunk = selectedMasterCatalogIds.slice(i, i + CHUNK_SIZE);
-            const batch = writeBatch(db);
-            chunk.forEach(id => {
-              batch.delete(doc(db, 'winesMaster', id));
-            });
-            await batch.commit();
-          }
+    if (!window.confirm(`選択された ${selectedMasterCatalogIds.length} 件のワインをマスターカタログから完全に削除しますか？\n\n※この操作は取り消せません。現在各店舗に登録されている在庫データから即時消滅することはありませんが、大元のカタログから完全消去されます。`)) {
+      return;
+    }
 
-          queryClient.invalidateQueries({ queryKey: ['winesMaster'] });
-          setSelectedMasterCatalogIds([]);
-          showToast('選択したマスター銘柄を一括削除しました', 'success');
-        } catch (error) {
-          console.error('マスターカタログの一括削除に失敗しました:', error);
-          showToast('一括削除に失敗しました。', 'error');
-        }
-      },
-      '※この操作は取り消せません。'
-    );
+    try {
+      const CHUNK_SIZE = 450;
+      for (let i = 0; i < selectedMasterCatalogIds.length; i += CHUNK_SIZE) {
+        const chunk = selectedMasterCatalogIds.slice(i, i + CHUNK_SIZE);
+        const batch = writeBatch(db);
+        chunk.forEach(id => {
+          batch.delete(doc(db, 'winesMaster', id));
+        });
+        await batch.commit();
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['winesMaster'] });
+      setSelectedMasterCatalogIds([]);
+      setImportStatus({ type: 'success', message: '選択したマスター銘柄を一括削除しました' });
+    } catch (error) {
+      console.error('マスターカタログの一括削除に失敗しました:', error);
+      alert('一括削除に失敗しました。');
+    }
   };
 
   const handleCreateStore = async () => {
@@ -500,7 +500,6 @@ export const AdminView: React.FC = () => {
       
       await setDoc(doc(db, 'stores', newStoreId), newStore);
       queryClient.invalidateQueries({ queryKey: ['stores'] });
-      showToast('新規店舗を作成しました', 'success');
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, path);
     }
@@ -509,7 +508,7 @@ export const AdminView: React.FC = () => {
   const handleCreateOwner = async () => {
     if (!selectedStoreId || !ownerEmail) return;
     if (!isEditingOwner && (!ownerPassword || ownerPassword.length < 6)) {
-      showToast('新規作成時は6文字以上のパスワードが必要です', 'error');
+      setImportStatus({ type: 'error', message: '新規作成時は6文字以上のパスワードが必要です' });
       return;
     }
 
@@ -525,7 +524,7 @@ export const AdminView: React.FC = () => {
         await updateDoc(doc(db, 'stores', selectedStoreId), {
           owner_email: emailToUse
         });
-        showToast('オーナー情報を更新しました', 'success');
+        setImportStatus({ type: 'success', message: 'オーナー情報を更新しました' });
       } else {
         const secondaryAppName = `secondary-auth-${Date.now()}`;
         let secondaryApp;
@@ -542,7 +541,7 @@ export const AdminView: React.FC = () => {
           uid: ownerUid,
           email: emailToUse,
           name: selectedStore?.name || 'Store Owner',
-          role: 'owner' as const,
+          role: 'owner',
           storeId: selectedStoreId
         };
         await setDoc(doc(db, 'users', ownerUid), userProfile);
@@ -553,7 +552,7 @@ export const AdminView: React.FC = () => {
         });
         await signOut(secondaryAuth);
         await deleteApp(secondaryApp);
-        showToast('オーナーアカウントを新規作成しました', 'success');
+        setImportStatus({ type: 'success', message: 'オーナーアカウントを新規作成しました' });
       }
 
       setShowOwnerForm(false);
@@ -562,7 +561,7 @@ export const AdminView: React.FC = () => {
       setOwnerPassword('');
       queryClient.invalidateQueries({ queryKey: ['stores'] });
     } catch (error: any) {
-      showToast(`操作失敗: ${error.message}`, 'error');
+      setImportStatus({ type: 'error', message: `操作失敗: ${error.message}` });
     } finally {
       setIsCreatingOwner(false);
     }
@@ -581,7 +580,7 @@ export const AdminView: React.FC = () => {
   const handleDeleteStore = async (storeId: string) => {
     try {
       await deleteDoc(doc(db, 'stores', storeId));
-      showToast('店舗を削除しました', 'success');
+      setImportStatus({ type: 'success', message: '店舗を削除しました' });
       if (selectedStoreId === storeId) {
         setSelectedStoreId(null);
       }
@@ -596,6 +595,7 @@ export const AdminView: React.FC = () => {
     if (!file) return;
 
     setIsImporting(true);
+    setImportStatus(null);
 
     try {
       const importedWines = await parseWineCSV(file);
@@ -694,13 +694,20 @@ export const AdminView: React.FC = () => {
         }
       }
 
-      showToast(`${uniqueImportedWines.length}件のCSVデータを処理しました。（新規マスター登録: ${newMasterWines.length}件）`, 'success');
+      setImportStatus({ 
+        type: 'success', 
+        message: `${uniqueImportedWines.length}件のCSVデータを処理しました。（新規マスター登録: ${newMasterWines.length}件）` 
+      });
     } catch (error: any) {
-      showToast(`インポート失敗: ${error.message}`, 'error');
+      setImportStatus({ type: 'error', message: `インポート失敗: ${error.message}` });
     } finally {
       setIsImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
+  };
+
+  const toggleMasterSelection = (id: string) => {
+    setSelectedMasterCatalogIds(prev => prev.includes(id) ? prev.filter(mid => mid !== id) : [...prev, id]);
   };
 
   const renderMasterEditModal = () => (
@@ -1206,216 +1213,6 @@ export const AdminView: React.FC = () => {
     </div>
   );
 };
-\"\"\"
+"""
 
-print("Simulated writing OwnerView file correctly")}
-プロフェッショナルとして、エラーログを深堀りし、**デプロイエラーの真の原因**に到達いたしました。
-
-ログ（`src/components/admin/StoreGrid.tsx (6:9): "useWines" is not exported by "src/lib/WineContext.tsx"` 等）から分かる通り、問題は Express のサーバー側ルーティングではありませんでした。
-フロントエンドのビルドツール（Vite / Rollup）が、**「`WineContext.tsx` から `useWines` がエクスポートされていない！」**と悲鳴を上げて、ビルドを強制終了させていました。
-
-前回の `WineContext.tsx` の修正において、ファイル末尾にあったはずの `export const useWines = () => { ... }` の記述が手動マージの際に欠落してしまったことが、全ホワイトアウトおよびビルドエラーの直接的な原因です。
-
-### 🛠️ 100%解決する完全なコード
-`WineContext.tsx` に `useWines` のエクスポートを正しく復元し、すべてのコンポーネントが正常に Context を受け取れる完全版を作成しました。
-
-以下の **`src/lib/WineContext.tsx`** のコードをコピーし、既存のファイルを**丸ごと完全に上書き（置換）**してください。これで Vite のビルドエラーが消滅し、ホワイトアウトも完全に直ります。
-
-```tsx
-// src/lib/WineContext.tsx
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { UserProfile } from '../types';
-import { auth, db, onAuthStateChanged } from './firebase';
-import { doc, getDoc } from 'firebase/firestore';
-import { handleFirestoreError, OperationType } from './firestore-errors';
-import { motion, AnimatePresence } from 'motion/react';
-import { AlertCircle, CheckCircle2, Info, X } from 'lucide-react';
-
-interface WineContextType {
-  user: UserProfile | null;
-  loading: boolean;
-  showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
-  showConfirm: (message: string, onConfirm: () => void, subMessage?: string) => void;
-}
-
-const WineContext = createContext<WineContextType | undefined>(undefined);
-
-export const WineProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
-  const [confirm, setConfirm] = useState<{ message: string; subMessage?: string; onConfirm: () => void } | null>(null);
-
-  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
-    setToast({ message, type });
-  };
-
-  const showConfirm = (message: string, onConfirm: () => void, subMessage?: string) => {
-    setConfirm({ message, subMessage, onConfirm });
-  };
-
-  useEffect(() => {
-    if (toast) {
-      const timer = setTimeout(() => setToast(null), 4000);
-      return () => clearTimeout(timer);
-    }
-  }, [toast]);
-
-  const fetchProfile = async (uid: string, email: string) => {
-    const docPath = `users/${uid}`;
-    setLoading(true);
-    try {
-      const docRef = doc(db, 'users', uid);
-      const docSnap = await getDoc(docRef);
-      let profile: UserProfile;
-
-      if (docSnap.exists()) {
-        profile = docSnap.data() as UserProfile;
-      } else {
-        profile = {
-          uid,
-          email,
-          name: email ? email.split('@')[0] : 'Guest',
-          role: 'customer'
-        };
-      }
-      
-      const currentUser = auth.currentUser;
-      if (currentUser) {
-        const idToken = await currentUser.getIdToken();
-        const syncResponse = await fetch('/api/auth/sync-claims', {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${idToken}` 
-          }
-        });
-
-        if (syncResponse.ok) {
-          const syncData = await syncResponse.json();
-          if (syncData.role) {
-            profile.role = syncData.role;
-          }
-        }
-        await currentUser.getIdToken(true);
-      }
-      setUser(profile);
-    } catch (error) {
-      setUser(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        await fetchProfile(firebaseUser.uid, firebaseUser.email || '');
-      } else {
-        setUser(null);
-        setLoading(false);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
-
-  const contextValue = React.useMemo(() => ({
-    user,
-    loading,
-    showToast,
-    showConfirm
-  }), [user, loading]);
-
-  return (
-    <WineContext.Provider value={contextValue}>
-      {children}
-
-      <AnimatePresence>
-        {toast && (
-          <motion.div
-            initial={{ opacity: 0, y: 60, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 30, scale: 0.95 }}
-            transition={{ type: "spring", damping: 25, stiffness: 350 }}
-            className="fixed bottom-10 left-4 right-4 md:left-auto md:right-8 z-[9999] max-w-md mx-auto md:mx-0 p-5 rounded-2xl border bg-brand-dark/95 backdrop-blur-xl border-brand-gold/40 shadow-[0_25px_60px_rgba(0,0,0,0.6)] flex items-center gap-4"
-          >
-            <div className="shrink-0">
-              {toast.type === 'success' && <CheckCircle2 className="w-8 h-8 text-green-400" />}
-              {toast.type === 'error' && <AlertCircle className="w-8 h-8 text-red-400" />}
-              {toast.type === 'info' && <Info className="w-8 h-8 text-brand-gold" />}
-            </div>
-            <p className="text-brand-ivory text-base font-black leading-relaxed flex-1 select-none">
-              {toast.message}
-            </p>
-            <button onClick={() => setToast(null)} className="p-2 text-gray-400 hover:text-brand-gold transition-colors shrink-0">
-              <X className="w-6 h-6" />
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {confirm && (
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setConfirm(null)}
-              className="absolute inset-0 bg-brand-dark/85 backdrop-blur-md"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 40 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 40 }}
-              transition={{ type: "spring", damping: 28, stiffness: 300 }}
-              className="relative w-full max-w-md rounded-[2.5rem] border bg-[#160B0B] border-brand-gold/40 p-8 shadow-[0_30px_80px_rgba(0,0,0,0.8)] flex flex-col text-center"
-            >
-              <div className="w-16 h-16 bg-brand-wine border border-brand-gold/30 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
-                <AlertCircle className="text-brand-gold w-8 h-8" />
-              </div>
-
-              <h3 className="serif text-xl md:text-2xl text-brand-ivory font-black tracking-wide mb-4 leading-snug">
-                {confirm.message}
-              </h3>
-
-              {confirm.subMessage && (
-                <p className="text-[15px] md:text-base text-gray-400 font-bold leading-relaxed mb-8 max-w-sm mx-auto">
-                  {confirm.subMessage}
-                </p>
-              )}
-
-              <div className="flex flex-col gap-3">
-                <button
-                  onClick={() => {
-                    confirm.onConfirm();
-                    setConfirm(null);
-                  }}
-                  className="w-full h-14 rounded-xl text-base font-black uppercase tracking-widest bg-brand-gold text-brand-wine hover:brightness-110 active:scale-[0.98] transition-all shadow-xl shadow-brand-gold/10"
-                >
-                  はい、実行する
-                </button>
-                <button
-                  onClick={() => setConfirm(null)}
-                  className="w-full h-14 rounded-xl text-base font-bold uppercase tracking-widest text-gray-400 bg-white/5 border border-white/10 hover:bg-white/10 active:scale-[0.98] transition-all"
-                >
-                  キャンセル
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-    </WineContext.Provider>
-  );
-};
-
-// 💡 修正の核心：フロントエンドのビルドエラーを引き起こしていた欠落部分を完全に復元
-export const useWines = () => {
-  const context = useContext(WineContext);
-  if (!context) {
-    throw new Error('useWines must be used within a WineProvider');
-  }
-  return context;
-};
+print("Done")}
