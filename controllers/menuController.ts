@@ -180,7 +180,7 @@ export const proxyImage: RequestHandler = async (req, res, next) => {
   }
 };
 
-export const invalidateMenuCache: RequestHandler = (req, res, next) => {
+export const invalidateMenuCache: RequestHandler = async (req, res, next) => {
   try {
     const { storeId } = req.params;
     menuCache.delete(storeId);
@@ -194,8 +194,6 @@ export const placeOrder: RequestHandler = async (req, res, next) => {
   try {
     const { storeId } = req.params;
     const { items, orderNotes } = req.body;
-    
-    // 安全にキャストして認証コンテキストを展開
     const callerUser = (req as any).user; 
 
     if (!items || items.length === 0) {
