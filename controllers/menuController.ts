@@ -1,6 +1,6 @@
 // controllers/menuController.ts
 import { Request, Response } from "express";
-import { dbAdmin } from "../lib/firebase-admin.js";
+import { dbAdmin, FieldPath } from "../lib/firebase-admin.js";
 
 interface CacheEntry {
   data: any;
@@ -31,6 +31,7 @@ export const getMenu = async (req: Request, res: Response) => {
     const { storeId } = req.params;
     const now = Date.now();
 
+    // 1. メモリキャッシュヒットの検証
     const cached = menuCache.get(storeId);
     if (cached && cached.expiresAt > now) {
       cached.hits++;
@@ -40,6 +41,7 @@ export const getMenu = async (req: Request, res: Response) => {
       return res.json(cached.data);
     }
     
+    // 2. 親のStoreドキュメントを1回だけ取得 (1リード)
     const storeDoc = await dbAdmin.collection("stores").doc(storeId).get();
     if (!storeDoc.exists) {
       return res.status(404).json({ error: "Store not found" });
@@ -60,9 +62,8 @@ export const getMenu = async (req: Request, res: Response) => {
 
     let menu = storeData.publicMenu || [];
 
-    // 【無課金運用＆後方互換性バグ修正】
-    // すでに運用中の200店舗など、「まだ一括保存ボタンを押しておらず publicMenu が作られていない店舗」の場合、
-    // 配列が空っぽになってお客様メニューが消える（準備中になる）バグを防ぐため、従来の方式で自動補完（フォールバック）します。
+    // 🚨 【無課金運用＆N+1乱獲の完全撲滅ロジック】
+    // publicMenu 配列が空っぽ（まだ一括保存されていない既存の古い店舗）の場合のセルフヒーリング最適化
     if (menu.length === 0) {
       const inventorySnap = await dbAdmin.collection("stores").doc(storeId).collection("inventory").get();
       
@@ -72,40 +73,67 @@ export const getMenu = async (req: Request, res: Response) => {
           id: d.id.toUpperCase()
         }));
 
-        const masterPromises = inventoryItems.map(item => 
-          dbAdmin.collection("winesMaster").doc(item.id).get()
-        );
-        
-        const masterSnaps = await Promise.all(masterPromises);
+        // 重複のないクリーンなマスターIDリストを抽出
+        const masterIds = Array.from(new Set(inventoryItems.map(item => item.id).filter(id => id.trim().length > 0)));
+        const masterDataMap = new Map<string, any>();
 
-        masterSnaps.forEach((mSnap, idx) => {
-          if (mSnap.exists) {
-            const masterData = mSnap.data() || {};
-            const invItem: any = inventoryItems[idx];
+        // 💡 改善の核心: N+1ループを全廃し、Firestoreの「in」クエリで30件ずつ一括バッチ取得
+        const CHUNK_SIZE = 30;
+        const chunkPromises = [];
 
-            // 表示設定がONのものだけをお客様メニューにマージ
-            if (invItem.isActive !== false && invItem.visible !== false) {
-              menu.push({
-                ...masterData,
-                id: mSnap.id,
-                pureId: invItem.pureId || mSnap.id,
-                price_bottle: invItem.price_bottle ?? masterData.price_bottle,
-                price_glass: invItem.price_glass ?? masterData.price_glass,
-                cost: invItem.cost ?? masterData.cost ?? 2000,
-                glasses_per_bottle: invItem.glasses_per_bottle ?? 6,
-                visible: true,
-                isFeatured: invItem.isFeatured ?? false,
-                promoLabel: invItem.promoLabel || '',
-                stock: invItem.stock ?? 0,
-                isActive: true
-              });
-            }
+        for (let i = 0; i < masterIds.length; i += CHUNK_SIZE) {
+          const chunk = masterIds.slice(i, i + CHUNK_SIZE);
+          if (chunk.length > 0) {
+            chunkPromises.push(
+              dbAdmin.collection("winesMaster").where(FieldPath.documentId(), "in", chunk).get()
+            );
+          }
+        }
+
+        // 全チャンクのクエリを並列実行
+        const masterSnapsArray = await Promise.all(chunkPromises);
+        masterSnapsArray.forEach(masterSnap => {
+          masterSnap.forEach(mDoc => {
+            masterDataMap.set(mDoc.id.toUpperCase(), mDoc.data());
+          });
+        });
+
+        // インベントリの設定値とマスターデータを高速マージ
+        inventoryItems.forEach((invItem: any) => {
+          const masterData = masterDataMap.get(invItem.id);
+          
+          if (masterData && invItem.isActive !== false && invItem.visible !== false) {
+            menu.push({
+              ...masterData,
+              id: invItem.id,
+              pureId: invItem.pureId || invItem.id,
+              price_bottle: invItem.price_bottle ?? masterData.price_bottle,
+              price_glass: invItem.price_glass ?? masterData.price_glass,
+              cost: invItem.cost ?? masterData.cost ?? 2000,
+              glasses_per_bottle: invItem.glasses_per_bottle ?? 6,
+              visible: true,
+              isFeatured: invItem.isFeatured ?? false,
+              promoLabel: invItem.promoLabel || '',
+              stock: invItem.stock ?? 0,
+              isActive: true
+            });
           }
         });
+
+        // 🚨 核心の非正規化集約: 結合に成功したメニューデータを、その場で親のStoreドキュメントに書き戻す
+        // これにより、この店舗への次回以降のアクセスは完全「1ドキュメント読み込み」のみに集約され、
+        // サブコレクションやマスターへのクエリは永久に走らなくなります（超高速化 ＆ 無料枠の絶対死守）
+        if (menu.length > 0) {
+          await dbAdmin.collection("stores").doc(storeId).update({
+            publicMenu: menu,
+            updatedAt: new Date().toISOString()
+          });
+          console.log(`[Consolidation-Engine] Successfully denormalized and consolidated publicMenu for store: ${storeId}`);
+        }
       }
     }
 
-    // 日本語の名称順に綺麗にソート
+    // 日本語の名称順に綺麗にソートしてレスポンスを形成
     const sortedMenu = menu.sort((a: any, b: any) => (a.name_jp || '').localeCompare(b.name_jp || ''));
 
     const responsePayload = {
