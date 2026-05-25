@@ -1,6 +1,7 @@
 // controllers/menuController.ts
 import { Request, Response } from "express";
-import { dbAdmin, FieldPath } from "../lib/firebase-admin.js";
+import { dbAdmin } from "../lib/firebase-admin.js";
+import { AuthenticatedRequest } from "../middleware/auth.js"; // 💡 型安全のため正規の認証リクエスト型をバインド
 
 interface CacheEntry {
   data: any;
@@ -79,7 +80,8 @@ export const getMenu = async (req: Request, res: Response) => {
           const chunk = masterIds.slice(i, i + CHUNK_SIZE);
           if (chunk.length > 0) {
             chunkPromises.push(
-              dbAdmin.collection("winesMaster").where(FieldPath.documentId(), "in", chunk).get()
+              // 💡 修正の核心: FieldPathオブジェクトの代わりにネイティブ文字列 "__name__" を用いて型コンパイルを100%通す
+              dbAdmin.collection("winesMaster").where("__name__", "in", chunk).get()
             );
           }
         }
@@ -179,14 +181,13 @@ export const invalidateMenuCache = (req: Request, res: Response) => {
 };
 
 // 飲食店オーナーからの発注処理 (担当営業 ＆ 店舗オーナーへのW自動メール配信)
-export const placeOrder = async (req: any, res: Response) => {
+export const placeOrder = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { storeId } = req.params;
     const { items, orderNotes } = req.body;
     const callerUser = req.user; 
 
     if (!items || items.length === 0) {
-      // 💡 修正の核心: 前回の「r.status」というタイポを「res.status」に修正
       return res.status(400).json({ error: "発注アイテムが空です。" });
     }
 
@@ -197,7 +198,7 @@ export const placeOrder = async (req: any, res: Response) => {
     const storeData = storeDoc.data() || {};
 
     const repEmail = storeData.sales_rep_email || "pieroth_order_desk@pieroth.jp"; 
-    const ownerEmail = callerUser.email || storeData.owner_email || "unknown-owner@wine-menu.app"; 
+    const ownerEmail = (callerUser && callerUser.email) || storeData.owner_email || "unknown-owner@wine-menu.app"; 
 
     let itemsText = "";
     items.forEach((item: any) => {
