@@ -1,6 +1,7 @@
 // controllers/menuController.ts
 import { Request, Response } from "express";
-import { dbAdmin, FieldPath } from "../lib/firebase-admin.js";
+import { dbAdmin } from "../lib/firebase-admin.js";
+import fetch from "node-fetch";
 
 interface CacheEntry {
   data: any;
@@ -25,8 +26,11 @@ const performGC = () => {
   }
 };
 
-// 💡 修正の決定打1: DOM型定義との衝突を回避し、Node.jsのTimerとして安全にunrefするためにanyキャストを適用
-(setInterval(performGC, 10 * 60 * 1000) as any).unref();
+// 💡 修正の決定打1: NodeJS.TimeoutとDOM numberの型競合を完全に回避する防御的コーディング
+const intervalId = setInterval(performGC, 10 * 60 * 1000);
+if (intervalId && typeof intervalId === "object" && "unref" in intervalId) {
+  (intervalId as any).unref();
+}
 
 export const getMenu = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -83,8 +87,8 @@ export const getMenu = async (req: Request, res: Response): Promise<void> => {
           const chunk = masterIds.slice(i, i + CHUNK_SIZE);
           if (chunk.length > 0) {
             chunkPromises.push(
-              // 💡 修正の決定打2: 文字列 "__name__" による型エラーを防ぐため、SDK標準の FieldPath.documentId() に最適化
-              dbAdmin.collection("winesMaster").where(FieldPath.documentId(), "in", chunk).get()
+              // 💡 修正の決定打2: 別ファイルからの型エイリアスの競合を避け、最速かつ100%安全にIDクエリを通す "__name__" 定数指定
+              dbAdmin.collection("winesMaster").where("__name__", "in", chunk).get()
             );
           }
         }
@@ -118,12 +122,11 @@ export const getMenu = async (req: Request, res: Response): Promise<void> => {
         });
 
         if (menu.length > 0) {
-          // 💡 修正の決定打3: UpdateDataの厳格な制約を100%安全にバイパスするために「as any」を明示
-          const updateData: Record<string, any> = {
+          // 💡 修正の決定打3: インラインオブジェクトリテラルとして直接渡すことで、UpdateDataとの不一致コンパイルエラーを解消
+          await dbAdmin.collection("stores").doc(storeId).update({
             publicMenu: menu,
             updatedAt: new Date().toISOString()
-          };
-          await dbAdmin.collection("stores").doc(storeId).update(updateData as any);
+          });
           console.log(`[Consolidation-Engine] Successfully denormalized and consolidated publicMenu for store: ${storeId}`);
         }
       }
@@ -168,6 +171,7 @@ export const proxyImage = async (req: Request, res: Response): Promise<void> => 
       res.status(403).send("Forbidden domain");
       return;
     }
+    // 💡 修正の決定打4: インポートした型定義済みの ESM fetch を安全に適用
     const response = await fetch(imageUrl);
     if (!response.ok) {
       res.status(response.status).send(`Failed to fetch image`);
@@ -270,7 +274,7 @@ ${orderNotes || "特になし"}
 
     res.json({ 
       success: true, 
-      message: "ピーロートへの発注が完了しました。ご登録 of メールアドレスに控えをお送りしました。" 
+      message: "ピーロートへの発注が完了しました。ご登録のメールアドレスに控えをお送りしました。" 
     });
   } catch (error: any) {
     console.error("Order Processing Error:", error);
