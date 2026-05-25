@@ -1,7 +1,7 @@
 // controllers/menuController.ts
 import { Request, Response } from "express";
 import { dbAdmin } from "../lib/firebase-admin.js";
-import fetch from "node-fetch";
+import { AuthenticatedRequest } from "../middleware/auth.js";
 
 interface CacheEntry {
   data: any;
@@ -25,12 +25,7 @@ const performGC = () => {
     for (let i = 0; i < countToEvict; i++) menuCache.delete(entries[i][0]);
   }
 };
-
-// 💡 修正の決定打1: NodeJS.TimeoutとDOM numberの型競合を完全に回避する防御的コーディング
-const intervalId = setInterval(performGC, 10 * 60 * 1000);
-if (intervalId && typeof intervalId === "object" && "unref" in intervalId) {
-  (intervalId as any).unref();
-}
+setInterval(performGC, 10 * 60 * 1000).unref();
 
 export const getMenu = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -66,12 +61,9 @@ export const getMenu = async (req: Request, res: Response): Promise<void> => {
       budgetTiers: storeData.budgetTiers || null,
     };
 
-    // 💡 修正の決定打2: publicMenuが初期値の「空配列（[]）」としてキャッシュおよび保存されている場合、
-    // 重複した非正規化クエリ(Write/Read)を走らせないようundefined（未初期化）の時のみプロセスを実行。
-    let menu: any[] | undefined = storeData.publicMenu;
+    let menu: any[] = storeData.publicMenu || [];
 
-    if (menu === undefined) {
-      menu = [];
+    if (menu.length === 0) {
       const inventorySnap = await dbAdmin.collection("stores").doc(storeId).collection("inventory").get();
       
       if (!inventorySnap.empty) {
@@ -106,7 +98,7 @@ export const getMenu = async (req: Request, res: Response): Promise<void> => {
           const masterData = masterDataMap.get(invItem.id);
           
           if (masterData && invItem.isActive !== false && invItem.visible !== false) {
-            menu!.push({
+            menu.push({
               ...masterData,
               id: invItem.id,
               pureId: invItem.pureId || invItem.id,
@@ -122,15 +114,15 @@ export const getMenu = async (req: Request, res: Response): Promise<void> => {
             });
           }
         });
-      }
 
-      // 💡 修正の決定打3: 空のメニュー(商品ゼロ)状態であっても、Firestoreに空のpublicMenu[]をしっかりと保存し、
-      // 次回アクセス時からの重複Write（Write-Amplificationループ）を劇的にシャットアウト。
-      await dbAdmin.collection("stores").doc(storeId).update({
-        publicMenu: menu,
-        updatedAt: new Date().toISOString()
-      });
-      console.log(`[Consolidation-Engine] Successfully denormalized and consolidated publicMenu for store: ${storeId}`);
+        if (menu.length > 0) {
+          const updateData: Record<string, any> = {
+            publicMenu: menu,
+            updatedAt: new Date().toISOString()
+          };
+          await dbAdmin.collection("stores").doc(storeId).update(updateData);
+        }
+      }
     }
 
     const sortedMenu = menu.sort((a: any, b: any) => (a.name_jp || '').localeCompare(b.name_jp || ''));
@@ -153,7 +145,6 @@ export const getMenu = async (req: Request, res: Response): Promise<void> => {
     res.setHeader("Cache-Control", "public, max-age=15, s-maxage=15, stale-while-revalidate=30");
     res.json(responsePayload);
   } catch (error: any) {
-    console.error("Menu Fetch Error:", error);
     res.status(500).json({ error: "メニューの取得に失敗しました。" });
   }
 };
@@ -202,7 +193,7 @@ export const placeOrder = async (req: Request, res: Response): Promise<void> => 
   try {
     const { storeId } = req.params;
     const { items, orderNotes } = req.body;
-    const callerUser = (req as any).user; 
+    const callerUser = (req as AuthenticatedRequest).user; 
 
     if (!items || items.length === 0) {
       res.status(400).json({ error: "発注アイテムが空です。" });
@@ -236,7 +227,7 @@ export const placeOrder = async (req: Request, res: Response): Promise<void> => 
 【ご注文店舗名】
 ${storeData.name} 様
 
-【お届け先住所}】
+【お届け先住所】
 ${storeData.address || "ご登録住所"}
 
 --------------------------------------------------
@@ -247,7 +238,7 @@ ${itemsText}
 ${orderNotes || "特になし"}
 
 --------------------------------------------------
-本発注は、担当 of 営業スタッフ（Rep）へリアルタイムに通知されました。
+本発注は、担当の営業スタッフ（Rep）へリアルタイムに通知されました。
 商品の到着まで今しばらくお待ちください。
 
 発行元：ピーロート・スマートメニュー・エンジン v2.0
@@ -277,7 +268,6 @@ ${orderNotes || "特になし"}
       message: "ピーロートへの発注が完了しました。ご登録のメールアドレスに控えをお送りしました。" 
     });
   } catch (error: any) {
-    console.error("Order Processing Error:", error);
     res.status(500).json({ error: "発注処理に失敗しました。" });
   }
 };
