@@ -1,12 +1,26 @@
 // routes/authRoutes.ts
-import { Router } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 import { setRole, syncClaims } from "../controllers/authController.js";
 import { authenticateUser } from "../middleware/auth.js";
 
 const router = Router();
 
-// 💡 修正の核心: TypeScriptの「非同期関数 (Promise)」とExpress 4の型定義の衝突を `as any` で完全に無効化
-router.post("/admin/set-role", authenticateUser as any, setRole as any);
-router.post("/auth/sync-claims", authenticateUser as any, syncClaims as any);
+router.post("/admin/set-role", 
+  (req: Request, res: Response, next: NextFunction) => {
+    authenticateUser(req, res, next).catch(next);
+  },
+  (req: Request, res: Response, next: NextFunction) => {
+    setRole(req, res).catch(next);
+  }
+);
+
+router.post("/auth/sync-claims", 
+  (req: Request, res: Response, next: NextFunction) => {
+    authenticateUser(req, res, next).catch(next);
+  },
+  (req: Request, res: Response, next: NextFunction) => {
+    syncClaims(req, res).catch(next);
+  }
+);
 
 export default router;
