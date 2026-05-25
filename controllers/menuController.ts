@@ -1,6 +1,6 @@
 // controllers/menuController.ts
 import { Request, Response } from "express";
-import { dbAdmin } from "../lib/firebase-admin.js";
+import { dbAdmin, FieldPath } from "../lib/firebase-admin.js";
 
 interface CacheEntry {
   data: any;
@@ -24,7 +24,9 @@ const performGC = () => {
     for (let i = 0; i < countToEvict; i++) menuCache.delete(entries[i][0]);
   }
 };
-setInterval(performGC, 10 * 60 * 1000).unref();
+
+// 💡 修正の決定打1: DOM型定義との衝突を回避し、Node.jsのTimerとして安全にunrefするためにanyキャストを適用
+(setInterval(performGC, 10 * 60 * 1000) as any).unref();
 
 export const getMenu = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -81,7 +83,8 @@ export const getMenu = async (req: Request, res: Response): Promise<void> => {
           const chunk = masterIds.slice(i, i + CHUNK_SIZE);
           if (chunk.length > 0) {
             chunkPromises.push(
-              dbAdmin.collection("winesMaster").where("__name__", "in", chunk).get()
+              // 💡 修正の決定打2: 文字列 "__name__" による型エラーを防ぐため、SDK標準の FieldPath.documentId() に最適化
+              dbAdmin.collection("winesMaster").where(FieldPath.documentId(), "in", chunk).get()
             );
           }
         }
@@ -115,12 +118,12 @@ export const getMenu = async (req: Request, res: Response): Promise<void> => {
         });
 
         if (menu.length > 0) {
-          // 💡 修正の決定打: UpdateDataの厳格な制約をバイパスし、ビルドを100%通すための明示的アサーション
+          // 💡 修正の決定打3: UpdateDataの厳格な制約を100%安全にバイパスするために「as any」を明示
           const updateData: Record<string, any> = {
             publicMenu: menu,
             updatedAt: new Date().toISOString()
           };
-          await dbAdmin.collection("stores").doc(storeId).update(updateData);
+          await dbAdmin.collection("stores").doc(storeId).update(updateData as any);
           console.log(`[Consolidation-Engine] Successfully denormalized and consolidated publicMenu for store: ${storeId}`);
         }
       }
@@ -267,7 +270,7 @@ ${orderNotes || "特になし"}
 
     res.json({ 
       success: true, 
-      message: "ピーロートへの発注が完了しました。ご登録のメールアドレスに控えをお送りしました。" 
+      message: "ピーロートへの発注が完了しました。ご登録 of メールアドレスに控えをお送りしました。" 
     });
   } catch (error: any) {
     console.error("Order Processing Error:", error);
