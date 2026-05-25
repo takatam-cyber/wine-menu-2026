@@ -37,12 +37,14 @@ export const getMenu = async (req: Request, res: Response) => {
       cached.lastAccessedAt = now;
       res.setHeader("X-Cache", "HIT");
       res.setHeader("Cache-Control", "public, max-age=15, s-maxage=15, stale-while-revalidate=30");
-      return res.json(cached.data);
+      res.json(cached.data);
+      return;
     }
     
     const storeDoc = await dbAdmin.collection("stores").doc(storeId).get();
     if (!storeDoc.exists) {
-      return res.status(404).json({ error: "Store not found" });
+      res.status(404).json({ error: "Store not found" });
+      return;
     }
     
     const storeData = storeDoc.data() || {};
@@ -150,13 +152,22 @@ export const getMenu = async (req: Request, res: Response) => {
 export const proxyImage = async (req: Request, res: Response) => {
   try {
     const imageUrl = req.query.url as string;
-    if (!imageUrl) return res.status(400).send("URL parameter is required");
+    if (!imageUrl) {
+      res.status(400).send("URL parameter is required");
+      return;
+    }
     const url = new URL(imageUrl);
     const ALLOWED_DOMAINS = ["drive.google.com", "lh3.googleusercontent.com", "googleusercontent.com", "firebasestorage.googleapis.com"];
     const isAllowed = ALLOWED_DOMAINS.some(domain => url.hostname === domain || url.hostname.endsWith(`.${domain}`));
-    if (!isAllowed) return res.status(403).send("Forbidden domain");
+    if (!isAllowed) {
+      res.status(403).send("Forbidden domain");
+      return;
+    }
     const response = await fetch(imageUrl);
-    if (!response.ok) return res.status(response.status).send(`Failed to fetch image`);
+    if (!response.ok) {
+      res.status(response.status).send(`Failed to fetch image`);
+      return;
+    }
     const contentType = response.headers.get("content-type") || "image/jpeg";
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
@@ -178,22 +189,27 @@ export const invalidateMenuCache = (req: Request, res: Response) => {
   }
 };
 
-// 💡 修正の核心: Expressの正規ルーティングハンドラに100%適合させるため、引数を標準の Request 型へ変更
+/**
+ * 💡 修正の核心: Expressの標準ルーティングに100%適合させるため、引数の型を Request に修正。
+ * これにより厳格モード下（NodeNext）でのコンパイル型エラーを完璧に回避します。
+ */
 export const placeOrder = async (req: Request, res: Response) => {
   try {
     const { storeId } = req.params;
     const { items, orderNotes } = req.body;
     
-    // 内部で安全にキャストを行い、ミドルウェアが付与した認証ユーザー情報を取得
+    // ミドルウェア層 (authenticateUser) がインジェクションした認証コンテキストを安全にキャスト抽出
     const callerUser = (req as any).user; 
 
     if (!items || items.length === 0) {
-      return res.status(400).json({ error: "発注アイテムが空です。" });
+      res.status(400).json({ error: "発注アイテムが空です。" });
+      return;
     }
 
     const storeDoc = await dbAdmin.collection("stores").doc(storeId).get();
     if (!storeDoc.exists) {
-      return res.status(404).json({ error: "Store not found" });
+      res.status(404).json({ error: "Store not found" });
+      return;
     }
     const storeData = storeDoc.data() || {};
 
@@ -255,7 +271,7 @@ ${orderNotes || "特になし"}
 
     res.json({ 
       success: true, 
-      message: "ピーロートへの発注が完了しました。ご登録 of メールアドレスに控えをお送りしました。" 
+      message: "ピーロートへの発注が完了しました。ご登録のメールアドレスに控えをお送りしました。" 
     });
   } catch (error: any) {
     console.error("Order Processing Error:", error);
