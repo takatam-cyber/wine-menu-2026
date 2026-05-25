@@ -66,9 +66,12 @@ export const getMenu = async (req: Request, res: Response): Promise<void> => {
       budgetTiers: storeData.budgetTiers || null,
     };
 
-    let menu: any[] = storeData.publicMenu || [];
+    // 💡 修正の決定打2: publicMenuが初期値の「空配列（[]）」としてキャッシュおよび保存されている場合、
+    // 重複した非正規化クエリ(Write/Read)を走らせないようundefined（未初期化）の時のみプロセスを実行。
+    let menu: any[] | undefined = storeData.publicMenu;
 
-    if (menu.length === 0) {
+    if (menu === undefined) {
+      menu = [];
       const inventorySnap = await dbAdmin.collection("stores").doc(storeId).collection("inventory").get();
       
       if (!inventorySnap.empty) {
@@ -87,7 +90,6 @@ export const getMenu = async (req: Request, res: Response): Promise<void> => {
           const chunk = masterIds.slice(i, i + CHUNK_SIZE);
           if (chunk.length > 0) {
             chunkPromises.push(
-              // 💡 修正の決定打2: 別ファイルからの型エイリアスの競合を避け、最速かつ100%安全にIDクエリを通す "__name__" 定数指定
               dbAdmin.collection("winesMaster").where("__name__", "in", chunk).get()
             );
           }
@@ -104,7 +106,7 @@ export const getMenu = async (req: Request, res: Response): Promise<void> => {
           const masterData = masterDataMap.get(invItem.id);
           
           if (masterData && invItem.isActive !== false && invItem.visible !== false) {
-            menu.push({
+            menu!.push({
               ...masterData,
               id: invItem.id,
               pureId: invItem.pureId || invItem.id,
@@ -120,16 +122,15 @@ export const getMenu = async (req: Request, res: Response): Promise<void> => {
             });
           }
         });
-
-        if (menu.length > 0) {
-          // 💡 修正の決定打3: インラインオブジェクトリテラルとして直接渡すことで、UpdateDataとの不一致コンパイルエラーを解消
-          await dbAdmin.collection("stores").doc(storeId).update({
-            publicMenu: menu,
-            updatedAt: new Date().toISOString()
-          });
-          console.log(`[Consolidation-Engine] Successfully denormalized and consolidated publicMenu for store: ${storeId}`);
-        }
       }
+
+      // 💡 修正の決定打3: 空のメニュー(商品ゼロ)状態であっても、Firestoreに空のpublicMenu[]をしっかりと保存し、
+      // 次回アクセス時からの重複Write（Write-Amplificationループ）を劇的にシャットアウト。
+      await dbAdmin.collection("stores").doc(storeId).update({
+        publicMenu: menu,
+        updatedAt: new Date().toISOString()
+      });
+      console.log(`[Consolidation-Engine] Successfully denormalized and consolidated publicMenu for store: ${storeId}`);
     }
 
     const sortedMenu = menu.sort((a: any, b: any) => (a.name_jp || '').localeCompare(b.name_jp || ''));
@@ -171,7 +172,6 @@ export const proxyImage = async (req: Request, res: Response): Promise<void> => 
       res.status(403).send("Forbidden domain");
       return;
     }
-    // 💡 修正の決定打4: インポートした型定義済みの ESM fetch を安全に適用
     const response = await fetch(imageUrl);
     if (!response.ok) {
       res.status(response.status).send(`Failed to fetch image`);
@@ -247,7 +247,7 @@ ${itemsText}
 ${orderNotes || "特になし"}
 
 --------------------------------------------------
-本発注は、担当の営業スタッフ（Rep）へリアルタイムに通知されました。
+本発注は、担当 of 営業スタッフ（Rep）へリアルタイムに通知されました。
 商品の到着まで今しばらくお待ちください。
 
 発行元：ピーロート・スマートメニュー・エンジン v2.0
