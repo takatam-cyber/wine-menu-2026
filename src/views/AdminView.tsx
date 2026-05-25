@@ -1162,4 +1162,79 @@ export const AdminView: React.FC = () => {
                         />
                       </div>
                       
-                      <p className="text-[11px] text
+                      <p className="text-[11px] text-slate-400 text-center leading-relaxed">
+                        このQRコードを印刷して店内に掲示し、お客様がマイスマホでスキャンできるようにしてください。
+                      </p>
+
+                      <div className="w-full flex flex-col gap-2">
+                        <button 
+                          onClick={() => window.open(`${getBaseUrl() || window.location.origin}/menu/${selectedStoreId}`, '_blank')}
+                          className="w-full py-3 bg-brand-wine text-white text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-brand-wine/90 hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                        >
+                          <ExternalLink className="w-4 h-4" /> お客用メニューを開く
+                        </button>
+                        
+                        <div className="text-center">
+                          <span className="text-[9px] font-mono select-all break-all text-slate-400 text-center block max-w-full overflow-hidden truncate">
+                            {`${getBaseUrl() || window.location.origin}/menu/${selectedStoreId}`}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-400 py-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                      店舗を選択すると、QRコードとメニューURLが生成されます。
+                    </p>
+                  )}
+                </div>
+
+                <OwnerAccountForm 
+                  selectedStore={selectedStore}
+                  ownerEmail={ownerEmail}
+                  setOwnerEmail={setOwnerEmail}
+                  ownerPassword={ownerPassword}
+                  setOwnerPassword={setOwnerPassword}
+                  isCreatingOwner={isCreatingOwner}
+                  isEditingOwner={isEditingOwner}
+                  onHandleCreateOwner={handleCreateOwner}
+                  showOwnerForm={showOwnerForm}
+                  setShowOwnerForm={setShowOwnerForm}
+                  onToggleEditMode={toggleOwnerEditMode}
+                />
+              </div>
+            </div>
+            
+            <CatalogSelector 
+              isOpen={showCatalogSelection}
+              onClose={() => setShowCatalogSelection(false)}
+              selectedStore={selectedStore}
+              wines={wines}
+              masterSearchTerm={masterSearchTerm}
+              setMasterSearchTerm={setMasterSearchTerm}
+              selectedWines={selectedWines}
+              selectedMasterIds={selectedMasterCatalogIds} 
+              toggleMasterSelection={toggleMasterSelection}
+              handleBulkAddWines={handleBulkAddWines}
+              hasMoreWines={!!hasMoreWinesMaster}
+              onLoadMoreWines={handleLoadMoreWines}
+            />
+          </div>
+        ) : (
+          <StoreGrid 
+            stores={filteredStores}
+            hasMoreStores={!!hasMoreStores}
+            onLoadMoreStores={handleLoadMoreStores}
+            onCreateStore={handleCreateStore}
+            onDeleteStore={handleDeleteStore}
+            onSelectStore={setSelectedStoreId}
+          />
+        )}
+
+        {renderMasterEditModal()}
+      </div>
+    </div>
+  );
+};
+\"\"\"
+
+print("Simulated writing OwnerView file correctly")}
