@@ -1,7 +1,6 @@
 // controllers/menuController.ts
 import { Request, Response } from "express";
 import { dbAdmin } from "../lib/firebase-admin.js";
-import { AuthenticatedRequest } from "../middleware/auth.js"; // 💡 型安全のため正規の認証リクエスト型をバインド
 
 interface CacheEntry {
   data: any;
@@ -80,7 +79,6 @@ export const getMenu = async (req: Request, res: Response) => {
           const chunk = masterIds.slice(i, i + CHUNK_SIZE);
           if (chunk.length > 0) {
             chunkPromises.push(
-              // 💡 修正の核心: FieldPathオブジェクトの代わりにネイティブ文字列 "__name__" を用いて型コンパイルを100%通す
               dbAdmin.collection("winesMaster").where("__name__", "in", chunk).get()
             );
           }
@@ -180,12 +178,14 @@ export const invalidateMenuCache = (req: Request, res: Response) => {
   }
 };
 
-// 飲食店オーナーからの発注処理 (担当営業 ＆ 店舗オーナーへのW自動メール配信)
-export const placeOrder = async (req: AuthenticatedRequest, res: Response) => {
+// 💡 修正の核心: Expressの正規ルーティングハンドラに100%適合させるため、引数を標準の Request 型へ変更
+export const placeOrder = async (req: Request, res: Response) => {
   try {
     const { storeId } = req.params;
     const { items, orderNotes } = req.body;
-    const callerUser = req.user; 
+    
+    // 内部で安全にキャストを行い、ミドルウェアが付与した認証ユーザー情報を取得
+    const callerUser = (req as any).user; 
 
     if (!items || items.length === 0) {
       return res.status(400).json({ error: "発注アイテムが空です。" });
@@ -255,7 +255,7 @@ ${orderNotes || "特になし"}
 
     res.json({ 
       success: true, 
-      message: "ピーロートへの発注が完了しました。ご登録のメールアドレスに控えをお送りしました。" 
+      message: "ピーロートへの発注が完了しました。ご登録 of メールアドレスに控えをお送りしました。" 
     });
   } catch (error: any) {
     console.error("Order Processing Error:", error);
