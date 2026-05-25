@@ -16,6 +16,15 @@ interface WineContextType {
 
 const WineContext = createContext<WineContextType | undefined>(undefined);
 
+// カスタムフックをエクスポート (ここで追加)
+export const useWines = () => {
+  const context = useContext(WineContext);
+  if (context === undefined) {
+    throw new Error('useWines must be used within a WineProvider');
+  }
+  return context;
+};
+
 export const WineProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
