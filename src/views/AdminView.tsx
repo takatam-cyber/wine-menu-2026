@@ -47,7 +47,7 @@ const getWineDocId = (wine: any) => {
 };
 
 export const AdminView: React.FC = () => {
-  const { user } = useWines();
+  const { user, showToast, showConfirm } = useWines();
   const queryClient = useQueryClient();
   const { data: storesData, fetchNextPage: fetchNextStores, hasNextPage: hasMoreStores } = useStoresQuery(user);
   const { data: winesMasterData, fetchNextPage: fetchNextWinesMaster, hasNextPage: hasMoreWinesMaster } = useWinesMasterQuery();
@@ -182,7 +182,7 @@ export const AdminView: React.FC = () => {
         Object.entries(dataToUpdate).filter(([_, v]) => v !== undefined)
       );
       await updateDoc(doc(db, 'winesMaster', docId), cleanedData);
-      setImportStatus({ type: 'success', message: 'マスターデータを更新しました' });
+      showToast('マスターカタログ情報を更新しました。', 'success');
       setIsEditingMaster(false);
       queryClient.invalidateQueries({ queryKey: ['winesMaster'] });
     } catch (error: any) {
@@ -232,10 +232,10 @@ export const AdminView: React.FC = () => {
   const handleAddWine = async (wineId?: string) => {
     const idToUse = wineId || searchId;
     let wine = wines.find(w => w.id === idToUse);
-    if (!wine) return alert('該当するワインコードが見つかりません。');
+    if (!wine) return showToast('該当するワインコードが見つかりません。', 'error');
     
     const compositeId = getWineDocId(wine);
-    if (selectedWines.some(sw => getWineDocId(sw) === compositeId)) return alert('このワインは既にメニューに登録されています。');
+    if (selectedWines.some(sw => getWineDocId(sw) === compositeId)) return showToast('このワインは既にメニューに登録されています。', 'info');
     
     if (selectedStoreId) {
       const allowed = Array.isArray(selectedStore?.allowedSuppliers) 
@@ -245,7 +245,7 @@ export const AdminView: React.FC = () => {
       const wineSupplier = String(wine.supplier || 'PIEROTH').toUpperCase();
       
       if (!allowed.includes(wineSupplier)) {
-        alert(`この店舗には指定サプライヤー「${wineSupplier}」のワインを登録する権限がありません`);
+        showToast(`この店舗には指定サプライヤー「${wineSupplier}」のワインを登録する権限がありません`, 'error');
         return;
       }
 
@@ -278,6 +278,7 @@ export const AdminView: React.FC = () => {
         await updateDoc(doc(db, 'stores', selectedStoreId), { publicMenu: richPublicMenu, updatedAt: new Date().toISOString() });
         fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
         queryClient.invalidateQueries({ queryKey: ['publicMenu', selectedStoreId] });
+        showToast('セラーへの銘柄追加が完了しました。', 'success');
       } catch (error) {
         handleFirestoreError(error, OperationType.WRITE, `stores/${selectedStoreId}`);
       }
@@ -296,7 +297,7 @@ export const AdminView: React.FC = () => {
       const unauthorized = winesToAdd.filter(w => !allowed.includes(String(w.supplier || 'PIEROTH').toUpperCase()));
       if (unauthorized.length > 0) {
         const unauthorizedSet = Array.from(new Set(unauthorized.map(w => String(w.supplier || 'PIEROTH').toUpperCase())));
-        alert(`許可されていないサプライヤーが含まれています: ${unauthorizedSet.join(', ')}`);
+        showToast(`許可されていないサプライヤーが含まれています: ${unauthorizedSet.join(', ')}`, 'error');
         return;
       }
 
@@ -352,7 +353,7 @@ export const AdminView: React.FC = () => {
       fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
       queryClient.invalidateQueries({ queryKey: ['publicMenu', selectedStoreId] });
       
-      setImportStatus({ type: 'success', message: `${selectedMasterCatalogIds.length}件のワインを追加しました` });
+      showToast(`${selectedMasterCatalogIds.length}件のワインをセラーに一括導入しました。`, 'success');
       setShowCatalogSelection(false);
       setSelectedMasterCatalogIds([]);
     } catch (error) {
@@ -410,33 +411,40 @@ export const AdminView: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
       
       setInitialWines(JSON.parse(JSON.stringify(selectedWines)));
-      setImportStatus({ type: 'success', message: `保存完了（更新件数: ${totalWriteCount}件）` });
+      showToast(`一括保存が完了しました（更新: ${totalWriteCount}件）`, 'success');
     } catch (error) {
       console.error('一括保存に失敗しました:', error);
-      alert('一括保存に失敗しました。');
+      showToast('セラー情報の保存に失敗しました。', 'error');
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDeleteWine = async (wineId: string) => {
-    if (!selectedStoreId || !window.confirm('このワインをメニューから削除しますか？')) return;
-    try {
-      await deleteDoc(doc(db, 'stores', selectedStoreId, 'inventory', wineId));
-      const filteredList = selectedWines.filter(w => w.id !== wineId);
-      setSelectedWines(filteredList);
-      setInitialWines(JSON.parse(JSON.stringify(filteredList)));
-      
-      const richPublicMenu = filteredList
-        .filter(w => w.visible !== false && w.isActive !== false)
-        .map(w => ({ ...w, id: getWineDocId(w) }));
+    if (!selectedStoreId) return;
+    showConfirm(
+      'このワインをメニューから削除しますか？',
+      async () => {
+        try {
+          await deleteDoc(doc(db, 'stores', selectedStoreId, 'inventory', wineId));
+          const filteredList = selectedWines.filter(w => w.id !== wineId);
+          setSelectedWines(filteredList);
+          setInitialWines(JSON.parse(JSON.stringify(filteredList)));
+          
+          const richPublicMenu = filteredList
+            .filter(w => w.visible !== false && w.isActive !== false)
+            .map(w => ({ ...w, id: getWineDocId(w) }));
 
-      await updateDoc(doc(db, 'stores', selectedStoreId), { publicMenu: richPublicMenu, updatedAt: new Date().toISOString() });
-      fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
-      queryClient.invalidateQueries({ queryKey: ['publicMenu', selectedStoreId] });
-    } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `stores/${selectedStoreId}`);
-    }
+          await updateDoc(doc(db, 'stores', selectedStoreId), { publicMenu: richPublicMenu, updatedAt: new Date().toISOString() });
+          fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
+          queryClient.invalidateQueries({ queryKey: ['publicMenu', selectedStoreId] });
+          showToast('対象の銘柄を削除しました。', 'success');
+        } catch (error) {
+          handleFirestoreError(error, OperationType.DELETE, `stores/${selectedStoreId}`);
+        }
+      },
+      '削除すると、店舗のお客様用メニューからもリアルタイムに非表示になります。'
+    );
   };
 
   const handleUpdateStore = async () => {
@@ -445,7 +453,7 @@ export const AdminView: React.FC = () => {
       await updateDoc(doc(db, 'stores', selectedStoreId), { ...editStoreData, updatedAt: new Date().toISOString() });
       fetch(`/api/menu/${selectedStoreId}/invalidate`, { method: 'POST' }).catch(() => {});
       queryClient.invalidateQueries({ queryKey: ['stores'] });
-      setImportStatus({ type: 'success', message: '店舗情報を更新しました' });
+      showToast('店舗の基本設定情報を更新しました。', 'success');
       setIsEditingStore(false);
     } catch (error: any) {
       handleFirestoreError(error, OperationType.UPDATE, `stores/${selectedStoreId}`);
@@ -455,28 +463,30 @@ export const AdminView: React.FC = () => {
   const handleBulkDeleteMasterWines = async () => {
     if (selectedMasterCatalogIds.length === 0) return;
     
-    if (!window.confirm(`選択された ${selectedMasterCatalogIds.length} 件のワインをマスターカタログから完全に削除しますか？\n\n※この操作は取り消せません。現在各店舗に登録されている在庫データから即時消滅することはありませんが、大元のカタログから完全消去されます。`)) {
-      return;
-    }
+    showConfirm(
+      `選択された ${selectedMasterCatalogIds.length} 件のワインをマスターから完全に削除しますか？`,
+      async () => {
+        try {
+          const CHUNK_SIZE = 450;
+          for (let i = 0; i < selectedMasterCatalogIds.length; i += CHUNK_SIZE) {
+            const chunk = selectedMasterCatalogIds.slice(i, i + CHUNK_SIZE);
+            const batch = writeBatch(db);
+            chunk.forEach(id => {
+              batch.delete(doc(db, 'winesMaster', id));
+            });
+            await batch.commit();
+          }
 
-    try {
-      const CHUNK_SIZE = 450;
-      for (let i = 0; i < selectedMasterCatalogIds.length; i += CHUNK_SIZE) {
-        const chunk = selectedMasterCatalogIds.slice(i, i + CHUNK_SIZE);
-        const batch = writeBatch(db);
-        chunk.forEach(id => {
-          batch.delete(doc(db, 'winesMaster', id));
-        });
-        await batch.commit();
-      }
-
-      queryClient.invalidateQueries({ queryKey: ['winesMaster'] });
-      setSelectedMasterCatalogIds([]);
-      setImportStatus({ type: 'success', message: '選択したマスター銘柄を一括削除しました' });
-    } catch (error) {
-      console.error('マスターカタログの一括削除に失敗しました:', error);
-      alert('一括削除に失敗しました。');
-    }
+          queryClient.invalidateQueries({ queryKey: ['winesMaster'] });
+          setSelectedMasterCatalogIds([]);
+          showToast('選択したマスター銘柄を一括削除しました。', 'success');
+        } catch (error) {
+          console.error('マスターカタログの一括削除に失敗しました:', error);
+          showToast('一括削除に失敗しました。', 'error');
+        }
+      },
+      '※この操作は取り消せません。大元の全社共有カタログからデータが完全消去されます。'
+    );
   };
 
   const handleCreateStore = async () => {
@@ -500,6 +510,7 @@ export const AdminView: React.FC = () => {
       
       await setDoc(doc(db, 'stores', newStoreId), newStore);
       queryClient.invalidateQueries({ queryKey: ['stores'] });
+      showToast('新しい店舗情報を発行・新規開拓しました。', 'success');
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, path);
     }
@@ -508,7 +519,7 @@ export const AdminView: React.FC = () => {
   const handleCreateOwner = async () => {
     if (!selectedStoreId || !ownerEmail) return;
     if (!isEditingOwner && (!ownerPassword || ownerPassword.length < 6)) {
-      setImportStatus({ type: 'error', message: '新規作成時は6文字以上のパスワードが必要です' });
+      showToast('新規作成時は6文字以上のパスワードが必要です。', 'error');
       return;
     }
 
@@ -524,7 +535,7 @@ export const AdminView: React.FC = () => {
         await updateDoc(doc(db, 'stores', selectedStoreId), {
           owner_email: emailToUse
         });
-        setImportStatus({ type: 'success', message: 'オーナー情報を更新しました' });
+        showToast('オーナーアカウント情報を更新しました。', 'success');
       } else {
         const secondaryAppName = `secondary-auth-${Date.now()}`;
         let secondaryApp;
@@ -541,7 +552,7 @@ export const AdminView: React.FC = () => {
           uid: ownerUid,
           email: emailToUse,
           name: selectedStore?.name || 'Store Owner',
-          role: 'owner',
+          role: 'owner' as const,
           storeId: selectedStoreId
         };
         await setDoc(doc(db, 'users', ownerUid), userProfile);
@@ -552,7 +563,7 @@ export const AdminView: React.FC = () => {
         });
         await signOut(secondaryAuth);
         await deleteApp(secondaryApp);
-        setImportStatus({ type: 'success', message: 'オーナーアカウントを新規作成しました' });
+        showToast('店舗統括用オーナーアカウントを新規発行しました。', 'success');
       }
 
       setShowOwnerForm(false);
@@ -561,7 +572,7 @@ export const AdminView: React.FC = () => {
       setOwnerPassword('');
       queryClient.invalidateQueries({ queryKey: ['stores'] });
     } catch (error: any) {
-      setImportStatus({ type: 'error', message: `操作失敗: ${error.message}` });
+      showToast(`操作失敗: ${error.message}`, 'error');
     } finally {
       setIsCreatingOwner(false);
     }
@@ -577,17 +588,23 @@ export const AdminView: React.FC = () => {
     setShowOwnerForm(!showOwnerForm);
   };
 
-  const handleDeleteStore = async (storeId: string) => {
-    try {
-      await deleteDoc(doc(db, 'stores', storeId));
-      setImportStatus({ type: 'success', message: '店舗を削除しました' });
-      if (selectedStoreId === storeId) {
-        setSelectedStoreId(null);
-      }
-      queryClient.invalidateQueries({ queryKey: ['stores'] });
-    } catch (error: any) {
-      handleFirestoreError(error, OperationType.DELETE, `stores/${storeId}`);
-    }
+  const handleDeleteStore = (storeId: string) => {
+    showConfirm(
+      'この店舗を完全にシステムから削除してよろしいですか？',
+      async () => {
+        try {
+          await deleteDoc(doc(db, 'stores', storeId));
+          showToast('対象店舗を削除しました。', 'success');
+          if (selectedStoreId === storeId) {
+            setSelectedStoreId(null);
+          }
+          queryClient.invalidateQueries({ queryKey: ['stores'] });
+        } catch (error: any) {
+          handleFirestoreError(error, OperationType.DELETE, `stores/${storeId}`);
+        }
+      },
+      '削除すると、店舗のお客様用メニューや蓄積されたセラー在庫データ、QRコードすべてが消失します。'
+    );
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -595,7 +612,6 @@ export const AdminView: React.FC = () => {
     if (!file) return;
 
     setIsImporting(true);
-    setImportStatus(null);
 
     try {
       const importedWines = await parseWineCSV(file);
@@ -694,12 +710,9 @@ export const AdminView: React.FC = () => {
         }
       }
 
-      setImportStatus({ 
-        type: 'success', 
-        message: `${uniqueImportedWines.length}件のCSVデータを処理しました。（新規マスター登録: ${newMasterWines.length}件）` 
-      });
+      showToast(`${uniqueImportedWines.length}件のCSV処理が正常完了しました。`, 'success');
     } catch (error: any) {
-      setImportStatus({ type: 'error', message: `インポート失敗: ${error.message}` });
+      showToast(`インポートに失敗しました: ${error.message}`, 'error');
     } finally {
       setIsImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -709,137 +722,6 @@ export const AdminView: React.FC = () => {
   const toggleMasterSelection = (id: string) => {
     setSelectedMasterCatalogIds(prev => prev.includes(id) ? prev.filter(mid => mid !== id) : [...prev, id]);
   };
-
-  const renderMasterEditModal = () => (
-    <AnimatePresence>
-      {isEditingMaster && editingMasterWine && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-        >
-          <motion.div
-            initial={{ scale: 0.95, y: 20 }}
-            animate={{ scale: 1, y: 0 }}
-            className="bg-white rounded-[2rem] shadow-2xl w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh]"
-          >
-            <div className="p-8 border-b border-slate-100 flex items-center justify-between">
-              <div>
-                <h3 className="serif text-2xl text-slate-900">マスター銘柄編集</h3>
-                <p className="text-xs text-slate-400 uppercase tracking-widest font-bold mt-1">Editing Master Registry Item: {editingMasterWine.id}</p>
-              </div>
-              <button onClick={() => setIsEditingMaster(false)} className="p-2 text-slate-300 hover:text-slate-600 transition-colors">
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-
-            <div className="p-8 space-y-6 overflow-y-auto">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="md:col-span-1">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">ワイン名称 (日本語)</label>
-                  <input 
-                    type="text"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
-                    value={editMasterData.name_jp || ''}
-                    onChange={e => setEditMasterData({...editMasterData, name_jp: e.target.value})}
-                  />
-                </div>
-                <div className="md:col-span-1">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">Wine Name (English)</label>
-                  <input 
-                    type="text"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
-                    value={editMasterData.name_en || ''}
-                    onChange={e => setEditMasterData({...editMasterData, name_en: e.target.value})}
-                  />
-                </div>
-                <div className="md:col-span-1">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">国 (日本語)</label>
-                  <input 
-                    type="text"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
-                    value={editMasterData.country || ''}
-                    onChange={e => setEditMasterData({...editMasterData, country: e.target.value})}
-                  />
-                </div>
-                <div className="md:col-span-1">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">Country (English)</label>
-                  <input 
-                    type="text"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
-                    value={editMasterData.country_en || ''}
-                    onChange={e => setEditMasterData({...editMasterData, country_en: e.target.value})}
-                  />
-                </div>
-                <div className="md:col-span-1">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">主要品種 (日本語)</label>
-                  <input 
-                    type="text"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
-                    value={editMasterData.grape || ''}
-                    onChange={e => setEditMasterData({...editMasterData, grape: e.target.value})}
-                  />
-                </div>
-                <div className="md:col-span-1">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">Grape (English)</label>
-                  <input 
-                    type="text"
-                    className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
-                    value={editMasterData.grape_en || ''}
-                    onChange={e => {
-                      setEditMasterData({...editMasterData, grape_en: e.target.value});
-                    }}
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">参考価格 (ボトル)</label>
-                  <input 
-                    type="number"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
-                    value={editMasterData.price_bottle || 0}
-                    onChange={e => setEditMasterData({...editMasterData, price_bottle: parseInt(e.target.value) || 0})}
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">AIソムリエ解説文 (日本語)</label>
-                <textarea 
-                  rows={3}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine resize-none mb-4"
-                  value={editMasterData.ai_explanation || ''}
-                  onChange={e => setEditMasterData({...editMasterData, ai_explanation: e.target.value})}
-                />
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">AI Sommelier Explanation (English)</label>
-                <textarea 
-                  rows={3}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine resize-none"
-                  value={editMasterData.ai_explanation_en || ''}
-                  onChange={e => setEditMasterData({...editMasterData, ai_explanation_en: e.target.value})}
-                />
-                <p className="text-xs text-slate-400 mt-2 font-medium italic">※この説明は全店舗のメニューに共通して反映されます。</p>
-              </div>
-            </div>
-
-            <div className="p-8 border-t border-slate-100 flex justify-end gap-3 bg-slate-50/50">
-              <button 
-                onClick={() => setIsEditingMaster(false)}
-                className="px-6 py-3 text-xs font-bold uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-all"
-              >
-                キャンセル
-              </button>
-              <button 
-                onClick={handleUpdateMaster}
-                className="px-10 py-3 bg-brand-wine text-white rounded-full text-xs font-bold uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-lg"
-              >
-                マスターを更新
-              </button>
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
 
   return (
     <div id="admin-view" className="min-h-screen bg-[#FDFCFB] text-slate-900 pb-20 animate-in fade-in duration-700">
@@ -1141,7 +1023,7 @@ export const AdminView: React.FC = () => {
                       </div>
                       
                       <p className="text-[11px] text-slate-400 text-center leading-relaxed">
-                        このQRコードを印刷して店内に掲示し、お客様がマイスマホでスキャンできるようにしてください。
+                        このQRコードを印刷して店内に掲示し、お客様がマイススマホでスキャンできるようにしてください。
                       </p>
 
                       <div className="w-full flex flex-col gap-2">
@@ -1190,7 +1072,7 @@ export const AdminView: React.FC = () => {
               masterSearchTerm={masterSearchTerm}
               setMasterSearchTerm={setMasterSearchTerm}
               selectedWines={selectedWines}
-              selectedMasterIds={selectedMasterCatalogIds} // 💡 バグ修正: selectedMasterIds から selectedMasterCatalogIds に修正
+              selectedMasterIds={selectedMasterCatalogIds} 
               toggleMasterSelection={toggleMasterSelection}
               handleBulkAddWines={handleBulkAddWines}
               hasMoreWines={!!hasMoreWinesMaster}
