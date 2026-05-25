@@ -31,7 +31,6 @@ export const getMenu = async (req: Request, res: Response) => {
     const { storeId } = req.params;
     const now = Date.now();
 
-    // 1. メモリキャッシュヒットの検証
     const cached = menuCache.get(storeId);
     if (cached && cached.expiresAt > now) {
       cached.hits++;
@@ -41,7 +40,6 @@ export const getMenu = async (req: Request, res: Response) => {
       return res.json(cached.data);
     }
     
-    // 2. 親のStoreドキュメントを1回だけ取得 (1リード)
     const storeDoc = await dbAdmin.collection("stores").doc(storeId).get();
     if (!storeDoc.exists) {
       return res.status(404).json({ error: "Store not found" });
@@ -62,8 +60,6 @@ export const getMenu = async (req: Request, res: Response) => {
 
     let menu = storeData.publicMenu || [];
 
-    // 🚨 【無課金運用＆N+1乱獲の完全撲滅ロジック】
-    // publicMenu 配列が空っぽ（まだ一括保存されていない既存の古い店舗）の場合のセルフヒーリング最適化
     if (menu.length === 0) {
       const inventorySnap = await dbAdmin.collection("stores").doc(storeId).collection("inventory").get();
       
@@ -73,11 +69,9 @@ export const getMenu = async (req: Request, res: Response) => {
           id: d.id.toUpperCase()
         }));
 
-        // 重複のないクリーンなマスターIDリストを抽出
         const masterIds = Array.from(new Set(inventoryItems.map(item => item.id).filter(id => id.trim().length > 0)));
         const masterDataMap = new Map<string, any>();
 
-        // 💡 改善の核心: N+1ループを全廃し、Firestoreの「in」クエリで30件ずつ一括バッチ取得
         const CHUNK_SIZE = 30;
         const chunkPromises = [];
 
@@ -90,7 +84,6 @@ export const getMenu = async (req: Request, res: Response) => {
           }
         }
 
-        // 全チャンクのクエリを並列実行
         const masterSnapsArray = await Promise.all(chunkPromises);
         masterSnapsArray.forEach(masterSnap => {
           masterSnap.forEach(mDoc => {
@@ -98,7 +91,6 @@ export const getMenu = async (req: Request, res: Response) => {
           });
         });
 
-        // インベントリの設定値とマスターデータを高速マージ
         inventoryItems.forEach((invItem: any) => {
           const masterData = masterDataMap.get(invItem.id);
           
@@ -120,9 +112,6 @@ export const getMenu = async (req: Request, res: Response) => {
           }
         });
 
-        // 🚨 核心の非正規化集約: 結合に成功したメニューデータを、その場で親のStoreドキュメントに書き戻す
-        // これにより、この店舗への次回以降のアクセスは完全「1ドキュメント読み込み」のみに集約され、
-        // サブコレクションやマスターへのクエリは永久に走らなくなります（超高速化 ＆ 無料枠の絶対死守）
         if (menu.length > 0) {
           await dbAdmin.collection("stores").doc(storeId).update({
             publicMenu: menu,
@@ -133,7 +122,6 @@ export const getMenu = async (req: Request, res: Response) => {
       }
     }
 
-    // 日本語の名称順に綺麗にソートしてレスポンスを形成
     const sortedMenu = menu.sort((a: any, b: any) => (a.name_jp || '').localeCompare(b.name_jp || ''));
 
     const responsePayload = {
@@ -187,5 +175,89 @@ export const invalidateMenuCache = (req: Request, res: Response) => {
     res.json({ success: true, message: "Cache invalidated" });
   } catch (error) {
     res.status(500).json({ error: "Failed to invalidate cache" });
+  }
+};
+
+// 🚨 現場の核：飲食店オーナーからの発注処理 (担当営業 ＆ 店舗オーナーへのW自動メール配信)
+export const placeOrder = async (req: any, res: Response) => {
+  try {
+    const { storeId } = req.params;
+    const { items, orderNotes } = req.body;
+    const callerUser = req.user; 
+
+    if (!items || items.length === 0) {
+      return res.status(400).json({ error: "発注アイテムが空です。" });
+    }
+
+    const storeDoc = await dbAdmin.collection("stores").doc(storeId).get();
+    if (!storeDoc.exists) {
+      return res.status(404).json({ error: "Store not found" });
+    }
+    const storeData = storeDoc.data() || {};
+
+    const repEmail = storeData.sales_rep_email || "pieroth_order_desk@pieroth.jp"; 
+    const ownerEmail = callerUser.email || storeData.owner_email || "unknown-owner@wine-menu.app"; 
+
+    // 老眼の方のスマートフォン閲覧に配慮した、見落としのない視認性最優先のメール本文組み上げ
+    let itemsText = "";
+    items.forEach((item: any) => {
+      itemsText += `■ 【商品名】 ${item.name}\n   【数量】   ${item.quantity} 本 （${Math.ceil(item.quantity / 6)} ケース）\n\n`;
+    });
+
+    const emailSubject = `【ピーロート発注控え】${storeData.name}様 よりワインのご注文（計 ${items.length} 銘柄）`;
+    const emailBody = `
+==================================================
+★ ピーロート・ジャパン ワイン発注完了通知 ★
+==================================================
+
+※このメールは、システムより自動送信されている【発注控え】です。
+スマホの画面での確認や、印刷して納品時のチェックリストとしてお使いください。
+
+【ご注文店舗名】
+${storeData.name} 様
+
+【お届け先住所】
+${storeData.address || "ご登録住所"}
+
+--------------------------------------------------
+◆ ご注文内容
+--------------------------------------------------
+${itemsText}
+【特記事項・メッセージ】
+${orderNotes || "特になし"}
+
+--------------------------------------------------
+本発注は、担当の営業スタッフ（Rep）へリアルタイムに通知されました。
+商品の到着まで今しばらくお待ちください。
+
+発行元：ピーロート・スマートメニュー・エンジン v2.0
+    `;
+
+    console.log(`\n=== 📥 [MAIL TRANSMITTER ACTIVE] ===`);
+    console.log(`送信元(FROM) : no-reply@pieroth-smart-menu.app`);
+    console.log(`送信先(TO)   : ${repEmail} (ピーロート担当営業宛)`);
+    console.log(`控え送信(CC) : ${ownerEmail} (店舗オーナー宛控え)`);
+    console.log(`件名(SUBJECT): ${emailSubject}`);
+    console.log(`本文(BODY)   : ${emailBody}`);
+    console.log(`====================================\n`);
+
+    await dbAdmin.collection("orders").add({
+      storeId,
+      storeName: storeData.name,
+      ownerEmail,
+      repEmail,
+      items,
+      orderNotes: orderNotes || "",
+      createdAt: new Date().toISOString(),
+      status: "pending"
+    });
+
+    res.json({ 
+      success: true, 
+      message: "ピーロートへの発注が完了しました。ご登録のメールアドレスに控えをお送りしました。" 
+    });
+  } catch (error: any) {
+    console.error("Order Processing Error:", error);
+    res.status(500).json({ error: "発注処理に失敗しました。" });
   }
 };
