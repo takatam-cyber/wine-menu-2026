@@ -190,15 +190,14 @@ export const invalidateMenuCache = (req: Request, res: Response) => {
 };
 
 /**
- * 💡 修正の核心: Expressの標準ルーティングに100%適合させるため、引数の型を Request に修正。
- * これにより厳格モード下（NodeNext）でのコンパイル型エラーを完璧に回避します。
+ * 💡 修正の核心: Expressの型システムに100%適応させ、マージ重複を一掃したクリーンな発注ハンドラ
  */
 export const placeOrder = async (req: Request, res: Response) => {
   try {
     const { storeId } = req.params;
     const { items, orderNotes } = req.body;
     
-    // ミドルウェア層 (authenticateUser) がインジェクションした認証コンテキストを安全にキャスト抽出
+    // 安全にキャストして認証コンテキストを展開
     const callerUser = (req as any).user; 
 
     if (!items || items.length === 0) {
