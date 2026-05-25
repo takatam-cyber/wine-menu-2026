@@ -1,12 +1,11 @@
 // controllers/authController.ts
-import { Request, Response } from "express";
+import { RequestHandler } from "express";
 import { authAdmin, dbAdmin, FieldValue } from "../lib/firebase-admin.js";
-import { AuthenticatedRequest } from "../middleware/auth.js";
 
-export const setRole = async (req: Request, res: Response): Promise<void> => {
+export const setRole: RequestHandler = async (req, res, next) => {
   try {
     const { uid, role } = req.body;
-    const caller = (req as AuthenticatedRequest).user;
+    const caller = (req as any).user;
 
     if (!caller) {
       res.status(401).json({ error: "Unauthorized: No user context found" });
@@ -30,9 +29,9 @@ export const setRole = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-export const syncClaims = async (req: Request, res: Response): Promise<void> => {
+export const syncClaims: RequestHandler = async (req, res, next) => {
   try {
-    const caller = (req as AuthenticatedRequest).user;
+    const caller = (req as any).user;
     if (!caller) {
       res.status(401).json({ error: "Unauthorized: Missing user token context" });
       return;
