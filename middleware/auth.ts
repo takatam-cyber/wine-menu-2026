@@ -1,9 +1,9 @@
 // middleware/auth.ts
-import { Request, Response, NextFunction } from "express";
+import { RequestHandler } from "express";
 import { authAdmin } from "../lib/firebase-admin.js";
 
-// 💡 ルーター側でラップするため、ここでは標準の async 関数として素直に定義
-export const authenticateUser = async (req: Request, res: Response, next: NextFunction) => {
+// 💡 修正の核心: 関数全体を RequestHandler 型で宣言し、引数の型推論をExpressに完全に委ねる
+export const authenticateUser: RequestHandler = async (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     res.status(401).json({ error: "Unauthorized: Missing token" });
