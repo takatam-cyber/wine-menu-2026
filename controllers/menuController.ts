@@ -178,7 +178,7 @@ export const invalidateMenuCache = (req: Request, res: Response) => {
   }
 };
 
-// 🚨 現場の核：飲食店オーナーからの発注処理 (担当営業 ＆ 店舗オーナーへのW自動メール配信)
+// 飲食店オーナーからの発注処理 (担当営業 ＆ 店舗オーナーへのW自動メール配信)
 export const placeOrder = async (req: any, res: Response) => {
   try {
     const { storeId } = req.params;
@@ -186,6 +186,7 @@ export const placeOrder = async (req: any, res: Response) => {
     const callerUser = req.user; 
 
     if (!items || items.length === 0) {
+      // 💡 修正の核心: 前回の「r.status」というタイポを「res.status」に修正
       return res.status(400).json({ error: "発注アイテムが空です。" });
     }
 
@@ -198,7 +199,6 @@ export const placeOrder = async (req: any, res: Response) => {
     const repEmail = storeData.sales_rep_email || "pieroth_order_desk@pieroth.jp"; 
     const ownerEmail = callerUser.email || storeData.owner_email || "unknown-owner@wine-menu.app"; 
 
-    // 老眼の方のスマートフォン閲覧に配慮した、見落としのない視認性最優先のメール本文組み上げ
     let itemsText = "";
     items.forEach((item: any) => {
       itemsText += `■ 【商品名】 ${item.name}\n   【数量】   ${item.quantity} 本 （${Math.ceil(item.quantity / 6)} ケース）\n\n`;
