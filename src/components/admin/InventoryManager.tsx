@@ -4,6 +4,7 @@ import { WineMaster, Store } from '../../types';
 import { Plus, Wine, Upload, Save, Sparkles, Trash2, Minus, ShoppingCart, Loader2 } from 'lucide-react';
 import { useWines } from '../../lib/WineContext';
 import { motion, AnimatePresence } from 'motion/react';
+import { auth } from '../../lib/firebase'; // 💡 追加：認証トークンを取得するためにインポート
 
 interface InventoryManagerProps {
   selectedStore: Store | undefined;
@@ -88,9 +89,16 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
       async () => {
         setIsOrderSubmitting(true);
         try {
+          // 💡 修正の核心：サーバーの 401 Unauthorized を回避するため、ログイン中の認証トークンを付与する
+          const currentUser = auth.currentUser;
+          const token = currentUser ? await currentUser.getIdToken() : '';
+
           const response = await fetch(`/api/menu/${selectedStoreId}/order`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}` // 🔑 認証情報を追加
+            },
             body: JSON.stringify({ items: itemsToOrder })
           });
 
@@ -140,7 +148,6 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
 
           {!isOrderMode && (
             <>
-              {/* 💡 修正の核心：入力した数値を保存するボタンを追加 */}
               <button
                 onClick={onSaveInventory}
                 className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-green-600 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-green-500 transition-all shadow-md active:scale-95"
