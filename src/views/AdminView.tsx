@@ -1007,6 +1007,7 @@ export const AdminView: React.FC = () => {
                   hasMoreWines={!!hasMoreWinesMaster}
                   onLoadMoreWines={handleLoadMoreWines}
                   onUpdateWineItem={handleUpdateWineItem}
+                  isOwner={false} // Adminなので発注機能は非表示
                 />
               </div>
               <div className="space-y-6">
@@ -1235,3 +1236,6 @@ export const AdminView: React.FC = () => {
     </div>
   );
 };
+"""
+
+print("Simulated finding issue in AdminView.")}
