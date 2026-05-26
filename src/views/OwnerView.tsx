@@ -136,7 +136,7 @@ export const OwnerView: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['stores'] });
 
       setIsEditingStore(false);
-      showToast('店舗情報を更新しました。', 'success');
+      showToast('店舗設定を更新しました。', 'success');
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `stores/${sid}`);
     } finally {
@@ -223,7 +223,7 @@ export const OwnerView: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
       
       setInitialWines(JSON.parse(JSON.stringify(selectedWines)));
-      showToast(`セラー情報を完全に同期・保存しました（更新: ${totalWriteCount}件）`, 'success');
+      showToast(`セラー情報を保存しました（更新: ${totalWriteCount}件）`, 'success');
     } catch (error) {
       console.error('一括保存に失敗しました:', error);
       showToast('一括保存に失敗しました。', 'error');
@@ -238,7 +238,7 @@ export const OwnerView: React.FC = () => {
     if (!wine) return showToast('該当するワインコードが見つかりません。', 'error');
 
     const compositeId = getWineDocId(wine);
-    if (selectedWines.some(sw => getWineDocId(sw) === compositeId)) return showToast('このワインは既に登録されています。', 'info');
+    if (selectedWines.some(sw => getWineDocId(sw) === compositeId)) return showToast('このワインは既にメニューに登録されています。', 'info');
 
     if (sid) {
       try {
@@ -336,7 +336,7 @@ export const OwnerView: React.FC = () => {
 
       setShowCatalogSelection(false);
       setSelectedMasterIds([]);
-      showToast(`${winesToAdd.length}本の銘柄を一括追加しました。`, 'success');
+      showToast(`${winesToAdd.length}件のワインを一括導入しました。`, 'success');
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `stores/${sid}/bulk`);
     }
@@ -370,7 +370,7 @@ export const OwnerView: React.FC = () => {
           handleFirestoreError(error, OperationType.DELETE, `stores/${sid}/inventory/${wineId}`);
         }
       },
-      '削除すると、お客様用メニュー画面からも即座に反映され非表示になります。'
+      '削除すると、お客様用デジタルメニューからも即座に非表示になります。'
     );
   };
 
@@ -391,7 +391,7 @@ export const OwnerView: React.FC = () => {
             <h1 className="serif text-3xl text-brand-gold-dark">{store?.name || '店舗情報不明'}</h1>
             {(user?.role === 'admin' || user?.role === 'rep') && (
               <select 
-                className="bg-brand-gold-dark/10 border border-brand-gold-dark/30 text-brand-gold-dark rounded-full px-4 py-1 text-xs font-bold uppercase outline-none"
+                className="bg-brand-gold-dark/10 border border-brand-gold-dark/30 text-brand-gold-dark rounded-full px-4 py-1 text-xs font-bold uppercase tracking-widest outline-none"
                 value={sid || ''}
                 onChange={(e) => window.location.href = `/owner?storeId=${e.target.value}`}
               >
@@ -422,13 +422,14 @@ export const OwnerView: React.FC = () => {
             setSearchId={setSearchId}
             handleAddWine={handleAddWine}
             onShowCatalogSelection={() => setShowCatalogSelection(true)}
-            onFileUpload={() => { showToast('オーナー権限での一括CSVインポートは制限されています。', 'info'); }}
+            onFileUpload={() => { showToast('オーナー権限での一括CSVインポートは現在制限されています。', 'info') }}
             onSaveInventory={handleSaveInventory}
             onDeleteWine={handleDeleteWine}
             fileInputRef={fileInputRef}
             hasMoreWines={!!hasMoreWinesMaster}
             onLoadMoreWines={fetchNextWinesMaster}
             onUpdateWineItem={handleUpdateWineItem}
+            isOwner={true} // 💡 修正の核心: オーナー画面なので発注機能を有効化
           />
         </div>
         
