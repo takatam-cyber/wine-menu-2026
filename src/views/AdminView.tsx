@@ -1238,4 +1238,4 @@ export const AdminView: React.FC = () => {
 };
 """
 
-print("Simulated finding issue in AdminView.")}
+print("Simulated writing AdminView without python artifacts.")}
