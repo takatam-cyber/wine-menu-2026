@@ -22,7 +22,7 @@ interface InventoryManagerProps {
   hasMoreWines: boolean;
   onLoadMoreWines: () => void;
   onUpdateWineItem: (wineId: string, updatedFields: Partial<WineMaster>, saveImmediately?: boolean) => void;
-  isOwner?: boolean; // 💡 追加：オーナー画面でのみ発注機能を有効化するフラグ
+  isOwner?: boolean; 
 }
 
 export const InventoryManager: React.FC<InventoryManagerProps> = ({
@@ -42,28 +42,27 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
   handleAddWine,
   hasMoreWines,
   onLoadMoreWines,
-  isOwner = false, // デフォルトは false
+  isOwner = false, 
 }) => {
   const { showToast, showConfirm } = useWines();
   
-  // 💡 一括発注モードのステート
   const [isOrderMode, setIsOrderMode] = useState(false);
   const [orderQuantities, setOrderQuantities] = useState<Record<string, number>>({});
   const [isOrderSubmitting, setIsOrderSubmitting] = useState(false);
 
   const toggleOrderMode = () => {
     if (isOrderMode) {
-      setOrderQuantities({}); // モード終了時にリセット
+      setOrderQuantities({}); 
     }
     setIsOrderMode(!isOrderMode);
   };
 
-  const getOrderQty = (wineId: string) => orderQuantities[wineId] ?? 0; // 💡 デフォルトを 0 本に変更
+  const getOrderQty = (wineId: string) => orderQuantities[wineId] ?? 0; 
 
   const updateOrderQty = (wineId: string, delta: number) => {
     setOrderQuantities(prev => {
       const current = prev[wineId] ?? 0;
-      const next = Math.max(0, current + delta); // 最小は0本を保証
+      const next = Math.max(0, current + delta);
       return { ...prev, [wineId]: next };
     });
   };
@@ -72,7 +71,6 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
     setOrderQuantities(prev => ({ ...prev, [wineId]: Math.max(0, qty) }));
   };
 
-  // 💡 ピーロートへの一括ダイレクト発注処理
   const handleBulkPlaceOrder = async () => {
     const itemsToOrder = selectedWines
       .filter(w => (orderQuantities[w.id] ?? 0) > 0)
@@ -126,7 +124,6 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
         </div>
         
         <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
-          {/* オーナー権限のみ発注モード切り替えボタンを表示 */}
           {isOwner && (
             <button
               onClick={toggleOrderMode}
@@ -163,12 +160,12 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
       </div>
      
       <div className="w-full overflow-x-auto pb-4">
-        <div className="min-w-[1050px] p-4 md:p-6 space-y-4">
+        <div className="min-w-[1100px] p-4 md:p-6 space-y-4">
           <div className={`grid gap-4 px-6 py-3 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100 ${
-            isOrderMode ? 'grid-cols-[2.5fr_3fr_2fr_1fr_0.5fr]' : 'grid-cols-[2.5fr_3fr_1fr_0.5fr]'
+            isOrderMode ? 'grid-cols-[2fr_3.5fr_2fr_1fr_0.5fr]' : 'grid-cols-[2fr_4fr_1fr_0.5fr]'
           }`}>
-            <div>ワイン銘柄 / 原価</div>
-            <div className="text-center">販売価格設定 (ボトル / グラス / 杯数)</div>
+            <div>ワイン銘柄</div>
+            <div className="text-center">価格設定 (仕入 / ボトル / グラス / 杯数)</div>
             {isOrderMode && <div className="text-center bg-brand-gold/[0.1] text-brand-wine font-black rounded-t-xl py-1">発注本数入力</div>}
             <div className="text-center">メニュー公開</div>
             <div className="text-right">操作</div>
@@ -181,9 +178,9 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                 key={wine.id}
                 className={`bg-white px-6 py-4 rounded-2xl border border-slate-100 grid items-center gap-4 transition-all shadow-sm group ${
                   !wine.visible ? 'opacity-65 bg-slate-50/50' : 'hover:border-slate-300'
-                } ${isOrderMode ? 'grid-cols-[2.5fr_3fr_2fr_1fr_0.5fr]' : 'grid-cols-[2.5fr_3fr_1fr_0.5fr]'}`}
+                } ${isOrderMode ? 'grid-cols-[2fr_3.5fr_2fr_1fr_0.5fr]' : 'grid-cols-[2fr_4fr_1fr_0.5fr]'}`}
               >
-                {/* 1. ワイン銘柄と原価 */}
+                {/* 1. ワイン銘柄 */}
                 <div className="flex items-center gap-4 min-w-0 pr-4">
                   <button
                     onClick={() => onUpdateWineItem(wine.id, { isFeatured: !wine.isFeatured }, true)}
@@ -199,45 +196,56 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                     </span>
                     <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest truncate mt-1 flex items-center gap-2">
                       <span className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 font-mono">CODE: {wine.id}</span>
-                      <span className="text-brand-wine font-black font-mono">原価: ¥{(wine.cost || 2000).toLocaleString()}</span>
                     </div>
                   </div>
                 </div>
 
-                {/* 2. 販売価格設定 (ボトル / グラス / 杯数) */}
-                <div className="grid grid-cols-3 gap-2 items-center justify-center">
+                {/* 2. 販売価格設定 (仕入 / ボトル / グラス / 杯数) */}
+                <div className="grid grid-cols-4 gap-2 items-center justify-center">
                   <div className="flex flex-col gap-1 items-center">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">ボトル価格</span>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">仕入(税別)</span>
+                    <div className="relative w-full">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-xs">¥</span>
+                      <input
+                        type="number"
+                        value={wine.cost === 0 ? 0 : (wine.cost || '')}
+                        onChange={(e) => onUpdateWineItem(wine.id, { cost: parseInt(e.target.value) || 0 }, true)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-6 pr-2 py-2 focus:border-brand-wine focus:bg-white outline-none font-mono text-slate-900 font-black text-center text-sm transition-all"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1 items-center">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">ボトル</span>
                     <div className="relative w-full">
                       <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-xs">¥</span>
                       <input
                         type="number"
                         value={wine.price_bottle === 0 ? 0 : (wine.price_bottle || '')}
                         onChange={(e) => onUpdateWineItem(wine.id, { price_bottle: parseInt(e.target.value) || 0 }, true)}
-                        className="w-full bg-white border border-slate-300 rounded-xl pl-6 pr-2 py-2 focus:border-brand-wine outline-none font-mono text-slate-900 font-black text-center text-sm"
+                        className="w-full bg-white border border-slate-300 rounded-xl pl-6 pr-2 py-2 focus:border-brand-wine outline-none font-mono text-slate-900 font-black text-center text-sm shadow-inner"
                       />
                     </div>
                   </div>
                   <div className="flex flex-col gap-1 items-center">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">グラス価格</span>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">グラス</span>
                     <div className="relative w-full">
                       <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-xs">¥</span>
                       <input
                         type="number"
                         value={wine.price_glass === 0 ? 0 : (wine.price_glass || '')}
                         onChange={(e) => onUpdateWineItem(wine.id, { price_glass: parseInt(e.target.value) || 0 }, true)}
-                        className="w-full bg-white border border-slate-300 rounded-xl pl-6 pr-2 py-2 focus:border-brand-wine outline-none font-mono text-slate-900 font-black text-center text-sm"
+                        className="w-full bg-white border border-slate-300 rounded-xl pl-6 pr-2 py-2 focus:border-brand-wine outline-none font-mono text-slate-900 font-black text-center text-sm shadow-inner"
                       />
                     </div>
                   </div>
                   <div className="flex flex-col gap-1 items-center">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">グラス杯数</span>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">杯数</span>
                     <div className="relative w-full">
                       <input
                         type="number"
                         value={wine.glasses_per_bottle === 0 ? 0 : (wine.glasses_per_bottle || 6)}
                         onChange={(e) => onUpdateWineItem(wine.id, { glasses_per_bottle: parseInt(e.target.value) || 6 }, true)}
-                        className="w-full bg-white border border-slate-300 rounded-xl px-2 py-2 focus:border-brand-wine outline-none font-mono text-slate-900 font-black text-center text-sm"
+                        className="w-full bg-white border border-slate-300 rounded-xl px-2 py-2 focus:border-brand-wine outline-none font-mono text-slate-900 font-black text-center text-sm shadow-inner"
                       />
                       <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">杯</span>
                     </div>
@@ -320,7 +328,6 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
         </div>
       </div>
 
-      {/* 💡 発注モード時のフローティングバー（画面下部に固定） */}
       <AnimatePresence>
         {isOrderMode && (
           <motion.div
