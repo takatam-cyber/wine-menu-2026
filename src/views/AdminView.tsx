@@ -157,6 +157,7 @@ export const AdminView: React.FC = () => {
       grape_en: wine.grape_en,
       ai_explanation: wine.ai_explanation,
       ai_explanation_en: wine.ai_explanation_en,
+      cost: wine.cost, // 追加
       price_bottle: wine.price_bottle,
     });
     setIsEditingMaster(true);
@@ -814,7 +815,16 @@ export const AdminView: React.FC = () => {
                     }}
                   />
                 </div>
-                <div className="md:col-span-2">
+                <div className="md:col-span-1">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">仕入れ価格 (税別)</label>
+                  <input 
+                    type="number"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine"
+                    value={editMasterData.cost || 0}
+                    onChange={e => setEditMasterData({...editMasterData, cost: parseInt(e.target.value) || 0})}
+                  />
+                </div>
+                <div className="md:col-span-1">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">参考価格 (ボトル)</label>
                   <input 
                     type="number"
