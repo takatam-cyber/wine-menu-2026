@@ -14,7 +14,6 @@ import { useInventoryQuery, useInventoryMutations } from '../hooks/useInventoryQ
 import { useWinesMasterQuery } from '../hooks/useWinesQuery';
 import { InventoryManager } from '../components/admin/InventoryManager';
 import { CatalogSelector } from '../components/admin/CatalogSelector';
-import { StoreAnalytics } from '../components/admin/StoreAnalytics';
 
 const PRODUCTION_DOMAIN = import.meta.env.VITE_APP_DOMAIN || "";
 const getBaseUrl = () => typeof window === 'undefined' ? '' : (window.location.origin.includes('googleusercontent.com') || window.location.origin.includes('localhost') ? PRODUCTION_DOMAIN : window.location.origin);
@@ -374,6 +373,51 @@ export const OwnerView: React.FC = () => {
     );
   };
 
+  const renderMasterEditModal = () => (
+    <AnimatePresence>
+      {isEditingStore && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+            <h3 className="text-lg font-bold mb-4">店舗詳細を編集</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">店名</label>
+                <input 
+                  type="text"
+                  value={editStoreData.name || ''}
+                  onChange={e => setEditStoreData({ ...editStoreData, name: e.target.value })}
+                  className="w-full border rounded-xl p-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">料理カテゴリー</label>
+                <input 
+                  type="text"
+                  value={editStoreData.cuisine_type || ''}
+                  onChange={e => setEditStoreData({ ...editStoreData, cuisine_type: e.target.value })}
+                  className="w-full border rounded-xl p-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">住所</label>
+                <input 
+                  type="text"
+                  value={editStoreData.address || ''}
+                  onChange={e => setEditStoreData({ ...editStoreData, address: e.target.value })}
+                  className="w-full border rounded-xl p-2 text-sm"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-6">
+              <button onClick={() => setIsEditingStore(false)} className="px-4 py-2 text-sm text-slate-500">キャンセル</button>
+              <button onClick={handleUpdateStore} className="px-4 py-2 bg-brand-wine text-white rounded-xl text-sm font-bold">更新</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
+
   if (inventoryLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-full py-24 gap-4">
@@ -408,8 +452,6 @@ export const OwnerView: React.FC = () => {
         </div>
       </header>
 
-      <StoreAnalytics selectedWines={selectedWines} />
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
           <InventoryManager 
@@ -429,7 +471,7 @@ export const OwnerView: React.FC = () => {
             hasMoreWines={!!hasMoreWinesMaster}
             onLoadMoreWines={fetchNextWinesMaster}
             onUpdateWineItem={handleUpdateWineItem}
-            isOwner={true} // 💡 修正の核心: オーナー画面なので発注機能を有効化
+            isOwner={true}
           />
         </div>
         
@@ -442,35 +484,23 @@ export const OwnerView: React.FC = () => {
             
             <div>
               <label className="text-xs font-bold text-brand-gold/60 uppercase tracking-widest block mb-1">店名</label>
-              <input 
-                type="text"
-                value={isEditingStore ? editStoreData.name || '' : store?.name || ''}
-                onChange={(e) => isEditingStore && setEditStoreData({...editStoreData, name: e.target.value})}
-                disabled={!isEditingStore}
-                className="w-full bg-white/5 border border-brand-gold/20 rounded-xl px-4 py-2.5 text-sm text-brand-ivory outline-none focus:border-brand-gold disabled:opacity-70 disabled:bg-black/20 font-sans"
-              />
+              <div className="w-full bg-white/5 border border-brand-gold/20 rounded-xl px-4 py-2.5 text-sm text-brand-ivory font-sans opacity-70 bg-black/20">
+                {store?.name || ''}
+              </div>
             </div>
             
             <div>
               <label className="text-xs font-bold text-brand-gold/60 uppercase tracking-widest block mb-1">料理カテゴリー</label>
-              <input 
-                type="text"
-                value={isEditingStore ? editStoreData.cuisine_type || '' : store?.cuisine_type || ''}
-                onChange={(e) => isEditingStore && setEditStoreData({...editStoreData, cuisine_type: e.target.value})}
-                disabled={!isEditingStore}
-                className="w-full bg-white/5 border border-brand-gold/20 rounded-xl px-4 py-2.5 text-sm text-brand-ivory outline-none focus:border-brand-gold disabled:opacity-70 disabled:bg-black/20 font-sans"
-              />
+              <div className="w-full bg-white/5 border border-brand-gold/20 rounded-xl px-4 py-2.5 text-sm text-brand-ivory font-sans opacity-70 bg-black/20">
+                {store?.cuisine_type || ''}
+              </div>
             </div>
             
             <div>
               <label className="text-xs font-bold text-brand-gold/60 uppercase tracking-widest block mb-1">住所</label>
-              <input 
-                type="text"
-                value={isEditingStore ? editStoreData.address || '' : store?.address || ''}
-                onChange={(e) => isEditingStore && setEditStoreData({...editStoreData, address: e.target.value})}
-                disabled={!isEditingStore}
-                className="w-full bg-white/5 border border-brand-gold/20 rounded-xl px-4 py-2.5 text-sm text-brand-ivory outline-none focus:border-brand-gold disabled:opacity-70 disabled:bg-black/20 font-sans"
-              />
+              <div className="w-full bg-white/5 border border-brand-gold/20 rounded-xl px-4 py-2.5 text-sm text-brand-ivory font-sans opacity-70 bg-black/20">
+                {store?.address || ''}
+              </div>
             </div>
 
             <div className="space-y-3 pt-3 border-t border-brand-gold/10">
@@ -480,13 +510,12 @@ export const OwnerView: React.FC = () => {
                   <span className="text-[9px] text-gray-500 uppercase">「お料理から選ぶ」を隠す</span>
                 </div>
                 <button 
-                  onClick={() => isEditingStore && setEditStoreData({...editStoreData, hidePairingFilter: !editStoreData.hidePairingFilter})}
-                  disabled={!isEditingStore}
-                  className={`w-10 h-5 rounded-full transition-all relative disabled:opacity-50 ${
-                    (isEditingStore ? editStoreData.hidePairingFilter : store?.hidePairingFilter) ? 'bg-brand-gold' : 'bg-gray-700'
+                  onClick={() => handleUpdateStore()}
+                  className={`w-10 h-5 rounded-full transition-all relative ${
+                    store?.hidePairingFilter ? 'bg-brand-gold' : 'bg-gray-700'
                   }`}
                 >
-                  <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${(isEditingStore ? editStoreData.hidePairingFilter : store?.hidePairingFilter) ? 'left-5.5' : 'left-0.5'}`} />
+                  <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${store?.hidePairingFilter ? 'left-5.5' : 'left-0.5'}`} />
                 </button>
               </div>
 
@@ -496,63 +525,33 @@ export const OwnerView: React.FC = () => {
                   <span className="text-[9px] text-gray-500 uppercase">「最高のマリアージュ」を隠す</span>
                 </div>
                 <button 
-                  onClick={() => isEditingStore && setEditStoreData({...editStoreData, hideWinePairing: !editStoreData.hideWinePairing})}
-                  disabled={!isEditingStore}
-                  className={`w-10 h-5 rounded-full transition-all relative disabled:opacity-50 ${
-                    (isEditingStore ? editStoreData.hideWinePairing : store?.hideWinePairing) ? 'bg-brand-gold' : 'bg-gray-700'
+                  onClick={() => handleUpdateStore()}
+                  className={`w-10 h-5 rounded-full transition-all relative ${
+                    store?.hideWinePairing ? 'bg-brand-gold' : 'bg-gray-700'
                   }`}
                 >
-                  <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${(isEditingStore ? editStoreData.hideWinePairing : store?.hideWinePairing) ? 'left-5.5' : 'left-0.5'}`} />
+                  <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${store?.hideWinePairing ? 'left-5.5' : 'left-0.5'}`} />
                 </button>
               </div>
 
               <div>
-                <label className="text-xs font-bold text-brand-gold/60 uppercase tracking-widest block mb-1">予算設定 (カンマ区切り)</label>
-                <input 
-                  type="text"
-                  placeholder="5000, 10000, 20000"
-                  value={isEditingStore 
-                    ? (Array.isArray(editStoreData.budgetTiers) ? editStoreData.budgetTiers.join(', ') : String(editStoreData.budgetTiers || '')) 
-                    : (Array.isArray(store?.budgetTiers) ? store!.budgetTiers.join(', ') : String(store?.budgetTiers || ''))}
-                  onChange={e => {
-                    if (isEditingStore) {
-                      const tiers = e.target.value.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
-                      setEditStoreData({...editStoreData, budgetTiers: tiers});
-                    }
-                  }}
-                  disabled={!isEditingStore}
-                  className="w-full bg-white/5 border border-brand-gold/20 rounded-lg px-3 py-2 text-brand-ivory text-sm outline-none focus:border-brand-gold disabled:opacity-70 disabled:bg-black/20 font-sans"
-                />
+                <label className="text-xs font-bold text-brand-gold/60 uppercase tracking-widest block mb-1">予算設定</label>
+                <div className="w-full bg-white/5 border border-brand-gold/20 rounded-lg px-3 py-2 text-brand-ivory text-sm font-sans opacity-70 bg-black/20">
+                  {Array.isArray(store?.budgetTiers) ? store!.budgetTiers.join(', ') : ''}
+                </div>
               </div>
             </div>
 
             <div className="pt-2 flex gap-2">
-              {isEditingStore ? (
-                <>
-                  <button 
-                    onClick={() => setIsEditingStore(false)}
-                    className="flex-1 py-2 text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white transition-all"
-                  >
-                    キャンセル
-                  </button>
-                  <button 
-                    onClick={handleUpdateStore}
-                    className="flex-1 py-2 bg-brand-gold text-brand-wine text-xs font-bold uppercase tracking-widest rounded-xl hover:brightness-110 transition-all flex items-center justify-center gap-2 shadow-lg"
-                  >
-                    <Save className="w-3.5 h-3.5" /> 保存
-                  </button>
-                </>
-              ) : (
-                <button 
-                  onClick={() => {
-                    setEditStoreData(store || {});
-                    setIsEditingStore(true);
-                  }}
-                  className="w-full py-2 bg-white/5 border border-brand-gold/30 text-brand-gold text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-white/10 transition-all flex items-center justify-center gap-2"
-                >
-                  <Edit2 className="w-3.5 h-3.5" /> 店舗設定を編集
-                </button>
-              )}
+              <button 
+                onClick={() => {
+                  setEditStoreData(store || {});
+                  setIsEditingStore(true);
+                }}
+                className="w-full py-2 bg-white/5 border border-brand-gold/30 text-brand-gold text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-white/10 transition-all flex items-center justify-center gap-2"
+              >
+                <Edit2 className="w-3.5 h-3.5" /> 店舗設定を編集
+              </button>
             </div>
           </div>
 
@@ -608,6 +607,7 @@ export const OwnerView: React.FC = () => {
         hasMoreWines={!!hasMoreWinesMaster}
         onLoadMoreWines={fetchNextWinesMaster}
       />
+      {renderMasterEditModal()}
     </div>
   );
 };
