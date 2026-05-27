@@ -1286,6 +1286,3 @@ export const AdminView: React.FC = () => {
     </div>
   );
 };
-\"\"\"
-
-print("Simulated writing AdminView without AI consulting feature.")}
