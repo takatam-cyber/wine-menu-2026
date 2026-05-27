@@ -22,7 +22,7 @@ interface InventoryManagerProps {
   hasMoreWines: boolean;
   onLoadMoreWines: () => void;
   onUpdateWineItem: (wineId: string, updatedFields: Partial<WineMaster>, saveImmediately?: boolean) => void;
-  isOwner?: boolean; // 他のファイルでエラーが出ないように型だけ残しています
+  isOwner?: boolean; // オーナー画面かどうかのフラグ
 }
 
 export const InventoryManager: React.FC<InventoryManagerProps> = ({
@@ -66,20 +66,25 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
             <Save className="w-4 h-4 shrink-0" /> <span className="truncate">一括保存</span>
           </button>
 
-          <button
-            onClick={onShowCatalogSelection}
-            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-brand-wine text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:brightness-110 transition-all shadow-md active:scale-95"
-          >
-            <Plus className="w-5 h-5 shrink-0" /> <span className="truncate">銘柄を追加</span>
-          </button>
-          
-          <input type="file" ref={fileInputRef} onChange={onFileUpload} className="hidden" accept=".csv" />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="hidden md:flex flex-none items-center justify-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-700 transition-all shadow-md"
-          >
-            <Upload className="w-4 h-4" /> CSV読込
-          </button>
+          {/* 💡 オーナー権限(isOwner)でない場合(Admin)のみ追加・CSV機能を表示 */}
+          {!isOwner && (
+            <>
+              <button
+                onClick={onShowCatalogSelection}
+                className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-brand-wine text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:brightness-110 transition-all shadow-md active:scale-95"
+              >
+                <Plus className="w-5 h-5 shrink-0" /> <span className="truncate">銘柄を追加</span>
+              </button>
+              
+              <input type="file" ref={fileInputRef} onChange={onFileUpload} className="hidden" accept=".csv" />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="hidden md:flex flex-none items-center justify-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-700 transition-all shadow-md"
+              >
+                <Upload className="w-4 h-4" /> CSV読込
+              </button>
+            </>
+          )}
         </div>
       </div>
      
@@ -188,13 +193,18 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
 
                 {/* 4. 操作 (リストから削除) */}
                 <div className="flex items-center justify-end">
-                  <button
-                    onClick={() => onDeleteWine(wine.id)}
-                    className="p-2.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all border border-transparent hover:border-red-100"
-                    title="メニューリストから削除"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  {/* 💡 オーナー権限(isOwner)でない場合(Admin)のみ削除ゴミ箱ボタンを表示 */}
+                  {!isOwner ? (
+                    <button
+                      onClick={() => onDeleteWine(wine.id)}
+                      className="p-2.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all border border-transparent hover:border-red-100"
+                      title="メニューリストから削除"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  ) : (
+                    <div className="w-9 h-9" /> /* オーナーには削除ボタンを表示せずレイアウトを維持 */
+                  )}
                 </div>
               </div>
             );
