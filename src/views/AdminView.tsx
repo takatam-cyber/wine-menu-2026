@@ -157,7 +157,7 @@ export const AdminView: React.FC = () => {
       grape_en: wine.grape_en,
       ai_explanation: wine.ai_explanation,
       ai_explanation_en: wine.ai_explanation_en,
-      cost: wine.cost, // 追加
+      cost: wine.cost,
       price_bottle: wine.price_bottle,
     });
     setIsEditingMaster(true);
@@ -238,7 +238,8 @@ export const AdminView: React.FC = () => {
         
       const wineSupplier = String(wine.supplier || 'PIEROTH').toUpperCase();
       
-      if (!allowed.includes(wineSupplier)) {
+      // 💡 修正：allowed に 'ALL' が含まれている場合は制限を完全にスルーする
+      if (!allowed.includes('ALL') && !allowed.includes(wineSupplier)) {
         showToast(`この店舗には指定サプライヤー「${wineSupplier}」のワインを登録する権限がありません`, 'error');
         return;
       }
@@ -288,7 +289,12 @@ export const AdminView: React.FC = () => {
         ? selectedStore!.allowedSuppliers.map(s => String(s).toUpperCase())
         : ['PIEROTH'];
 
-      const unauthorized = winesToAdd.filter(w => !allowed.includes(String(w.supplier || 'PIEROTH').toUpperCase()));
+      // 💡 修正：'ALL' があれば制限チェックをスキップ、なければ他社サプライヤーを弾く
+      const unauthorized = winesToAdd.filter(w => {
+        const wineSupplier = String(w.supplier || 'PIEROTH').toUpperCase();
+        return !allowed.includes('ALL') && !allowed.includes(wineSupplier);
+      });
+
       if (unauthorized.length > 0) {
         const unauthorizedSet = Array.from(new Set(unauthorized.map(w => String(w.supplier || 'PIEROTH').toUpperCase())));
         showToast(`許可されていないサプライヤーが含まれています: ${unauthorizedSet.join(', ')}`, 'error');
@@ -451,6 +457,7 @@ export const AdminView: React.FC = () => {
         hidePairingFilter: editStoreData.hidePairingFilter,
         hideWinePairing: editStoreData.hideWinePairing,
         budgetTiers: editStoreData.budgetTiers,
+        allowedSuppliers: editStoreData.allowedSuppliers, // 💡 追加：更新対象にマージ
       });
 
       if (editStoreData.name !== selectedStore?.name && user?.uid) {
@@ -1107,6 +1114,42 @@ export const AdminView: React.FC = () => {
                       />
                       <p className="text-xs text-slate-400 mt-1 uppercase tracking-tighter">例: 5000, 10000, 20000 (数値のみ入力してください)</p>
                     </div>
+
+                    {/* 💡 サプライヤー制限解除トグルを実装 */}
+                    <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-100 rounded-xl">
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">他社サプライヤーの許可</span>
+                        <span className="text-xs text-slate-500 uppercase">ピーロート以外の銘柄登録を許可</span>
+                      </div>
+                      <button 
+                        onClick={() => {
+                          if (isEditingStore) {
+                            const currentAllowed = editStoreData.allowedSuppliers || selectedStore?.allowedSuppliers || ['PIEROTH'];
+                            const nextAllowed = currentAllowed.includes('ALL')
+                              ? currentAllowed.filter(s => s !== 'ALL')
+                              : [...currentAllowed, 'ALL'];
+                            setEditStoreData({ ...editStoreData, allowedSuppliers: nextAllowed });
+                          }
+                        }}
+                        disabled={!isEditingStore}
+                        className={`w-12 h-6 rounded-full transition-all relative disabled:opacity-50 ${
+                          (isEditingStore 
+                            ? editStoreData.allowedSuppliers?.includes('ALL') 
+                            : selectedStore?.allowedSuppliers?.includes('ALL')) 
+                            ? 'bg-green-500' 
+                            : 'bg-slate-300'
+                        }`}
+                      >
+                        <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${
+                          (isEditingStore 
+                            ? editStoreData.allowedSuppliers?.includes('ALL') 
+                            : selectedStore?.allowedSuppliers?.includes('ALL')) 
+                            ? 'left-7' 
+                            : 'left-1'
+                        }`} />
+                      </button>
+                    </div>
+
                   </div>
 
                   <div className="flex items-center justify-between pt-4 border-t border-slate-100">
@@ -1194,7 +1237,7 @@ export const AdminView: React.FC = () => {
                     </div>
                   ) : (
                     <p className="text-xs text-slate-400 py-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                      店舗を選択すると、QRコードとメニューURLが生成されます。
+                      店舗を選択すると、QRコード & メニューURLが生成されます。
                     </p>
                   )}
                 </div>
