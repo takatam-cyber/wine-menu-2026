@@ -238,7 +238,6 @@ export const AdminView: React.FC = () => {
         
       const wineSupplier = String(wine.supplier || 'PIEROTH').toUpperCase();
       
-      // 💡 修正：allowed に 'ALL' が含まれている場合は制限を完全にスルーする
       if (!allowed.includes('ALL') && !allowed.includes(wineSupplier)) {
         showToast(`この店舗には指定サプライヤー「${wineSupplier}」のワインを登録する権限がありません`, 'error');
         return;
@@ -289,7 +288,6 @@ export const AdminView: React.FC = () => {
         ? selectedStore!.allowedSuppliers.map(s => String(s).toUpperCase())
         : ['PIEROTH'];
 
-      // 💡 修正：'ALL' があれば制限チェックをスキップ、なければ他社サプライヤーを弾く
       const unauthorized = winesToAdd.filter(w => {
         const wineSupplier = String(w.supplier || 'PIEROTH').toUpperCase();
         return !allowed.includes('ALL') && !allowed.includes(wineSupplier);
@@ -457,7 +455,7 @@ export const AdminView: React.FC = () => {
         hidePairingFilter: editStoreData.hidePairingFilter,
         hideWinePairing: editStoreData.hideWinePairing,
         budgetTiers: editStoreData.budgetTiers,
-        allowedSuppliers: editStoreData.allowedSuppliers, // 💡 追加：更新対象にマージ
+        allowedSuppliers: editStoreData.allowedSuppliers,
       });
 
       if (editStoreData.name !== selectedStore?.name && user?.uid) {
@@ -1115,7 +1113,6 @@ export const AdminView: React.FC = () => {
                       <p className="text-xs text-slate-400 mt-1 uppercase tracking-tighter">例: 5000, 10000, 20000 (数値のみ入力してください)</p>
                     </div>
 
-                    {/* 💡 サプライヤー制限解除トグルを実装 */}
                     <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-100 rounded-xl">
                       <div className="flex flex-col">
                         <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">他社サプライヤーの許可</span>
@@ -1237,7 +1234,7 @@ export const AdminView: React.FC = () => {
                     </div>
                   ) : (
                     <p className="text-xs text-slate-400 py-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                      店舗を選択すると、QRコード & メニューURLが生成されます。
+                      店舗を選択すると、QRコードとメニューURLが生成されます。
                     </p>
                   )}
                 </div>
@@ -1289,3 +1286,6 @@ export const AdminView: React.FC = () => {
     </div>
   );
 };
+\"\"\"
+
+print("Simulated writing AdminView without AI consulting feature.")}
