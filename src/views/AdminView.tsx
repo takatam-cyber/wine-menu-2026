@@ -20,7 +20,6 @@ import { parseWineCSV } from '../lib/csv-parser';
 import { StoreGrid } from '../components/admin/StoreGrid';
 import { InventoryManager } from '../components/admin/InventoryManager';
 import { MasterCatalog } from '../components/admin/MasterCatalog';
-import { StoreAnalytics } from '../components/admin/StoreAnalytics';
 import { OwnerAccountForm } from '../components/admin/OwnerAccountForm';
 import { CatalogSelector } from '../components/admin/CatalogSelector';
 
@@ -1000,8 +999,6 @@ export const AdminView: React.FC = () => {
                 {selectedStore?.isActive ? '稼働中' : '停止中'}
               </span>
             </div>
-
-            <StoreAnalytics selectedWines={selectedWines} />
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <div className="lg:col-span-2">
