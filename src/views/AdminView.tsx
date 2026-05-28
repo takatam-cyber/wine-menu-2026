@@ -68,8 +68,10 @@ export const AdminView: React.FC = () => {
   useEffect(() => {
     if (inventoryData?.inventory && selectedStoreId === inventoryData.store?.id) {
       if (dataLoadedForStore !== selectedStoreId) {
-        setSelectedWines(JSON.parse(JSON.stringify(inventoryData.inventory)));
-        setInitialWines(JSON.parse(JSON.stringify(inventoryData.inventory)));
+        // 💡 データベースの order 順で初期描画を行う
+        const sorted = [...inventoryData.inventory].sort((a: any, b: any) => (a.order || 0) - (b.order || 0));
+        setSelectedWines(JSON.parse(JSON.stringify(sorted)));
+        setInitialWines(JSON.parse(JSON.stringify(sorted)));
         setDataLoadedForStore(selectedStoreId);
       }
     } else if (!selectedStoreId) {
@@ -254,6 +256,7 @@ export const AdminView: React.FC = () => {
           stock: 0,
           isActive: true,
           visible: true,
+          order: selectedWines.length, // 💡 新規追加時にorderを付与
           updatedAt: new Date().toISOString()
         };
         
@@ -302,7 +305,7 @@ export const AdminView: React.FC = () => {
       for (let i = 0; i < winesToAdd.length; i += CHUNK_SIZE) {
         const chunk = winesToAdd.slice(i, i + CHUNK_SIZE);
         const batch = writeBatch(db);
-        chunk.forEach(wine => {
+        chunk.forEach((wine, chunkIndex) => {
           const compositeId = getWineDocId(wine);
           const newInventoryItem = {
             ...wine,
@@ -315,6 +318,7 @@ export const AdminView: React.FC = () => {
             stock: 0,
             isActive: true,
             visible: true,
+            order: selectedWines.length + i + chunkIndex, // 💡 一括追加時にorderを付与
             updatedAt: new Date().toISOString()
           };
           batch.set(doc(db, 'stores', selectedStoreId, 'inventory', compositeId), newInventoryItem);
@@ -322,7 +326,7 @@ export const AdminView: React.FC = () => {
         await batch.commit();
       }
 
-      const newWinesToAppend = winesToAdd.map(wine => ({
+      const newWinesToAppend = winesToAdd.map((wine, idx) => ({
         ...wine,
         id: getWineDocId(wine),
         pureId: safeExtractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
@@ -332,6 +336,7 @@ export const AdminView: React.FC = () => {
         stock: 0,
         isActive: true,
         visible: true,
+        order: selectedWines.length + idx,
         updatedAt: new Date().toISOString()
       } as WineMaster));
       
@@ -372,6 +377,7 @@ export const AdminView: React.FC = () => {
         
         chunk.forEach(wine => {
           const initialWine = initialWines.find(iw => iw.id === wine.id);
+          // 💡 変更検知の条件に `initialWine.order !== wine.order` を追加
           const isChanged = !initialWine || 
             initialWine.price_bottle !== wine.price_bottle || 
             initialWine.price_glass !== wine.price_glass || 
@@ -380,7 +386,8 @@ export const AdminView: React.FC = () => {
             initialWine.visible !== wine.visible || 
             initialWine.isFeatured !== wine.isFeatured || 
             initialWine.promoLabel !== wine.promoLabel ||
-            initialWine.glasses_per_bottle !== wine.glasses_per_bottle;
+            initialWine.glasses_per_bottle !== wine.glasses_per_bottle ||
+            initialWine.order !== wine.order; 
 
           if (isChanged) {
             const compositeId = getWineDocId(wine);
@@ -674,7 +681,7 @@ export const AdminView: React.FC = () => {
             const chunk = newInventoryWines.slice(i, i + CHUNK_SIZE);
             const batch = writeBatch(db);
             
-            chunk.forEach(wine => {
+            chunk.forEach((wine, chunkIndex) => {
               const compositeId = getWineDocId(wine);
               const invItem = {
                 ...wine,
@@ -687,6 +694,7 @@ export const AdminView: React.FC = () => {
                 stock: wine.stock || 0,
                 isActive: true,
                 visible: true,
+                order: selectedWines.length + i + chunkIndex, // 💡 CSV読込時にもorderを付与
                 updatedAt: new Date().toISOString()
               };
               batch.set(doc(db, 'stores', selectedStoreId, 'inventory', compositeId), invItem, { merge: true });
@@ -696,7 +704,7 @@ export const AdminView: React.FC = () => {
           }
           
           const mergedWinesList = [...selectedWines];
-          newInventoryWines.forEach(wine => {
+          newInventoryWines.forEach((wine, idx) => {
             const compositeId = getWineDocId(wine);
             mergedWinesList.push({
               ...wine,
@@ -708,6 +716,7 @@ export const AdminView: React.FC = () => {
               stock: wine.stock || 0,
               isActive: true,
               visible: true,
+              order: selectedWines.length + idx,
             } as WineMaster);
           });
 
@@ -1019,7 +1028,7 @@ export const AdminView: React.FC = () => {
                   hasMoreWines={!!hasMoreWinesMaster}
                   onLoadMoreWines={handleLoadMoreWines}
                   onUpdateWineItem={handleUpdateWineItem}
-                  isOwner={false} // Adminなので発注機能は非表示
+                  isOwner={false} 
                 />
               </div>
               <div className="space-y-6">
@@ -1107,7 +1116,6 @@ export const AdminView: React.FC = () => {
                         disabled={!isEditingStore}
                         className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 text-sm outline-none focus:border-brand-wine disabled:opacity-70 disabled:bg-slate-100"
                       />
-                      <p className="text-xs text-slate-400 mt-1 uppercase tracking-tighter">例: 5000, 10000, 20000 (数値のみ入力してください)</p>
                     </div>
 
                     <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-100 rounded-xl">
