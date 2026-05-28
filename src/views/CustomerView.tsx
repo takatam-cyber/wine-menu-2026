@@ -4,8 +4,6 @@ import { useParams } from 'react-router-dom';
 import { WineMaster } from '../types';
 import { useWines } from '../lib/WineContext';
 import { WineProfile } from '../components/WineProfile';
-import { auth } from '../lib/firebase';
-import { signInAnonymously } from 'firebase/auth';
 import { ChevronRight, ChevronDown, Info, Wine, Utensils, Award, Sparkles, Edit2, Beef, Fish, ChefHat, MapPin, Tag, Search, ArrowUpDown, GlassWater, Wine as WineIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -208,6 +206,10 @@ export const CustomerView: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   const finalStoreId = routeStoreId || new URLSearchParams(window.location.search).get('storeId') || user?.storeId;
   const { data: menuData, isLoading: isDataFetching, refetch: fetchStoreData } = usePublicMenuQuery(finalStoreId || null);
   const { data: fullWine, isLoading: isDetailLoading } = useWineDetailQuery(selectedWine?.id || null);
@@ -310,13 +312,11 @@ export const CustomerView: React.FC = () => {
     return inventory.some(wine => wine.visible !== false && wine.price_glass && wine.price_glass > 0);
   }, [inventory]);
 
-  // 💡 コンシェルジュ用：Step1で選んだ色に該当するワインを抽出
   const winesForStep1 = useMemo(() => {
     if (!step1Color) return [];
     return inventory.filter(wine => wine.visible !== false && wine.color === step1Color);
   }, [inventory, step1Color]);
 
-  // 💡 コンシェルジュ用：Step1のワイン群から、実際に存在するスタイルだけを抽出
   const activeStylesForStep2 = useMemo(() => {
     if (!step1Color || winesForStep1.length === 0) return [];
     
@@ -346,11 +346,9 @@ export const CustomerView: React.FC = () => {
       }
     }
     
-    // 表示順を保持
     return getDynamicStyles(step1Color).filter(style => styles.has(style));
   }, [step1Color, winesForStep1, currentLang, t]);
 
-  // 💡 コンシェルジュ用：Step2で選んだスタイルに該当するワインを抽出
   const winesForStep2 = useMemo(() => {
     if (!step2Style || winesForStep1.length === 0) return [];
     return winesForStep1.filter(wine => {
@@ -370,7 +368,6 @@ export const CustomerView: React.FC = () => {
     });
   }, [winesForStep1, step1Color, step2Style, t]);
 
-  // 💡 コンシェルジュ用：Step2のワイン群から、実際に存在する価格帯だけを抽出
   const activeBudgetsForStep3 = useMemo(() => {
     if (!step2Style || winesForStep2.length === 0) return [];
     return conciergeBudgets.filter(budgetOpt => {
