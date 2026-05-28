@@ -52,9 +52,7 @@ export const CustomerView: React.FC = () => {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
-  
-  // 💡 ソートのデフォルトを店舗指定順（default）に設定
-  const [sortBy, setSortBy] = useState<'default' | 'type' | 'priceAsc' | 'priceDesc' | 'popular'>('default');
+  const [sortBy, setSortBy] = useState<'default' | 'type' | 'featured' | 'price_desc' | 'price_asc'>('default');
   
   const [activeCuisine, setActiveCuisine] = useState<string | null>(null);
   const [activeColor, setActiveColor] = useState<string | null>(null);
@@ -75,10 +73,10 @@ export const CustomerView: React.FC = () => {
       appetizer: '前菜・サラダ',
       sort: '並び替え',
       defaultSort: '店舗指定順',
+      typeSort: 'タイプ別',
       recommend: 'おすすめ順',
       priceDesc: '価格が高い順',
       priceAsc: '価格が安い順',
-      typeSort: 'タイプ別',
       sommelierRecommend: 'ソムリエのおすすめ',
       standardSelection: 'スタンダード・セレクション',
       speciality: 'スペシャリテ',
@@ -135,10 +133,10 @@ export const CustomerView: React.FC = () => {
       appetizer: 'Appetizer/Salad',
       sort: 'Sort',
       defaultSort: 'Store Order',
+      typeSort: 'By Type',
       recommend: 'Recommend',
       priceDesc: 'Price (High to Low)',
       priceAsc: 'Price (Low to High)',
-      typeSort: 'By Type',
       sommelierRecommend: 'Sommelier\'s Recommendation',
       standardSelection: 'Standard Selection',
       speciality: 'Speciality',
@@ -208,10 +206,6 @@ export const CustomerView: React.FC = () => {
     };
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  useEffect(() => {
-    window.scrollTo(0, 0);
   }, []);
 
   const finalStoreId = routeStoreId || new URLSearchParams(window.location.search).get('storeId') || user?.storeId;
@@ -316,6 +310,78 @@ export const CustomerView: React.FC = () => {
     return inventory.some(wine => wine.visible !== false && wine.price_glass && wine.price_glass > 0);
   }, [inventory]);
 
+  // 💡 コンシェルジュ用：Step1で選んだ色に該当するワインを抽出
+  const winesForStep1 = useMemo(() => {
+    if (!step1Color) return [];
+    return inventory.filter(wine => wine.visible !== false && wine.color === step1Color);
+  }, [inventory, step1Color]);
+
+  // 💡 コンシェルジュ用：Step1のワイン群から、実際に存在するスタイルだけを抽出
+  const activeStylesForStep2 = useMemo(() => {
+    if (!step1Color || winesForStep1.length === 0) return [];
+    
+    const styles = new Set<string>();
+    const isEn = currentLang === 'en';
+
+    if (step1Color === '赤') {
+      const hasFull = winesForStep1.some(w => w.body >= 4);
+      const hasMedium = winesForStep1.some(w => w.body === 3);
+      const hasLight = winesForStep1.some(w => w.body <= 2);
+      if (hasFull) styles.add(t.fullBody);
+      if (hasMedium) styles.add(t.mediumBody);
+      if (hasLight) styles.add(t.lightBody);
+    } else {
+      const hasDry = winesForStep1.some(w => w.sweetness <= 2);
+      const hasMediumDry = winesForStep1.some(w => w.sweetness === 3);
+      const hasSweet = winesForStep1.some(w => w.sweetness >= 4);
+
+      if (step1Color === '泡' || step1Color === 'スパークリング' || step1Color === 'ロゼスパークリング') {
+        if (hasDry) styles.add(isEn ? 'Brut (Dry)' : '辛口 (Brut)');
+        if (hasMediumDry) styles.add(isEn ? 'Extra Dry' : '中辛口');
+        if (hasSweet) styles.add(isEn ? 'Demi-Sec (Sweet)' : '甘口 (Demi-Sec)');
+      } else {
+        if (hasDry) styles.add(t.dry);
+        if (hasMediumDry) styles.add(t.mediumDry);
+        if (hasSweet) styles.add(t.sweet);
+      }
+    }
+    
+    // 表示順を保持
+    return getDynamicStyles(step1Color).filter(style => styles.has(style));
+  }, [step1Color, winesForStep1, currentLang, t]);
+
+  // 💡 コンシェルジュ用：Step2で選んだスタイルに該当するワインを抽出
+  const winesForStep2 = useMemo(() => {
+    if (!step2Style || winesForStep1.length === 0) return [];
+    return winesForStep1.filter(wine => {
+      if (step1Color === '赤') {
+        if (step2Style === t.fullBody && wine.body < 4) return false;
+        if (step2Style === t.mediumBody && wine.body !== 3) return false;
+        if (step2Style === t.lightBody && wine.body > 2) return false;
+      } else {
+        const isDry = step2Style.includes('辛口') || step2Style.includes('Dry') || step2Style.includes('Brut');
+        const isMedium = step2Style.includes('中辛口') || step2Style.includes('Extra Dry');
+        const isSweet = step2Style.includes('甘口') || step2Style.includes('Sweet') || step2Style.includes('Demi-Sec');
+        if (isDry && wine.sweetness > 2) return false;
+        if (isMedium && wine.sweetness !== 3) return false;
+        if (isSweet && wine.sweetness < 4) return false;
+      }
+      return true;
+    });
+  }, [winesForStep1, step1Color, step2Style, t]);
+
+  // 💡 コンシェルジュ用：Step2のワイン群から、実際に存在する価格帯だけを抽出
+  const activeBudgetsForStep3 = useMemo(() => {
+    if (!step2Style || winesForStep2.length === 0) return [];
+    return conciergeBudgets.filter(budgetOpt => {
+      return winesForStep2.some(wine => {
+        if (budgetOpt.min !== undefined && wine.price_bottle < budgetOpt.min) return false;
+        if (budgetOpt.max !== undefined && wine.price_bottle > budgetOpt.max) return false;
+        return true;
+      });
+    });
+  }, [step2Style, winesForStep2, conciergeBudgets]);
+
   const displayedInventory = useMemo(() => {
     let filtered = inventory.filter((wine: WineMaster) => {
       if (wine.visible === false) return false;
@@ -368,8 +434,7 @@ export const CustomerView: React.FC = () => {
       return matchesSearch && categoryMatches;
     });
 
-    // 💡 ソート処理の適用（デフォルト時は元の配列の順序を尊重する）
-    if (sortBy === 'default') return filtered; // 管理画面で保存された元の順序を維持
+    if (sortBy === 'default') return filtered; 
 
     return filtered.sort((a, b) => {
       if (sortBy === 'priceAsc') return (a.price_bottle || 0) - (b.price_bottle || 0);
@@ -377,9 +442,18 @@ export const CustomerView: React.FC = () => {
       if (sortBy === 'popular') return (b.isFeatured ? 1 : 0) - (a.isFeatured ? 1 : 0);
       
       if (sortBy === 'type') {
-        const catA = CATEGORIES.findIndex(c => c.id === getWineCategory(a));
-        const catB = CATEGORIES.findIndex(c => c.id === getWineCategory(b));
-        if (catA !== catB) return catA - catB;
+        const getColorWeight = (color: string) => {
+          const c = String(color || '').toLowerCase();
+          if (c.includes('泡') || c.includes('スパークリング')) return 1;
+          if (c.includes('白') || c.includes('white')) return 2;
+          if (c.includes('赤') || c.includes('red')) return 3;
+          if (c.includes('ロゼ') || c.includes('rose')) return 4;
+          if (c.includes('オレンジ') || c.includes('orange')) return 5;
+          return 99;
+        };
+        const weightA = getColorWeight(a.color || '');
+        const weightB = getColorWeight(b.color || '');
+        if (weightA !== weightB) return weightA - weightB;
         return (b.isFeatured ? 1 : 0) - (a.isFeatured ? 1 : 0);
       }
       return 0;
@@ -500,7 +574,7 @@ export const CustomerView: React.FC = () => {
   return (
     <div 
       id="customer-view" 
-      className="min-h-screen bg-[#0A0A0A] relative text-[16px] font-medium leading-relaxed"
+      className="min-h-screen bg-brand-ivory relative text-[16px] font-medium leading-relaxed"
       style={{ fontFamily: HIRAGINO_GOTHIC }}
     >
       {!isDataFetching && store && (
@@ -641,7 +715,6 @@ export const CustomerView: React.FC = () => {
             <div className="flex items-center gap-2 relative shrink-0">
               <span className="text-sm font-bold text-brand-wine/30 uppercase tracking-[0.15em]">{t.sort}</span>
               <div className="relative">
-                {/* 💡 ソートの選択肢に「店舗指定順」を追加 */}
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as any)}
@@ -649,7 +722,7 @@ export const CustomerView: React.FC = () => {
                 >
                   <option value="default">{t.defaultSort}</option>
                   <option value="type">{t.typeSort}</option>
-                  <option value="popular">{t.recommend}</option>
+                  <option value="featured">{t.recommend}</option>
                   <option value="price_desc">{t.priceDesc}</option>
                   <option value="price_asc">{t.priceAsc}</option>
                 </select>
@@ -901,6 +974,7 @@ export const CustomerView: React.FC = () => {
                   </div>
                 </div>
               )}
+
             </div>
           </div>
         </div>
@@ -930,31 +1004,31 @@ export const CustomerView: React.FC = () => {
       <AnimatePresence>
         {isConciergeOpen && (
           <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsConciergeOpen(false)} className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[115]" />
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsConciergeOpen(false)} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[115]" />
             <motion.div
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed bottom-0 inset-x-0 bg-[#111] rounded-t-[2rem] z-[120] border-t border-brand-gold/30 px-6 pt-8 pb-12 shadow-[0_-20px_60px_rgba(0,0,0,0.5)] max-h-[90dvh] overflow-y-auto"
+              className="fixed bottom-0 inset-x-0 bg-brand-ivory rounded-t-[3rem] z-[120] border-t border-brand-gold/30 px-6 pt-10 pb-12 shadow-[0_-20px_60px_rgba(0,0,0,0.3)] max-h-[90dvh] overflow-y-auto"
             >
-              <div className="absolute top-3 left-1/2 -translate-x-1/2 w-12 h-1 bg-white/20 rounded-full" />
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 w-12 h-1 bg-brand-gold-dark/20 rounded-full" />
               
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-3">
-                  <Sparkles className="w-5 h-5 text-brand-gold" />
-                  <h3 className="text-lg text-brand-gold font-bold tracking-widest uppercase" style={{ fontFamily: HIRAGINO_MINCHO }}>{t.concierge}</h3>
+                  <ChefHat className="w-6 h-6 text-brand-gold-dark" />
+                  <h3 className="text-xl text-brand-wine font-extrabold tracking-widest uppercase" style={{ fontFamily: HIRAGINO_MINCHO }}>{t.concierge}</h3>
                 </div>
                 <button 
                   onClick={() => setIsConciergeOpen(false)}
-                  className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white"
+                  className="w-8 h-8 rounded-full bg-brand-gold/10 flex items-center justify-center text-brand-gold-dark"
                 >{t.close}</button>
               </div>
 
               <div className="space-y-10">
-                <div className="space-y-3">
-                  <p className="text-xs text-brand-gold/60 font-bold uppercase tracking-[0.2em] flex items-center gap-2">
-                    <span className="w-4 h-4 rounded-full bg-brand-gold text-black flex items-center justify-center text-[10px] font-bold">1</span>
+                <div className="space-y-4">
+                  <p className="text-sm text-brand-gold-dark font-bold uppercase tracking-[0.2em] flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold-dark flex items-center justify-center text-xs font-bold shadow-inner">1</span>
                     {t.conciergeStep1}
                   </p>
                   <div className="flex flex-wrap gap-2">
@@ -975,10 +1049,10 @@ export const CustomerView: React.FC = () => {
                               setStep2Style(null);
                               setStep3Budget(null);
                             }}
-                            className={`px-6 py-2.5 rounded-full text-xs font-bold transition-all border ${
+                            className={`px-8 py-3 rounded-full text-sm font-bold transition-all border ${
                               step1Color === color 
-                                ? 'bg-brand-gold text-black border-brand-gold shadow-lg font-bold' 
-                                : 'bg-white/5 border-white/10 text-white/60'
+                                ? 'bg-brand-wine text-brand-gold-dark border-brand-gold shadow-lg font-bold' 
+                                : 'bg-white border-brand-gold/10 text-brand-wine/60'
                             }`}
                           >
                             {label}
@@ -988,17 +1062,17 @@ export const CustomerView: React.FC = () => {
                   </div>
                 </div>
 
-                {step1Color && (
+                {step1Color && activeStylesForStep2.length > 0 && (
                   <motion.div 
                     initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                    className="space-y-3 pt-6 border-t border-white/10"
+                    className="space-y-4 pt-6 border-t border-brand-gold/10"
                   >
-                    <p className="text-xs text-brand-gold/60 font-bold uppercase tracking-[0.2em] flex items-center gap-2">
-                      <span className="w-4 h-4 rounded-full bg-brand-gold text-black flex items-center justify-center text-[10px] font-bold">2</span>
+                    <p className="text-sm text-brand-gold-dark font-bold uppercase tracking-[0.2em] flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold-dark flex items-center justify-center text-xs font-bold shadow-inner">2</span>
                       {t.conciergeStep2}
                     </p>
                   <div className="flex flex-wrap gap-2">
-                      {getDynamicStyles(step1Color).map(style => {
+                      {activeStylesForStep2.map(style => {
                         return (
                           <button
                             key={style}
@@ -1006,7 +1080,7 @@ export const CustomerView: React.FC = () => {
                               setStep2Style(style);
                               setStep3Budget(null);
                             }}
-                            className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all border ${step2Style === style ? 'bg-brand-gold text-black border-brand-gold shadow-md' : 'bg-white/5 border-white/10 text-white/60'}`}
+                            className={`px-5 py-3 rounded-2xl text-sm font-bold transition-all border ${step2Style === style ? 'bg-brand-gold-dark text-white border-brand-gold-dark shadow-md' : 'bg-white border-brand-gold/10 text-brand-wine/60'}`}
                           >
                             {style}
                           </button>
@@ -1016,24 +1090,24 @@ export const CustomerView: React.FC = () => {
                   </motion.div>
                 )}
 
-                {step2Style && (
+                {step2Style && activeBudgetsForStep3.length > 0 && (
                   <motion.div 
                     initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                    className="space-y-3 pt-6 border-t border-white/10"
+                    className="space-y-4 pt-6 border-t border-brand-gold/10"
                   >
-                    <p className="text-xs text-brand-gold/60 font-bold uppercase tracking-[0.2em] flex items-center gap-2">
-                      <span className="w-4 h-4 rounded-full bg-brand-gold text-black flex items-center justify-center text-[10px] font-bold">3</span>
+                    <p className="text-sm text-brand-gold-dark font-bold uppercase tracking-[0.2em] flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold-dark flex items-center justify-center text-xs font-bold shadow-inner">3</span>
                       {t.conciergeStep3}
                     </p>
                     <div className="grid grid-cols-2 gap-2">
-                      {conciergeBudgets.map(budget => (
+                      {activeBudgetsForStep3.map(budget => (
                         <button
                           key={budget.id}
                           onClick={() => setStep3Budget(budget.id)}
-                          className={`px-4 py-3 rounded-xl text-xs font-bold transition-all border ${
+                          className={`px-4 py-3 rounded-2xl text-xs font-bold transition-all border ${
                             step3Budget === budget.id 
                               ? 'bg-brand-wine text-brand-gold-dark border-brand-gold shadow-md' 
-                              : 'bg-white/5 border-white/10 text-white/60'
+                              : 'bg-white border-brand-gold/10 text-brand-wine/50'
                           }`}
                         >
                           {budget.label}
@@ -1057,7 +1131,7 @@ export const CustomerView: React.FC = () => {
                         }
                       }, 400);
                     }}
-                    className="w-full py-4 bg-brand-gold text-black rounded-full text-sm font-bold uppercase tracking-[0.2em] shadow-lg active:scale-95 transition-all"
+                    className="w-full py-4 bg-brand-wine text-brand-gold-dark rounded-full font-bold uppercase tracking-[0.3em] shadow-xl active:scale-95 transition-all"
                   >
                     {t.conciergeResult}
                   </button>
@@ -1069,8 +1143,8 @@ export const CustomerView: React.FC = () => {
       </AnimatePresence>
 
       <div className="fixed bottom-6 inset-x-6 z-40 flex justify-center pointer-events-none">
-        <div className="bg-black/90 backdrop-blur-xl border border-brand-gold/30 px-6 py-2.5 rounded-full shadow-2xl pointer-events-auto">
-          <p className="text-xs text-brand-gold/80 font-bold tracking-[0.1em] text-center">
+        <div className="bg-black/90 backdrop-blur-xl border border-brand-gold/30 px-8 py-3 rounded-full shadow-2xl animate-in slide-in-from-bottom duration-1000 pointer-events-auto">
+          <p className="text-sm md:text-base text-brand-gold-dark font-bold uppercase tracking-[0.1em] text-center">
             {t.footerWarning}
           </p>
         </div>
