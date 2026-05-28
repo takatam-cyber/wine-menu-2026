@@ -1,7 +1,7 @@
 // src/components/admin/InventoryManager.tsx
 import React, { useState } from 'react';
 import { WineMaster, Store } from '../../types';
-import { Plus, Wine, Upload, Save, Sparkles, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Wine, Upload, Save, Sparkles, Trash2, Loader2, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { useWines } from '../../lib/WineContext';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -22,7 +22,7 @@ interface InventoryManagerProps {
   hasMoreWines: boolean;
   onLoadMoreWines: () => void;
   onUpdateWineItem: (wineId: string, updatedFields: Partial<WineMaster>, saveImmediately?: boolean) => void;
-  isOwner?: boolean; // オーナー画面かどうかのフラグ
+  isOwner?: boolean; 
 }
 
 export const InventoryManager: React.FC<InventoryManagerProps> = ({
@@ -46,6 +46,62 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
 }) => {
   const { showToast, showConfirm } = useWines();
 
+  // 💡 自動ソート機能
+  const applySort = (type: string) => {
+    if (!type) return;
+    const newWines = [...selectedWines];
+    
+    const getColorWeight = (color: string) => {
+      const c = String(color || '').toLowerCase();
+      if (c.includes('泡') || c.includes('スパークリング')) return 1;
+      if (c.includes('白') || c.includes('white')) return 2;
+      if (c.includes('赤') || c.includes('red')) return 3;
+      if (c.includes('ロゼ') || c.includes('rose')) return 4;
+      if (c.includes('オレンジ') || c.includes('orange')) return 5;
+      return 99;
+    };
+
+    newWines.sort((a, b) => {
+      switch (type) {
+        case 'type':
+          return getColorWeight(a.color || '') - getColorWeight(b.color || '');
+        case 'type_price_asc':
+          if (getColorWeight(a.color || '') === getColorWeight(b.color || '')) {
+            return (a.price_bottle || 0) - (b.price_bottle || 0);
+          }
+          return getColorWeight(a.color || '') - getColorWeight(b.color || '');
+        case 'type_price_desc':
+          if (getColorWeight(a.color || '') === getColorWeight(b.color || '')) {
+            return (b.price_bottle || 0) - (a.price_bottle || 0);
+          }
+          return getColorWeight(a.color || '') - getColorWeight(b.color || '');
+        case 'price_asc':
+          return (a.price_bottle || 0) - (b.price_bottle || 0);
+        case 'price_desc':
+          return (b.price_bottle || 0) - (a.price_bottle || 0);
+        default:
+          return 0;
+      }
+    });
+    setSelectedWines(newWines);
+  };
+
+  // 💡 マニュアル並び替え（上へ）
+  const moveUp = (index: number) => {
+    if (index === 0) return;
+    const newWines = [...selectedWines];
+    [newWines[index - 1], newWines[index]] = [newWines[index], newWines[index - 1]];
+    setSelectedWines(newWines);
+  };
+
+  // 💡 マニュアル並び替え（下へ）
+  const moveDown = (index: number) => {
+    if (index === selectedWines.length - 1) return;
+    const newWines = [...selectedWines];
+    [newWines[index + 1], newWines[index]] = [newWines[index], newWines[index + 1]];
+    setSelectedWines(newWines);
+  };
+
   return (
     <div className="bg-white rounded-3xl overflow-hidden flex flex-col shadow-sm border border-slate-200 relative pb-4">
       <div className="px-4 md:px-8 py-5 md:py-6 border-b border-slate-100 bg-slate-50 flex flex-col xl:flex-row justify-between items-center gap-6">
@@ -59,6 +115,25 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
         </div>
         
         <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
+          {/* 💡 並び替えドロップダウン */}
+          <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm">
+            <ArrowUpDown className="w-4 h-4 text-slate-400" />
+            <select 
+              onChange={(e) => {
+                applySort(e.target.value);
+                e.target.value = ''; 
+              }} 
+              className="text-xs font-bold text-slate-700 outline-none bg-transparent cursor-pointer"
+            >
+              <option value="">一括並び替え...</option>
+              <option value="type">種類別（泡・白・赤...）</option>
+              <option value="type_price_asc">種類別 ＋ 価格の安い順</option>
+              <option value="type_price_desc">種類別 ＋ 価格の高い順</option>
+              <option value="price_asc">価格の安い順</option>
+              <option value="price_desc">価格の高い順</option>
+            </select>
+          </div>
+
           <button
             onClick={onSaveInventory}
             className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-green-600 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-green-500 transition-all shadow-md active:scale-95"
@@ -66,7 +141,6 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
             <Save className="w-4 h-4 shrink-0" /> <span className="truncate">一括保存</span>
           </button>
 
-          {/* 💡 オーナー権限(isOwner)でない場合(Admin)のみ追加・CSV機能を表示 */}
           {!isOwner && (
             <>
               <button
@@ -90,18 +164,18 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
      
       <div className="w-full overflow-x-auto pb-4">
         <div className="min-w-[1100px] p-4 md:p-6 space-y-4">
-          <div className="grid grid-cols-[2fr_4fr_1fr_0.5fr] gap-4 px-6 py-3 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100">
+          <div className="grid grid-cols-[2.5fr_3.5fr_1fr_1fr] gap-4 px-6 py-3 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100">
             <div>ワイン銘柄</div>
             <div className="text-center">価格設定 (仕入 / ボトル / グラス / 杯数)</div>
             <div className="text-center">メニュー公開</div>
-            <div className="text-right">操作</div>
+            <div className="text-right">並び替え・操作</div>
           </div>
 
-          {selectedWines.map((wine) => {
+          {selectedWines.map((wine, index) => {
             return (
               <div
-                key={wine.id}
-                className={`bg-white px-6 py-4 rounded-2xl border border-slate-100 grid grid-cols-[2fr_4fr_1fr_0.5fr] items-center gap-4 transition-all shadow-sm group ${
+                key={`${wine.id}-${index}`}
+                className={`bg-white px-6 py-4 rounded-2xl border border-slate-100 grid grid-cols-[2.5fr_3.5fr_1fr_1fr] items-center gap-4 transition-all shadow-sm group ${
                   !wine.visible ? 'opacity-65 bg-slate-50/50' : 'hover:border-slate-300'
                 }`}
               >
@@ -125,7 +199,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                   </div>
                 </div>
 
-                {/* 2. 販売価格設定 (仕入 / ボトル / グラス / 杯数) */}
+                {/* 2. 販売価格設定 */}
                 <div className="grid grid-cols-4 gap-2 items-center justify-center">
                   <div className="flex flex-col gap-1 items-center">
                     <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">仕入(税別)</span>
@@ -191,19 +265,36 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                   </button>
                 </div>
 
-                {/* 4. 操作 (リストから削除) */}
-                <div className="flex items-center justify-end">
-                  {/* 💡 オーナー権限(isOwner)でない場合(Admin)のみ削除ゴミ箱ボタンを表示 */}
+                {/* 4. 並び替え・操作 (上下移動 & 削除) */}
+                <div className="flex items-center justify-end gap-2">
+                  <div className="flex flex-col gap-1">
+                    <button
+                      onClick={() => moveUp(index)}
+                      disabled={index === 0}
+                      className="p-1 text-slate-400 hover:text-brand-wine hover:bg-brand-wine/10 rounded transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                      title="上に移動"
+                    >
+                      <ArrowUp className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => moveDown(index)}
+                      disabled={index === selectedWines.length - 1}
+                      className="p-1 text-slate-400 hover:text-brand-wine hover:bg-brand-wine/10 rounded transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                      title="下に移動"
+                    >
+                      <ArrowDown className="w-4 h-4" />
+                    </button>
+                  </div>
                   {!isOwner ? (
                     <button
                       onClick={() => onDeleteWine(wine.id)}
-                      className="p-2.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all border border-transparent hover:border-red-100"
+                      className="p-2.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all border border-transparent hover:border-red-100 ml-2"
                       title="メニューリストから削除"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
                   ) : (
-                    <div className="w-9 h-9" /> /* オーナーには削除ボタンを表示せずレイアウトを維持 */
+                    <div className="w-9 h-9 ml-2" />
                   )}
                 </div>
               </div>
