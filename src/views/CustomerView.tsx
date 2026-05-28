@@ -431,7 +431,10 @@ export const CustomerView: React.FC = () => {
       return matchesSearch && categoryMatches;
     });
 
-    if (sortBy === 'default') return filtered; 
+    // 💡 defaultの場合は管理画面で設定した order 順に従う
+    if (sortBy === 'default') {
+      return filtered.sort((a: any, b: any) => (a.order || 0) - (b.order || 0));
+    }
 
     return filtered.sort((a, b) => {
       if (sortBy === 'priceAsc') return (a.price_bottle || 0) - (b.price_bottle || 0);
@@ -720,7 +723,6 @@ export const CustomerView: React.FC = () => {
                 </div>
               </div>
             </div>
-
           </div>
         </div>
 
