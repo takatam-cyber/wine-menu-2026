@@ -569,202 +569,165 @@ export const CustomerView: React.FC = () => {
   }
 
   return (
-    <div 
-      id="customer-view" 
-      className="min-h-screen bg-[#0A0A0A] relative text-[16px] font-medium leading-relaxed"
-      style={{ fontFamily: HIRAGINO_GOTHIC }}
-    >
+    <div id="customer-view" className="min-h-screen bg-brand-ivory relative text-[16px] font-medium leading-relaxed" style={{ fontFamily: HIRAGINO_GOTHIC }}>
+      
       {!isDataFetching && store && (
-        <header className={`fixed top-0 inset-x-0 transition-all duration-500 z-[100] ${
-          isScrolled ? 'bg-black/90 backdrop-blur-md border-b border-brand-gold/20 py-3' : 'bg-transparent py-6'
-        }`}>
-          <div className="flex items-center px-4 md:px-8">
-            <div className="flex-1">
-              {user && (user.role === 'admin' || user.role === 'rep' || user.role === 'owner') && (
-                <button 
-                  onClick={() => {
-                    if (user.role === 'admin' || user.role === 'rep') {
-                      window.location.href = `/admin?storeId=${store.id}`;
-                    } else {
-                      window.location.href = `/owner?storeId=${store.id}`;
-                    }
-                  }}
-                  className="w-10 h-10 rounded-full bg-black/40 flex items-center justify-center border border-brand-gold/20 text-brand-gold hover:bg-brand-gold hover:text-black transition-all"
-                >
-                  <Edit2 className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-            <div className="flex-none text-center">
-              <h1 className="text-brand-gold font-extrabold text-xl md:text-2xl tracking-[0.2em] uppercase leading-tight" style={{ fontFamily: HIRAGINO_MINCHO }}>
-                {store.name}
-              </h1>
-            </div>
-            <div className="flex-1 flex justify-end">
+        <header className={`fixed top-0 inset-x-0 h-16 flex items-center px-6 border-b transition-all duration-500 z-[100] ${isScrolled ? 'bg-black/90 backdrop-blur-md border-brand-gold/20' : 'bg-black border-brand-gold/30'}`}>
+          <div className="flex-1">
+            {user && (user.role === 'admin' || user.role === 'rep' || user.role === 'owner') && (
+              <button 
+                onClick={() => {
+                  if (user.role === 'admin' || user.role === 'rep') {
+                    window.location.href = `/admin?storeId=${store.id}`;
+                  } else {
+                    window.location.href = `/owner?storeId=${store.id}`;
+                  }
+                }}
+                className="w-10 h-10 rounded-full bg-brand-gold/10 flex items-center justify-center border border-brand-gold/20 text-brand-gold-dark hover:bg-brand-gold-dark hover:text-brand-wine transition-all"
+              >
+                <Edit2 className="w-5 h-5" />
+              </button>
+            )}
+          </div>
+          <div className="flex-none text-center flex items-center gap-4">
+            <h1 className="text-brand-gold-dark font-extrabold text-xl md:text-2xl tracking-[0.3em] uppercase leading-tight" style={{ fontFamily: HIRAGINO_MINCHO }}>
+              {store.name}
+            </h1>
+            <div className="flex items-center gap-2">
               <div className="flex items-center bg-white/5 rounded-full p-1 border border-brand-gold/20 shadow-inner">
-                <button onClick={() => setCurrentLang('ja')} className={`px-3 py-1 rounded-full text-[10px] font-black transition-all ${currentLang === 'ja' ? 'bg-brand-gold text-black' : 'text-brand-gold/40 hover:text-brand-gold/70'}`}>JP</button>
-                <button onClick={() => setCurrentLang('en')} className={`px-3 py-1 rounded-full text-[10px] font-black transition-all ${currentLang === 'en' ? 'bg-brand-gold text-black' : 'text-brand-gold/40 hover:text-brand-gold/70'}`}>EN</button>
+                <button onClick={() => setCurrentLang('ja')} className={`px-3 py-1 rounded-full text-xs font-black transition-all ${currentLang === 'ja' ? 'bg-brand-gold-dark text-white' : 'text-brand-gold/40 hover:text-brand-gold/70'}`}>JP</button>
+                <button onClick={() => setCurrentLang('en')} className={`px-3 py-1 rounded-full text-xs font-black transition-all ${currentLang === 'en' ? 'bg-brand-gold-dark text-white' : 'text-brand-gold/40 hover:text-brand-gold/70'}`}>EN</button>
               </div>
             </div>
           </div>
+          <div className="flex-1" />
         </header>
       )}
 
-      <div className="pt-28 pb-6 px-4 relative overflow-hidden flex flex-col items-center">
-        <div className="absolute inset-0 bg-gradient-to-b from-brand-gold/10 via-transparent to-transparent opacity-50" />
-        <WineIcon className="w-6 h-6 text-brand-gold mb-3 opacity-80" />
-        <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-brand-gold/60">{store.cuisine_type} • Wine Menu</p>
-      </div>
-
-      <main className="max-w-4xl mx-auto px-4 space-y-6">
-        
-        <div className={`sticky z-40 transition-all duration-300 ${isScrolled ? 'top-[68px]' : 'top-[76px]'} bg-[#0A0A0A]/95 backdrop-blur-xl pt-2 pb-4 -mx-4 px-4 border-b border-brand-gold/10 space-y-4 shadow-[0_10px_30px_rgba(0,0,0,0.5)]`}>
-          
-          <div className="relative flex-1 group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-gold/40 group-focus-within:text-brand-gold transition-colors" />
-            <input 
-              type="text"
-              placeholder={t.searchPlaceholder}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-white/5 border border-brand-gold/20 rounded-full pl-11 pr-4 py-3.5 text-sm text-brand-ivory focus:border-brand-gold focus:bg-white/10 outline-none transition-all placeholder:text-brand-gold/30 shadow-inner"
-            />
-          </div>
-
-          <div className="overflow-x-auto hide-scrollbar -mx-4 px-4">
-            <div className="flex gap-2 min-w-max pb-1">
-              {activeCategories.map(category => (
+      <div className="flex flex-col pt-16">
+        <div className={`sticky top-[64px] z-[90] transition-all duration-500 border-b ${isScrolled ? 'bg-brand-ivory/95 backdrop-blur-md border-brand-gold/20 shadow-[0_4px_25px_rgba(0,0,0,0.1)]' : 'bg-brand-ivory border-brand-gold/10'}`}>
+          <div className="flex overflow-x-auto no-scrollbar py-3.5 px-4 gap-2.5 items-center">
+            
+            <button 
+              onClick={() => {
+                setActiveColor(null);
+                setActiveCuisine(null);
+                setActiveBudget(null);
+                setStep1Color(null);
+                setStep2Style(null);
+                setStep3Budget(null);
+                setSortBy('default');
+                setActiveGlassOnly(false);
+              }}
+              className={`px-4 py-2 rounded-full text-sm font-bold uppercase tracking-widest transition-all whitespace-nowrap border ${
+                !activeColor && !activeCuisine && !activeBudget && !step1Color && !activeGlassOnly
+                  ? 'bg-brand-gold-dark text-white border-brand-gold-dark shadow-md' 
+                  : 'bg-white border-brand-gold/20 text-brand-gold-dark'
+              }`}
+            >
+              {t.clear}
+            </button>
+            
+            <div className="w-px h-5 shrink-0 bg-brand-gold/20" />
+            
+            {activeColors.map(color => {
+              const label = 
+                color === '赤' ? t.red : 
+                color === '白' ? t.white : 
+                color === 'ロゼ' ? t.rose : 
+                color === 'オレンジ' ? t.orange : 
+                color === 'ロゼスパークリング' ? t.roseSparkling : 
+                (color === '泡' || color === 'スパークリング' ? t.sparkling : color);
+              
+              return (
                 <button
-                  key={category.id}
-                  onClick={() => setSelectedCategory(category.id)}
-                  className={`px-5 py-2.5 rounded-full text-xs font-bold transition-all whitespace-nowrap ${
-                    selectedCategory === category.id
-                      ? 'bg-brand-gold text-brand-wine shadow-[0_0_15px_rgba(212,175,55,0.3)]'
-                      : 'bg-white/5 text-brand-gold/60 border border-brand-gold/20 hover:bg-white/10 hover:text-brand-gold'
+                  key={color}
+                  onClick={() => setActiveColor(activeColor === color ? null : color)}
+                  className={`px-4 py-2 rounded-full text-sm font-bold tracking-wider transition-all whitespace-nowrap border ${
+                    activeColor === color 
+                      ? 'bg-brand-gold-dark text-white border-brand-gold' 
+                      : 'bg-white border-brand-gold/20 text-brand-gold-dark'
                   }`}
                 >
-                  {currentLang === 'ja' ? category.label : (category.labelEn || category.label)}
+                  {label}
                 </button>
-              ))}
-            </div>
-          </div>
+              );
+            })}
 
-          <div className="overflow-x-auto hide-scrollbar -mx-4 px-4">
-            <div className="flex gap-2 min-w-max pb-1 items-center">
-              <button 
-                onClick={() => {
-                  setActiveColor(null);
-                  setActiveCuisine(null);
-                  setActiveBudget(null);
-                  setStep1Color(null);
-                  setStep2Style(null);
-                  setStep3Budget(null);
-                  setSortBy('default');
-                  setActiveGlassOnly(false);
-                }}
-                className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all whitespace-nowrap border ${
-                  !activeColor && !activeCuisine && !activeBudget && !step1Color && !activeGlassOnly
-                    ? 'bg-brand-gold text-black border-brand-gold shadow-md' 
-                    : 'bg-white/5 border-brand-gold/20 text-brand-gold/60 hover:text-brand-gold'
+            {hasGlassWines && (
+              <button
+                onClick={() => setActiveGlassOnly(!activeGlassOnly)}
+                className={`px-4 py-2 rounded-full text-sm font-bold tracking-wider transition-all whitespace-nowrap border ${
+                  activeGlassOnly 
+                    ? 'bg-brand-gold-dark text-white border-brand-gold shadow-inner' 
+                    : 'bg-white border-brand-gold/20 text-brand-gold-dark'
                 }`}
               >
-                {t.clear}
+                {t.glassWine}
               </button>
-              
-              <div className="w-px h-5 shrink-0 bg-brand-gold/20 mx-1" />
-              
-              {activeColors.map(color => {
-                const label = 
-                  color === '赤' ? t.red : 
-                  color === '白' ? t.white : 
-                  color === 'ロゼ' ? t.rose : 
-                  color === 'オレンジ' ? t.orange : 
-                  color === 'ロゼスパークリング' ? t.roseSparkling : 
-                  (color === '泡' || color === 'スパークリング' ? t.sparkling : color);
-                
-                return (
-                  <button
-                    key={color}
-                    onClick={() => setActiveColor(activeColor === color ? null : color)}
-                    className={`px-4 py-2 rounded-full text-xs font-bold tracking-wider transition-all whitespace-nowrap border ${
-                      activeColor === color 
-                        ? 'bg-brand-gold text-black border-brand-gold' 
-                        : 'bg-white/5 border-brand-gold/20 text-brand-gold/60 hover:text-brand-gold'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
+            )}
 
-              {hasGlassWines && (
-                <button
-                  onClick={() => setActiveGlassOnly(!activeGlassOnly)}
-                  className={`px-4 py-2 rounded-full text-xs font-bold tracking-wider transition-all whitespace-nowrap border ${
-                    activeGlassOnly 
-                      ? 'bg-brand-gold text-black border-brand-gold shadow-inner' 
-                      : 'bg-white/5 border-brand-gold/20 text-brand-gold/60 hover:text-brand-gold'
-                  }`}
-                >
-                  {t.glassWine}
-                </button>
-              )}
-
-              <div className="w-px h-5 shrink-0 bg-brand-gold/20 mx-1" />
-              
-              {!store?.hidePairingFilter && cuisineFilters.map(c => (
-                <button
-                  key={c.id}
-                  onClick={() => setActiveCuisine(activeCuisine === c.id ? null : c.id)}
-                  className={`px-4 py-2 rounded-full text-xs font-bold tracking-wider transition-all whitespace-nowrap border ${
-                    activeCuisine === c.id 
-                      ? 'bg-brand-gold text-black border-brand-gold' 
-                      : 'bg-white/5 border-brand-gold/20 text-brand-gold/60 hover:text-brand-gold'
-                  }`}
-                >
-                  {c.label}
-                </button>
-              ))}
-
-              {!store?.hidePairingFilter && <div className="w-px h-5 shrink-0 bg-brand-gold/20 mx-1" />}
-
-              {budgetFilters.map(b => (
-                <button
-                  key={b.id}
-                  onClick={() => setActiveBudget(activeBudget === b.id ? null : b.id)}
-                  className={`px-4 py-2 rounded-full text-xs font-bold tracking-wider transition-all whitespace-nowrap border ${
-                    activeBudget === b.id 
-                      ? 'bg-brand-gold text-black border-brand-gold'
-                      : 'bg-white/5 border-brand-gold/20 text-brand-gold/60 hover:text-brand-gold'
-                  }`}
-                >
-                  {b.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex justify-end">
-            <div className="flex items-center gap-2 bg-black/40 px-3 py-1.5 rounded-full border border-brand-gold/20 hover:border-brand-gold/40 transition-colors">
-              <ArrowUpDown className="w-3.5 h-3.5 text-brand-gold/60" />
-              <select 
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
-                className="bg-transparent text-xs font-bold text-brand-gold/90 outline-none cursor-pointer appearance-none pr-2"
+            <div className="w-px h-5 shrink-0 bg-brand-gold/20" />
+            
+            {!store?.hidePairingFilter && cuisineFilters.map(c => (
+              <button
+                key={c.id}
+                onClick={() => setActiveCuisine(activeCuisine === c.id ? null : c.id)}
+                className={`px-4 py-2 rounded-full text-sm font-bold tracking-wider transition-all whitespace-nowrap border ${
+                  activeCuisine === c.id 
+                    ? 'bg-brand-gold-dark text-white border-brand-gold-dark' 
+                    : 'bg-white border-brand-gold/20 text-brand-gold-dark'
+                }`}
               >
-                <option value="default" className="bg-[#0A0A0A] text-brand-gold">{t.defaultSort}</option>
-                <option value="type" className="bg-[#0A0A0A] text-brand-gold">{t.typeSort}</option>
-                <option value="popular" className="bg-[#0A0A0A] text-brand-gold">{t.recommend}</option>
-                <option value="priceAsc" className="bg-[#0A0A0A] text-brand-gold">{t.priceAsc}</option>
-                <option value="priceDesc" className="bg-[#0A0A0A] text-brand-gold">{t.priceDesc}</option>
-              </select>
+                {c.label}
+              </button>
+            ))}
+
+            {!store?.hidePairingFilter && <div className="w-px h-5 shrink-0 bg-brand-gold/20" />}
+
+            {budgetFilters.map(b => (
+              <button
+                key={b.id}
+                onClick={() => setActiveBudget(activeBudget === b.id ? null : b.id)}
+                className={`px-4 py-2 rounded-full text-sm font-bold tracking-wider transition-all whitespace-nowrap border ${
+                  activeBudget === b.id 
+                    ? 'bg-brand-gold-dark text-white border-brand-gold-dark'
+                    : 'bg-white border-brand-gold/20 text-brand-gold-dark'
+                }`}
+              >
+                {b.label}
+              </button>
+            ))}
+
+            <div className="w-px h-5 shrink-0 ml-auto mr-2" />
+
+            <div className="flex items-center gap-2 relative shrink-0">
+              <span className="text-sm font-bold text-brand-wine/30 uppercase tracking-[0.15em]">{t.sort}</span>
+              <div className="relative">
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as any)}
+                  className="appearance-none pl-4 pr-9 py-2 rounded-xl text-sm font-bold bg-white border border-brand-gold/20 text-brand-gold-dark outline-none transition-all shadow-sm focus:border-brand-gold"
+                >
+                  <option value="default">{t.defaultSort}</option>
+                  <option value="type">{t.typeSort}</option>
+                  <option value="featured">{t.recommend}</option>
+                  <option value="price_desc">{t.priceDesc}</option>
+                  <option value="price_asc">{t.priceAsc}</option>
+                </select>
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-brand-gold-dark">
+                  <ChevronDown className="w-3.5 h-3.5" />
+                </div>
+              </div>
             </div>
+
           </div>
         </div>
 
         <div id="wine-list-results" className="pb-32">
           <div className="p-4 md:p-12 space-y-8 max-w-5xl mx-auto">
             <div className="space-y-10">
+              
               {hasNoResults && (
                 <motion.div 
                   initial={{ opacity: 0, y: 10 }}
@@ -781,23 +744,24 @@ export const CustomerView: React.FC = () => {
               )}
               
               <div className="grid gap-8">
-                <AnimatePresence>
-                  {displayedInventory.some(w => w.isFeatured) && (
-                    <div className="space-y-6">
-                      <div className="flex items-center gap-3 px-2">
-                        <Sparkles className="w-5 h-5 text-brand-gold-dark" />
-                        <h3 className="text-base text-brand-gold-dark uppercase tracking-[0.3em] font-bold" style={{ fontFamily: HIRAGINO_MINCHO }}>{t.sommelierRecommend}</h3>
-                        <div className="flex-1 h-px bg-brand-gold-dark/20" />
-                      </div>
-                      <div className="grid gap-8">
-                        {displayedInventory.filter(w => w.isFeatured).map((wine, index) => (
+                
+                {displayedInventory.some(w => w.isFeatured) && (
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-3 px-2">
+                      <Sparkles className="w-5 h-5 text-brand-gold-dark" />
+                      <h3 className="text-base text-brand-gold-dark uppercase tracking-[0.3em] font-bold" style={{ fontFamily: HIRAGINO_MINCHO }}>{t.sommelierRecommend}</h3>
+                      <div className="flex-1 h-px bg-brand-gold-dark/20" />
+                    </div>
+                    
+                    <div className="grid gap-8">
+                      <AnimatePresence>
+                        {displayedInventory.filter(w => w.isFeatured).map(wine => (
                           <motion.div
                             key={wine.id}
-                            layout
-                            initial={{ opacity: 0, y: 20 }}
+                            id={`wine-${wine.id}`}
+                            initial={{ opacity: 0, y: 30 }}
                             animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.9 }}
-                            transition={{ duration: 0.3, delay: index * 0.05 }}
+                            whileTap={{ scale: 0.96 }}
                             onClick={() => setSelectedWine(wine)}
                             className="group cursor-pointer relative p-1 rounded-[3rem] overflow-hidden"
                           >
@@ -806,18 +770,14 @@ export const CustomerView: React.FC = () => {
                                <motion.div 
                                  initial={{ x: "-100%" }}
                                  animate={{ x: "200%" }}
-                                 transition={{ 
-                                   duration: 3, 
-                                   repeat: Infinity, 
-                                   ease: "linear",
-                                   repeatDelay: 5
-                                 }}
+                                 transition={{ duration: 3, repeat: Infinity, ease: "linear", repeatDelay: 5 }}
                                  className="absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-brand-gold/10 to-transparent skew-x-12 z-0"
                                />
                             </div>
                             
                             <div className="relative z-10 flex gap-5 p-6 rounded-[3rem] bg-brand-gold/[0.04] shadow-[0_20px_50px_rgba(212,175,55,0.25)] border border-brand-gold/30">
                               <div className="absolute inset-0 opacity-5 bg-[url('https://www.transparenttextures.com/patterns/handmade-paper.png')] rounded-[3rem]" />
+                              
                               <div className="w-32 h-40 bg-white flex items-center justify-center p-4 rounded-[2rem] relative border border-brand-gold/20 shadow-xl group-hover:border-brand-gold/50 transition-all overflow-hidden shrink-0">
                                 <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]" />
                                 {wine.image_url && <img src={getProxyUrl(wine.image_url)} alt="" loading="lazy" className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-1000 ease-out drop-shadow-2xl" />}
@@ -826,6 +786,7 @@ export const CustomerView: React.FC = () => {
                                     {(currentLang === 'ja' ? wine.pairing : (wine.pairing_en || wine.pairing))?.includes('魚') && <div className="p-1.5 bg-brand-wine/10 rounded-full text-brand-wine"><Fish className="w-3 h-3" /></div>}
                                 </div>
                               </div>
+                              
                               <div className="flex-1 flex flex-col justify-center gap-1.5 min-w-0">
                                 <div className="flex flex-wrap items-center gap-2 mb-1">
                                   <div className="px-2 py-1 bg-brand-wine text-brand-gold-dark text-xs font-bold rounded-full uppercase tracking-widest shrink-0 shadow-sm flex items-center gap-1">
@@ -850,63 +811,64 @@ export const CustomerView: React.FC = () => {
                                     {currentLang === 'ja' ? wine.country : (wine.country_en || wine.country)}
                                   </div>
                                 </div>
-                                  {wine.menu_short && (
-                                    <div className="mb-2">
-                                      <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-brand-gold/10 border-l-2 border-brand-gold">
-                                        <span className="text-base font-extrabold italic tracking-wider leading-relaxed" style={{ fontFamily: HIRAGINO_MINCHO }}>
-                                          {currentLang === 'ja' ? wine.menu_short : (wine.menu_short_en || wine.menu_short)}
-                                        </span>
-                                      </div>
+                                
+                                {wine.menu_short && (
+                                  <div className="mb-2">
+                                    <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-brand-gold/10 border-l-2 border-brand-gold">
+                                      <span className="text-base font-extrabold italic tracking-wider leading-relaxed" style={{ fontFamily: HIRAGINO_MINCHO }}>
+                                        {currentLang === 'ja' ? wine.menu_short : (wine.menu_short_en || wine.menu_short)}
+                                      </span>
                                     </div>
-                                  )}
-                                  <h3 className="text-xl md:text-2xl font-bold text-brand-wine leading-tight tracking-tight group-hover:text-brand-gold-dark transition-colors break-words" style={{ fontFamily: HIRAGINO_MINCHO }}>
-                                    {currentLang === 'ja' ? wine.name_jp : (wine.name_en || wine.name_jp)}
-                                  </h3>
-                                  
-                                  <div className="flex flex-wrap gap-1.5 mt-2">
-                                    <div className="flex items-center gap-1 px-2.5 py-1 bg-slate-100 rounded-lg text-sm text-slate-600 font-medium">
-                                      <MapPin className="w-3.5 h-3.5" />
-                                      {currentLang === 'ja' 
-                                        ? `${wine.country} / ${wine.region}` 
-                                        : `${wine.country_en || wine.country} / ${wine.region_en || wine.region}`}
-                                    </div>
-                                    <div className="flex items-center gap-1 px-2.5 py-1 bg-brand-wine/10 rounded-lg text-sm text-brand-wine font-bold">
-                                      {t.majorGrape}: <span style={{ fontFamily: HIRAGINO_MINCHO }}>{currentLang === 'ja' ? wine.grape : (wine.grape_en || wine.grape)}</span>
-                                    </div>
-                                    {(currentLang === 'ja' ? wine.tags : (wine.tags_en || wine.tags))?.split('、').map(tag => (
-                                      <div key={tag} className="px-2.5 py-1 bg-brand-wine/5 rounded-lg text-xs md:text-sm text-brand-wine/70 font-medium tracking-wider flex items-center gap-1">
-                                        <Tag className="w-3 h-3" />
-                                        {tag.trim()}
-                                      </div>
-                                    ))}
                                   </div>
+                                )}
+                                
+                                <h3 className="text-xl md:text-2xl font-bold text-brand-wine leading-tight tracking-tight group-hover:text-brand-gold-dark transition-colors break-words" style={{ fontFamily: HIRAGINO_MINCHO }}>
+                                  {currentLang === 'ja' ? wine.name_jp : (wine.name_en || wine.name_jp)}
+                                </h3>
+                                
+                                <div className="flex flex-wrap gap-1.5 mt-2">
+                                  <div className="flex items-center gap-1 px-2.5 py-1 bg-slate-100 rounded-lg text-sm text-slate-600 font-medium">
+                                    <MapPin className="w-3.5 h-3.5" />
+                                    {currentLang === 'ja' ? `${wine.country} / ${wine.region}` : `${wine.country_en || wine.country} / ${wine.region_en || wine.region}`}
+                                  </div>
+                                  <div className="flex items-center gap-1 px-2.5 py-1 bg-brand-wine/10 rounded-lg text-sm text-brand-wine font-bold">
+                                    {t.majorGrape}: <span style={{ fontFamily: HIRAGINO_MINCHO }}>{currentLang === 'ja' ? wine.grape : (wine.grape_en || wine.grape)}</span>
+                                  </div>
+                                  {(currentLang === 'ja' ? wine.tags : (wine.tags_en || wine.tags))?.split('、').map(tag => (
+                                    <div key={tag} className="px-2.5 py-1 bg-brand-wine/5 rounded-lg text-xs md:text-sm text-brand-wine/70 font-medium tracking-wider flex items-center gap-1">
+                                      <Tag className="w-3 h-3" />
+                                      {tag.trim()}
+                                    </div>
+                                  ))}
+                                </div>
 
-                                  <div className="flex items-end justify-between mt-4 pt-3 border-t border-brand-gold/20">
-                                    <div className="flex gap-5 text-sm font-sans">
-                                      {wine.price_glass && wine.price_glass > 0 ? (
-                                        <div className="flex flex-col bg-brand-gold/10 px-3 py-1 rounded-xl border border-brand-gold/30">
-                                          <span className="text-[11px] text-brand-gold-dark font-bold uppercase tracking-wider mb-0.5">{t.glass}</span>
-                                          <span className="font-sans text-xl md:text-2xl text-brand-wine font-bold">¥{wine.price_glass.toLocaleString()}</span>
-                                        </div>
-                                      ) : null}
-                                      <div className="flex flex-col bg-slate-100 px-3 py-1 rounded-xl border border-slate-200">
-                                        <span className="text-[11px] text-gray-500 font-bold uppercase tracking-wider mb-0.5">{t.bottle}</span>
-                                        <span className="font-sans text-xl md:text-2xl text-brand-wine font-bold">¥{wine.price_bottle ? wine.price_bottle.toLocaleString() : '-'}</span>
+                                <div className="flex items-end justify-between mt-4 pt-3 border-t border-brand-gold/20">
+                                  <div className="flex gap-5 text-sm font-sans">
+                                    {wine.price_glass && wine.price_glass > 0 ? (
+                                      <div className="flex flex-col bg-brand-gold/10 px-3 py-1 rounded-xl border border-brand-gold/30">
+                                        <span className="text-[11px] text-brand-gold-dark font-bold uppercase tracking-wider mb-0.5">{t.glass}</span>
+                                        <span className="font-sans text-xl md:text-2xl text-brand-wine font-bold">¥{wine.price_glass.toLocaleString()}</span>
                                       </div>
-                                    </div>
-                                    <div className="w-10 h-10 rounded-full border border-brand-gold/30 flex items-center justify-center text-brand-gold-dark group-hover:bg-brand-gold-dark group-hover:text-white transition-all shrink-0">
-                                      <ChevronRight className="w-6 h-6" />
+                                    ) : null}
+                                    <div className="flex flex-col bg-slate-100 px-3 py-1 rounded-xl border border-slate-200">
+                                      <span className="text-[11px] text-gray-500 font-bold uppercase tracking-wider mb-0.5">{t.bottle}</span>
+                                      <span className="font-sans text-xl md:text-2xl text-brand-wine font-bold">¥{wine.price_bottle ? wine.price_bottle.toLocaleString() : '-'}</span>
                                     </div>
                                   </div>
+                                  <div className="w-10 h-10 rounded-full border border-brand-gold/30 flex items-center justify-center text-brand-gold-dark group-hover:bg-brand-gold-dark group-hover:text-white transition-all shrink-0">
+                                    <ChevronRight className="w-6 h-6" />
+                                  </div>
+                                </div>
                               </div>
                             </div>
                           </motion.div>
                         ))}
-                      </div>
-                      <div className="h-px bg-brand-gold/10 mx-10" />
+                      </AnimatePresence>
                     </div>
-                  )}
-                </AnimatePresence>
+                    
+                    <div className="h-px bg-brand-gold/10 mx-10" />
+                  </div>
+                )}
 
                 {displayedInventory.some(w => !w.isFeatured) && (
                   <div className="space-y-6">
@@ -915,20 +877,25 @@ export const CustomerView: React.FC = () => {
                     </div>
                     <div className="grid gap-6">
                       <AnimatePresence>
-                        {displayedInventory.filter(w => !w.isFeatured).map((wine, index) => (
+                        {displayedInventory.filter(w => !w.isFeatured).map(wine => (
                           <motion.div
                             key={wine.id}
-                            layout
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.9 }}
-                            transition={{ duration: 0.3, delay: index * 0.05 }}
+                            id={`wine-${wine.id}`}
+                            whileTap={{ scale: 0.98 }}
+                            animate={highlightedId === wine.id ? { 
+                              borderColor: ["rgba(212,175,55,0.1)", "rgba(212,175,55,1)", "rgba(212,175,55,0.1)"],
+                              backgroundColor: ["rgba(255,255,255,0)", "rgba(212,175,55,0.4)", "rgba(255,255,255,0)"],
+                              boxShadow: ["0 0 0 0px rgba(212,175,55,0)", "0 0 80px 20px rgba(212,175,55,1)", "0 0 0 0px rgba(212,175,55,0)"],
+                              scale: [1, 1.05, 1]
+                            } : {}}
+                            transition={highlightedId === wine.id ? { duration: 0.8 } : {}}
                             onClick={() => setSelectedWine(wine)}
                             className="group cursor-pointer flex gap-5 border border-transparent border-b-brand-wine/5 p-4 hover:bg-brand-gold/[0.02] transition-all duration-300 relative overflow-hidden"
                           >
                             <div className="w-24 h-28 bg-white/50 backdrop-blur-sm flex items-center justify-center p-3 rounded-2xl relative border border-brand-gold/10 shadow-sm group-hover:border-brand-gold/30 transition-all shrink-0">
-                            {wine.image_url && <img src={getProxyUrl(wine.image_url)} alt="" loading="lazy" className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-700" />}
+                              {wine.image_url && <img src={getProxyUrl(wine.image_url)} alt="" loading="lazy" className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-700" />}
                             </div>
+                            
                             <div className="flex-1 flex flex-col justify-center gap-1 min-w-0">
                               <div className="flex items-center gap-1.5 mb-1">
                                 <div className={`px-2 py-1 text-xs font-bold rounded-full uppercase tracking-widest shrink-0 ${
@@ -951,6 +918,7 @@ export const CustomerView: React.FC = () => {
                                      {(currentLang === 'ja' ? wine.pairing : (wine.pairing_en || wine.pairing))?.includes('魚') && <Fish className="w-4 h-4 text-brand-wine" />}
                                 </div>
                               </div>
+                              
                               {wine.menu_short && (
                                 <div className="mb-1">
                                   <span className="text-base font-extrabold text-brand-gold-dark italic border-l border-brand-gold pl-1.5 leading-relaxed" style={{ fontFamily: HIRAGINO_MINCHO }}>
@@ -958,6 +926,7 @@ export const CustomerView: React.FC = () => {
                                   </span>
                                 </div>
                               )}
+                              
                               <h3 className="text-lg md:text-xl font-bold text-brand-wine leading-tight group-hover:text-brand-gold-dark transition-colors break-words" style={{ fontFamily: HIRAGINO_MINCHO }}>
                                 {currentLang === 'ja' ? wine.name_jp : (wine.name_en || wine.name_jp)}
                               </h3>
