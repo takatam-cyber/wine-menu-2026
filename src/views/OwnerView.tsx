@@ -71,8 +71,10 @@ export const OwnerView: React.FC = () => {
   useEffect(() => {
     if (inventoryData?.inventory && selectedStoreId === inventoryData.store?.id) {
       if (dataLoadedForStore !== selectedStoreId) {
-        setSelectedWines(JSON.parse(JSON.stringify(inventoryData.inventory)));
-        setInitialWines(JSON.parse(JSON.stringify(inventoryData.inventory)));
+        // 💡 データベースの order 順で初期描画を行う
+        const sorted = [...inventoryData.inventory].sort((a: any, b: any) => (a.order || 0) - (b.order || 0));
+        setSelectedWines(JSON.parse(JSON.stringify(sorted)));
+        setInitialWines(JSON.parse(JSON.stringify(sorted)));
         setDataLoadedForStore(selectedStoreId);
       }
     } else if (!selectedStoreId) {
@@ -186,6 +188,7 @@ export const OwnerView: React.FC = () => {
         
         chunk.forEach(wine => {
           const initialWine = initialWines.find(iw => iw.id === wine.id);
+          // 💡 orderプロパティの変更も検知して保存対象にする
           const isChanged = !initialWine || 
             initialWine.price_bottle !== wine.price_bottle || 
             initialWine.price_glass !== wine.price_glass || 
@@ -194,7 +197,8 @@ export const OwnerView: React.FC = () => {
             initialWine.visible !== wine.visible || 
             initialWine.isFeatured !== wine.isFeatured || 
             initialWine.promoLabel !== wine.promoLabel ||
-            initialWine.glasses_per_bottle !== wine.glasses_per_bottle;
+            initialWine.glasses_per_bottle !== wine.glasses_per_bottle ||
+            initialWine.order !== wine.order;
 
           if (isChanged) {
             const compositeId = getWineDocId(wine);
@@ -252,6 +256,7 @@ export const OwnerView: React.FC = () => {
           stock: 0,
           isActive: true,
           visible: true,
+          order: selectedWines.length, // 💡 新規追加時にorderを付与
           updatedAt: new Date().toISOString()
         };
         
@@ -285,7 +290,7 @@ export const OwnerView: React.FC = () => {
       for (let i = 0; i < winesToAdd.length; i += CHUNK_SIZE) {
         const chunk = winesToAdd.slice(i, i + CHUNK_SIZE);
         const batch = writeBatch(db);
-        chunk.forEach(wine => {
+        chunk.forEach((wine, chunkIndex) => {
           const compositeId = getWineDocId(wine);
           const newInventoryItem = {
             ...wine,
@@ -298,6 +303,7 @@ export const OwnerView: React.FC = () => {
             stock: 0,
             isActive: true,
             visible: true,
+            order: selectedWines.length + i + chunkIndex, // 💡 一括追加時にorderを付与
             updatedAt: new Date().toISOString()
           };
           batch.set(doc(db, 'stores', sid, 'inventory', compositeId), newInventoryItem);
@@ -305,7 +311,7 @@ export const OwnerView: React.FC = () => {
         await batch.commit();
       }
 
-      const newWinesToAppend = winesToAdd.map(wine => ({
+      const newWinesToAppend = winesToAdd.map((wine, idx) => ({
         ...wine,
         id: getWineDocId(wine),
         pureId: safeExtractPureId(wine.pureId || wine.id, wine.supplier).toUpperCase(),
@@ -315,6 +321,7 @@ export const OwnerView: React.FC = () => {
         stock: 0,
         isActive: true,
         visible: true,
+        order: selectedWines.length + idx,
         updatedAt: new Date().toISOString()
       } as WineMaster));
       
@@ -372,51 +379,6 @@ export const OwnerView: React.FC = () => {
       '削除すると、お客様用デジタルメニューからも即座に非表示になります。'
     );
   };
-
-  const renderMasterEditModal = () => (
-    <AnimatePresence>
-      {isEditingStore && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
-            <h3 className="text-lg font-bold mb-4">店舗詳細を編集</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">店名</label>
-                <input 
-                  type="text"
-                  value={editStoreData.name || ''}
-                  onChange={e => setEditStoreData({ ...editStoreData, name: e.target.value })}
-                  className="w-full border rounded-xl p-2 text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">料理カテゴリー</label>
-                <input 
-                  type="text"
-                  value={editStoreData.cuisine_type || ''}
-                  onChange={e => setEditStoreData({ ...editStoreData, cuisine_type: e.target.value })}
-                  className="w-full border rounded-xl p-2 text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">住所</label>
-                <input 
-                  type="text"
-                  value={editStoreData.address || ''}
-                  onChange={e => setEditStoreData({ ...editStoreData, address: e.target.value })}
-                  className="w-full border rounded-xl p-2 text-sm"
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 mt-6">
-              <button onClick={() => setIsEditingStore(false)} className="px-4 py-2 text-sm text-slate-500">キャンセル</button>
-              <button onClick={handleUpdateStore} className="px-4 py-2 bg-brand-wine text-white rounded-xl text-sm font-bold">更新</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </AnimatePresence>
-  );
 
   if (inventoryLoading) {
     return (
@@ -541,18 +503,6 @@ export const OwnerView: React.FC = () => {
                 </div>
               </div>
             </div>
-
-            <div className="pt-2 flex gap-2">
-              <button 
-                onClick={() => {
-                  setEditStoreData(store || {});
-                  setIsEditingStore(true);
-                }}
-                className="w-full py-2 bg-white/5 border border-brand-gold/30 text-brand-gold text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-white/10 transition-all flex items-center justify-center gap-2"
-              >
-                <Edit2 className="w-3.5 h-3.5" /> 店舗設定を編集
-              </button>
-            </div>
           </div>
 
           <div className="bg-black/40 p-6 rounded-3xl border border-brand-gold/20 shadow-luxury space-y-4">
@@ -607,7 +557,6 @@ export const OwnerView: React.FC = () => {
         hasMoreWines={!!hasMoreWinesMaster}
         onLoadMoreWines={fetchNextWinesMaster}
       />
-      {renderMasterEditModal()}
     </div>
   );
 };
