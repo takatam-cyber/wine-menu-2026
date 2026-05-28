@@ -46,7 +46,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
 }) => {
   const { showToast, showConfirm } = useWines();
 
-  // 💡 自動ソート機能
+  // 💡 自動ソート機能（orderプロパティを振り直す）
   const applySort = (type: string) => {
     if (!type) return;
     const newWines = [...selectedWines];
@@ -83,22 +83,27 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
           return 0;
       }
     });
+
+    // ソート順に基づいて order を再設定
+    newWines.forEach((w, index) => { w.order = index; });
     setSelectedWines(newWines);
   };
 
-  // 💡 マニュアル並び替え（上へ）
+  // 💡 マニュアル並び替え（上へ移動し order を振り直す）
   const moveUp = (index: number) => {
     if (index === 0) return;
     const newWines = [...selectedWines];
     [newWines[index - 1], newWines[index]] = [newWines[index], newWines[index - 1]];
+    newWines.forEach((w, i) => { w.order = i; });
     setSelectedWines(newWines);
   };
 
-  // 💡 マニュアル並び替え（下へ）
+  // 💡 マニュアル並び替え（下へ移動し order を振り直す）
   const moveDown = (index: number) => {
     if (index === selectedWines.length - 1) return;
     const newWines = [...selectedWines];
     [newWines[index + 1], newWines[index]] = [newWines[index], newWines[index + 1]];
+    newWines.forEach((w, i) => { w.order = i; });
     setSelectedWines(newWines);
   };
 
@@ -115,7 +120,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
         </div>
         
         <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
-          {/* 💡 並び替えドロップダウン */}
+          {/* 並び替えドロップダウン */}
           <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm">
             <ArrowUpDown className="w-4 h-4 text-slate-400" />
             <select 
@@ -179,7 +184,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                   !wine.visible ? 'opacity-65 bg-slate-50/50' : 'hover:border-slate-300'
                 }`}
               >
-                {/* 1. ワイン銘柄 */}
+                {/* ワイン銘柄 */}
                 <div className="flex items-center gap-4 min-w-0 pr-4">
                   <button
                     onClick={() => onUpdateWineItem(wine.id, { isFeatured: !wine.isFeatured }, true)}
@@ -199,7 +204,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                   </div>
                 </div>
 
-                {/* 2. 販売価格設定 */}
+                {/* 販売価格設定 */}
                 <div className="grid grid-cols-4 gap-2 items-center justify-center">
                   <div className="flex flex-col gap-1 items-center">
                     <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">仕入(税別)</span>
@@ -251,7 +256,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                   </div>
                 </div>
 
-                {/* 3. デジタルメニュー公開スイッチ */}
+                {/* 公開スイッチ */}
                 <div className="flex items-center justify-center">
                   <button
                     onClick={() => onUpdateWineItem(wine.id, { visible: !wine.visible }, true)}
@@ -265,7 +270,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                   </button>
                 </div>
 
-                {/* 4. 並び替え・操作 (上下移動 & 削除) */}
+                {/* 並び替え・操作 */}
                 <div className="flex items-center justify-end gap-2">
                   <div className="flex flex-col gap-1">
                     <button
@@ -289,7 +294,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                     <button
                       onClick={() => onDeleteWine(wine.id)}
                       className="p-2.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all border border-transparent hover:border-red-100 ml-2"
-                      title="メニューリストから削除"
+                      title="メニューから削除"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
