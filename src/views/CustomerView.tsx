@@ -62,7 +62,6 @@ export const CustomerView: React.FC = () => {
   const [step3Budget, setStep3Budget] = useState<number | null>(null);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
 
-  // 💡 パフォーマンス対策: 通常銘柄の遅延表示用件数State
   const [visibleStandardCount, setVisibleStandardCount] = useState(15);
   const loadMoreTriggerRef = useRef<HTMLDivElement | null>(null);
 
@@ -383,7 +382,6 @@ export const CustomerView: React.FC = () => {
     });
   }, [step2Style, winesForStep2, conciergeBudgets]);
 
-  // フィルター・ソート済みの全インベントリを計算
   const filteredInventory = useMemo(() => {
     return inventory.filter((wine: WineMaster) => {
       if (wine.visible === false) return false;
@@ -437,8 +435,8 @@ export const CustomerView: React.FC = () => {
     });
   }, [inventory, searchTerm, selectedCategory, activeColor, activeGlassOnly, activeCuisine, activeBudget, step1Color, step2Style, step3Budget, conciergeBudgets, t, budgetFilters, cuisineFilters]);
 
-  // 分割されたおすすめと通常銘柄のデータフロー
   const featuredInventory = useMemo(() => {
+    // 💡 修正の核心: デフォルト指定時は、管理画面でのマニュアルソート順（orderプロパティ）を最優先でリスペクトする
     const list = filteredInventory.filter(w => w.isFeatured);
     return sortBy === 'default' ? list.sort((a: any, b: any) => (a.order || 0) - (b.order || 0)) : list;
   }, [filteredInventory, sortBy]);
@@ -465,12 +463,10 @@ export const CustomerView: React.FC = () => {
     });
   }, [filteredInventory, sortBy]);
 
-  // 💡 パフォーマンス対策: 検索条件やソートが変わったらスクロール件数を15件にリセット
   useEffect(() => {
     setVisibleStandardCount(15);
   }, [searchTerm, selectedCategory, sortBy, activeColor, activeGlassOnly, activeCuisine, activeBudget, step1Color, step2Style, step3Budget]);
 
-  // 💡 パフォーマンス対策: 画面最下部到達時に15件ずつ段階描画を拡張するIntersectionObserver
   useEffect(() => {
     if (!loadMoreTriggerRef.current) return;
 
@@ -479,14 +475,13 @@ export const CustomerView: React.FC = () => {
         setVisibleStandardCount(prev => Math.min(prev + 15, standardInventory.length));
       }
     }, {
-      rootMargin: '300px' // ユーザーが到達する300px手前でフリクションなく先読み
+      rootMargin: '300px' 
     });
 
     observer.observe(loadMoreTriggerRef.current);
     return () => observer.disconnect();
   }, [standardInventory.length]);
 
-  // スライスされた実レンダリング用配列
   const displayedStandardWines = useMemo(() => {
     return standardInventory.slice(0, visibleStandardCount);
   }, [standardInventory, visibleStandardCount]);
@@ -749,12 +744,11 @@ export const CustomerView: React.FC = () => {
                             whileTap={{ scale: 0.96 }}
                             onClick={() => setSelectedWine(wine)}
                             className="group cursor-pointer relative p-1 rounded-[3rem] overflow-hidden"
-                            // 💡 パフォーマンス対策: 画面外カードのレンダリング計算をスキップ
                             style={{ contentVisibility: 'auto', containIntrinsicSize: '0 240px' } as React.CSSProperties}
                           >
                             <div className="absolute inset-0 bg-gradient-to-br from-brand-gold via-white to-brand-gold opacity-30 animate-pulse" />
                             <div className="absolute inset-[1px] bg-brand-ivory rounded-[3rem] z-0 overflow-hidden">
-                               <motion.div info-flow="shimmer" initial={{ x: "-100%" }} animate={{ x: "200%" }} transition={{ duration: 3, repeat: Infinity, ease: "linear", repeatDelay: 5 }} className="absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-brand-gold/10 to-transparent skew-x-12 z-0" />
+                               <motion.div initial={{ x: "-100%" }} animate={{ x: "200%" }} transition={{ duration: 3, repeat: Infinity, ease: "linear", repeatDelay: 5 }} className="absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-brand-gold/10 to-transparent skew-x-12 z-0" />
                             </div>
                             
                             <div className="relative z-10 flex gap-5 p-6 rounded-[3rem] bg-brand-gold/[0.04] shadow-[0_20px_50px_rgba(212,175,55,0.25)] border border-brand-gold/30">
@@ -847,7 +841,7 @@ export const CustomerView: React.FC = () => {
                   </div>
                 )}
 
-                {/* ================= 通常銘柄セクション (段階描画) ================= */}
+                {/* ================= 通常銘柄セクション ================= */}
                 {standardInventory.length > 0 && (
                   <div className="space-y-6">
                     <div className="px-2 pb-2">
@@ -869,7 +863,6 @@ export const CustomerView: React.FC = () => {
                             transition={highlightedId === wine.id ? { duration: 0.8 } : {}}
                             onClick={() => setSelectedWine(wine)}
                             className="group cursor-pointer flex gap-5 border border-transparent border-b-brand-wine/5 p-4 hover:bg-brand-gold/[0.02] transition-all duration-300 relative overflow-hidden"
-                            // 💡 パフォーマンス対策: 画面外カードのレンダリング計算をスキップ
                             style={{ contentVisibility: 'auto', containIntrinsicSize: '0 160px' } as React.CSSProperties}
                           >
                             <div className="w-24 h-28 bg-white/50 backdrop-blur-sm flex items-center justify-center p-3 rounded-2xl relative border border-brand-gold/10 shadow-sm group-hover:border-brand-gold/30 transition-all shrink-0">
@@ -941,7 +934,6 @@ export const CustomerView: React.FC = () => {
                       </AnimatePresence>
                     </div>
 
-                    {/* 💡 パフォーマンス対策: 段階描画拡張用インビジブル・トリガー要素 */}
                     {visibleStandardCount < standardInventory.length && (
                       <div ref={loadMoreTriggerRef} className="h-12 w-full flex items-center justify-center opacity-0 pointer-events-none" />
                     )}
