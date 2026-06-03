@@ -76,7 +76,6 @@ export function useInventoryQuery(storeId: string | null) {
           if (invItem) {
             enrichedWines.push({ 
               ...masterData, 
-              // 【バグ修正】ここでマスターのIDではなく、在庫の本来のID（PIEROTH_xxx）を維持する
               id: invItem.id,
               pureId: masterPureId,
               price_bottle: invItem.price_bottle ?? masterData.price_bottle,
@@ -87,14 +86,23 @@ export function useInventoryQuery(storeId: string | null) {
               isFeatured: invItem.isFeatured ?? false,
               promoLabel: invItem.promoLabel || '',
               stock: invItem.stock ?? 0,
-              isActive: invItem.isActive ?? true
+              isActive: invItem.isActive ?? true,
+              // 💡 修正の核心: Firestoreに保存されている order プロパティを消失させずに100%引き継ぐ
+              order: typeof invItem.order === 'number' ? invItem.order : 999999
             });
           }
         });
       });
 
       const uniqueWines = Array.from(new Map(enrichedWines.map(w => [w.pureId || w.id, w])).values());
-      const sortedWines = uniqueWines.sort((a, b) => (a.name_jp || '').localeCompare(b.name_jp || ''));
+      
+      // 💡 修正の核心: デフォルトの返却順を名前順から、ユーザーが保存した「order順」に変更。これで画面を出ても完全に記憶される。
+      const sortedWines = uniqueWines.sort((a, b) => {
+        const orderA = typeof a.order === 'number' ? a.order : 999999;
+        const orderB = typeof b.order === 'number' ? b.order : 999999;
+        if (orderA !== orderB) return orderA - orderB;
+        return (a.name_jp || '').localeCompare(b.name_jp || '');
+      });
 
       return {
         store: storeData,
