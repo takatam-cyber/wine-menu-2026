@@ -47,6 +47,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
   const { showToast, showConfirm } = useWines();
   const [bulkCostRatio, setBulkCostRatio] = useState<string>('');
 
+  // 💡 復活・洗練: 現在の原価(cost)をベースに、全銘柄の税込販売価格を10円位繰り上げで一括計算・適用。オーナー画面でも動作。
   const handleApplyBulkCostRatio = () => {
     const ratio = parseFloat(bulkCostRatio);
     if (!ratio || ratio <= 0 || ratio > 100) {
@@ -57,10 +58,14 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
     const updatedWines = selectedWines.map(wine => {
       if (!wine.cost || wine.cost <= 0) return wine;
 
+      // 1. 現在の原価に応じた希望販売価格（税別）を逆算
       const priceNet = wine.cost / (ratio / 100);
+      // 2. 消費税10%を課して販売価格（税込）を算出
       const priceTaxIn = priceNet * 1.1;
+      // 3. 10円の位を強制繰り上げ（下2桁を00円単位へ切り上げ処理）
       const finalBottlePrice = Math.ceil(priceTaxIn / 100) * 100;
 
+      // 4. ボトル価格に連動してグラス価格も自動補正 (杯数割ロジック)
       const glasses = wine.glasses_per_bottle || 6;
       const finalGlassPrice = Math.round((finalBottlePrice / glasses) / 100) * 100;
 
@@ -72,9 +77,10 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
     });
 
     setSelectedWines(updatedWines);
-    showToast(`全銘柄に目標原価率 ${ratio}% (税込・10円位繰り上げ) を適用しました。「一括保存」で確定してください。`, 'success');
+    showToast(`現在の原価をベースに、目標原価率 ${ratio}% (税込・10円位繰り上げ) を一括計算・適用しました。「一括保存」で確定してください。`, 'success');
   };
 
+  // 💡 復活・解放: ボトル販売価格のみを一括クリア（オーナー画面でも共通で利用可能）
   const handleResetBottlePrices = () => {
     if (selectedWines.length === 0) {
       showToast('セラーに銘柄が登録されていません。', 'info');
@@ -95,6 +101,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
     );
   };
 
+  // 💡 復活・解放: グラス販売価格のみを一括クリア（オーナー画面でも共通で利用可能）
   const handleResetGlassPrices = () => {
     if (selectedWines.length === 0) {
       showToast('セラーに銘柄が登録されていません。', 'info');
@@ -175,30 +182,29 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
         
         <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
           
-          {/* 💡 修正の核心: 店舗オーナー（isOwner）画面のときは、原価設定フォーム自体をUIから美しく非表示化 */}
-          {!isOwner && (
-            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-sm">
-              <Percent className="w-4 h-4 text-slate-400" />
-              <span className="text-xs font-bold text-slate-500 whitespace-nowrap">一括原価率:</span>
-              <input 
-                type="number" 
-                placeholder="30" 
-                value={bulkCostRatio}
-                onChange={(e) => setBulkCostRatio(e.target.value)}
-                className="w-12 text-xs font-black text-slate-700 outline-none font-mono text-center bg-slate-50 rounded-lg py-1 border border-slate-100 focus:bg-white focus:border-brand-wine transition-all"
-                min="1"
-                max="100"
-              />
-              <span className="text-xs font-bold text-slate-400 font-mono">%</span>
-              <button
-                onClick={handleApplyBulkCostRatio}
-                className="px-2.5 py-1 bg-brand-wine text-white text-[10px] font-black uppercase tracking-wider rounded-lg hover:brightness-110 active:scale-95 transition-all shadow-sm shrink-0"
-              >
-                適用
-              </button>
-            </div>
-          )}
+          {/* 💡 復活・解放: オーナー画面であっても、現在の原価をベースに一括計算できるよう常時表示に切り替え */}
+          <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-sm">
+            <Percent className="w-4 h-4 text-slate-400" />
+            <span className="text-xs font-bold text-slate-500 whitespace-nowrap">一括原価率:</span>
+            <input 
+              type="number" 
+              placeholder="30" 
+              value={bulkCostRatio}
+              onChange={(e) => setBulkCostRatio(e.target.value)}
+              className="w-12 text-xs font-black text-slate-700 outline-none font-mono text-center bg-slate-50 rounded-lg py-1 border border-slate-100 focus:bg-white focus:border-brand-wine transition-all"
+              min="1"
+              max="100"
+            />
+            <span className="text-xs font-bold text-slate-400 font-mono">%</span>
+            <button
+              onClick={handleApplyBulkCostRatio}
+              className="px-2.5 py-1 bg-brand-wine text-white text-[10px] font-black uppercase tracking-wider rounded-lg hover:brightness-110 active:scale-95 transition-all shadow-sm shrink-0"
+            >
+              適用
+            </button>
+          </div>
 
+          {/* 💡 復活・解放: ボトルリセット・グラスリセットボタンもオーナー画面で100%利用可能 */}
           <button
             onClick={handleResetBottlePrices}
             className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-red-50 text-red-600 border border-red-200 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-red-100 active:scale-95 transition-all shadow-sm"
@@ -278,7 +284,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                     <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">仕入(税別)</span>
                     <div className="relative w-full">
                       <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-xs">¥</span>
-                      {/* 💡 修正の核心: オーナー画面の時は入力を完全に無効化(disabled)し、洗練されたグレーアウトスタイルを適用 */}
+                      {/* 💡 鉄壁の防衛: 仕入れ価格のインプットは disabled ロックを維持し、店舗側からの直接編集は100%シャットアウト */}
                       <input 
                         type="number" 
                         value={wine.cost === 0 ? 0 : (wine.cost || '')} 
