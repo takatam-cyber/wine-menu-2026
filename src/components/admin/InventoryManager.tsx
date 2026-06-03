@@ -45,7 +45,6 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
   isOwner = false, 
 }) => {
   const { showToast, showConfirm } = useWines();
-  
   const [bulkCostRatio, setBulkCostRatio] = useState<string>('');
 
   const handleApplyBulkCostRatio = () => {
@@ -76,7 +75,6 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
     showToast(`全銘柄に目標原価率 ${ratio}% (税込・10円位繰り上げ) を適用しました。「一括保存」で確定してください。`, 'success');
   };
 
-  // 💡 新機能: ボトル販売価格のみを一括クリアするロジック
   const handleResetBottlePrices = () => {
     if (selectedWines.length === 0) {
       showToast('セラーに銘柄が登録されていません。', 'info');
@@ -97,7 +95,6 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
     );
   };
 
-  // 💡 新機能: グラス販売価格のみを一括クリアするロジック
   const handleResetGlassPrices = () => {
     if (selectedWines.length === 0) {
       showToast('セラーに銘柄が登録されていません。', 'info');
@@ -133,26 +130,18 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
     };
 
     newWines.sort((a, b) => {
-      switch (type) {
-        case 'type':
-          return getColorWeight(a.color || '') - getColorWeight(b.color || '');
-        case 'type_price_asc':
-          if (getColorWeight(a.color || '') === getColorWeight(b.color || '')) {
-            return (a.price_bottle || 0) - (b.price_bottle || 0);
-          }
-          return getColorWeight(a.color || '') - getColorWeight(b.color || '');
-        case 'type_price_desc':
-          if (getColorWeight(a.color || '') === getColorWeight(b.color || '')) {
-            return (b.price_bottle || 0) - (a.price_bottle || 0);
-          }
-          return getColorWeight(a.color || '') - getColorWeight(b.color || '');
-        case 'price_asc':
-          return (a.price_bottle || 0) - (b.price_bottle || 0);
-        case 'price_desc':
-          return (b.price_bottle || 0) - (a.price_bottle || 0);
-        default:
-          return 0;
+      if (type === 'type') return getColorWeight(a.color || '') - getColorWeight(b.color || '');
+      if (type === 'type_price_asc') {
+        if (getColorWeight(a.color || '') === getColorWeight(b.color || '')) return (a.price_bottle || 0) - (b.price_bottle || 0);
+        return getColorWeight(a.color || '') - getColorWeight(b.color || '');
       }
+      if (type === 'type_price_desc') {
+        if (getColorWeight(a.color || '') === getColorWeight(b.color || '')) return (b.price_bottle || 0) - (a.price_bottle || 0);
+        return getColorWeight(a.color || '') - getColorWeight(b.color || '');
+      }
+      if (type === 'price_asc') return (a.price_bottle || 0) - (b.price_bottle || 0);
+      if (type === 'price_desc') return (b.price_bottle || 0) - (a.price_bottle || 0);
+      return 0;
     });
 
     newWines.forEach((w, index) => { w.order = index; });
@@ -186,29 +175,30 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
         
         <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
           
-          {/* 原価率一括設定フォーム */}
-          <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-sm">
-            <Percent className="w-4 h-4 text-slate-400" />
-            <span className="text-xs font-bold text-slate-500 whitespace-nowrap">一括原価率:</span>
-            <input 
-              type="number" 
-              placeholder="30" 
-              value={bulkCostRatio}
-              onChange={(e) => setBulkCostRatio(e.target.value)}
-              className="w-12 text-xs font-black text-slate-700 outline-none font-mono text-center bg-slate-50 rounded-lg py-1 border border-slate-100 focus:bg-white focus:border-brand-wine transition-all"
-              min="1"
-              max="100"
-            />
-            <span className="text-xs font-bold text-slate-400 font-mono">%</span>
-            <button
-              onClick={handleApplyBulkCostRatio}
-              className="px-2.5 py-1 bg-brand-wine text-white text-[10px] font-black uppercase tracking-wider rounded-lg hover:brightness-110 active:scale-95 transition-all shadow-sm shrink-0"
-            >
-              適用
-            </button>
-          </div>
+          {/* 💡 修正の核心: 店舗オーナー（isOwner）画面のときは、原価設定フォーム自体をUIから美しく非表示化 */}
+          {!isOwner && (
+            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-sm">
+              <Percent className="w-4 h-4 text-slate-400" />
+              <span className="text-xs font-bold text-slate-500 whitespace-nowrap">一括原価率:</span>
+              <input 
+                type="number" 
+                placeholder="30" 
+                value={bulkCostRatio}
+                onChange={(e) => setBulkCostRatio(e.target.value)}
+                className="w-12 text-xs font-black text-slate-700 outline-none font-mono text-center bg-slate-50 rounded-lg py-1 border border-slate-100 focus:bg-white focus:border-brand-wine transition-all"
+                min="1"
+                max="100"
+              />
+              <span className="text-xs font-bold text-slate-400 font-mono">%</span>
+              <button
+                onClick={handleApplyBulkCostRatio}
+                className="px-2.5 py-1 bg-brand-wine text-white text-[10px] font-black uppercase tracking-wider rounded-lg hover:brightness-110 active:scale-95 transition-all shadow-sm shrink-0"
+              >
+                適用
+              </button>
+            </div>
+          )}
 
-          {/* 💡 修正の核心: 価格リセットボタンを「ボトル」と「グラス」に完全分離 */}
           <button
             onClick={handleResetBottlePrices}
             className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-red-50 text-red-600 border border-red-200 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-red-100 active:scale-95 transition-all shadow-sm"
@@ -286,7 +276,17 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                 <div className="grid grid-cols-4 gap-2 items-center justify-center">
                   <div className="flex flex-col gap-1 items-center">
                     <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">仕入(税別)</span>
-                    <div className="relative w-full"><span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-xs">¥</span><input type="number" value={wine.cost === 0 ? 0 : (wine.cost || '')} onChange={(e) => onUpdateWineItem(wine.id, { cost: parseInt(e.target.value) || 0 }, false)} className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-6 pr-2 py-2 focus:border-brand-wine focus:bg-white outline-none font-mono text-slate-900 font-black text-center text-sm transition-all" /></div>
+                    <div className="relative w-full">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-xs">¥</span>
+                      {/* 💡 修正の核心: オーナー画面の時は入力を完全に無効化(disabled)し、洗練されたグレーアウトスタイルを適用 */}
+                      <input 
+                        type="number" 
+                        value={wine.cost === 0 ? 0 : (wine.cost || '')} 
+                        onChange={(e) => !isOwner && onUpdateWineItem(wine.id, { cost: parseInt(e.target.value) || 0 }, false)} 
+                        disabled={isOwner}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-6 pr-2 py-2 focus:border-brand-wine focus:bg-white outline-none font-mono text-slate-900 font-black text-center text-sm transition-all disabled:opacity-70 disabled:bg-slate-100 disabled:cursor-not-allowed" 
+                      />
+                    </div>
                   </div>
                   <div className="flex flex-col gap-1 items-center">
                     <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">ボトル</span>
