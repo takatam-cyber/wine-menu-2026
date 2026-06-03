@@ -68,6 +68,7 @@ export const AdminView: React.FC = () => {
   useEffect(() => {
     if (inventoryData?.inventory && selectedStoreId === inventoryData.store?.id) {
       if (dataLoadedForStore !== selectedStoreId) {
+        // 💡 データベースの order 順に忠実に初期描画を行う
         const sorted = [...inventoryData.inventory].sort((a: any, b: any) => (a.order || 0) - (b.order || 0));
         setSelectedWines(JSON.parse(JSON.stringify(sorted)));
         setInitialWines(JSON.parse(JSON.stringify(sorted)));
@@ -356,17 +357,16 @@ export const AdminView: React.FC = () => {
     }
   };
 
-  // 💡 パフォーマンス対策・記憶機能: 引数で明示的な最新並び替え配列を受け取れるように拡張
-  const handleSaveInventory = async (winesToSave?: WineMaster[]) => {
+  // 💡 修正の核心: 通信競合・順序破壊を防ぐため、純粋に画面の最新状態(selectedWines)をクリーンに一括コミットする形に完全一本化
+  const handleSaveInventory = async () => {
     if (!selectedStoreId) return;
     setIsSaving(true);
-    const targetWines = winesToSave || selectedWines;
     try {
       let totalWriteCount = 0;
       const CHUNK_SIZE = 450;
       
-      for (let i = 0; i < targetWines.length; i += CHUNK_SIZE) {
-        const chunk = targetWines.slice(i, i + CHUNK_SIZE);
+      for (let i = 0; i < selectedWines.length; i += CHUNK_SIZE) {
+        const chunk = selectedWines.slice(i, i + CHUNK_SIZE);
         const batch = writeBatch(db);
         let chunkWriteCount = 0;
         
@@ -395,7 +395,7 @@ export const AdminView: React.FC = () => {
         if (chunkWriteCount > 0) await batch.commit();
       }
 
-      const richPublicMenu = targetWines
+      const richPublicMenu = selectedWines
         .filter(w => w.visible !== false && w.isActive !== false)
         .map(w => ({ ...w, id: getWineDocId(w) }));
 
@@ -408,11 +408,8 @@ export const AdminView: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['publicMenu', selectedStoreId] });
       queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
       
-      setSelectedWines(JSON.parse(JSON.stringify(targetWines)));
-      setInitialWines(JSON.parse(JSON.stringify(targetWines)));
-      if (!winesToSave) {
-        showToast(`一括保存が完了しました（更新: ${totalWriteCount}件）`, 'success');
-      }
+      setInitialWines(JSON.parse(JSON.stringify(selectedWines)));
+      showToast(`一括保存が完了しました（更新: ${totalWriteCount}件）`, 'success');
     } catch (error) {
       console.error('一括保存に失敗しました:', error);
       showToast('セラー情報の保存に失敗しました。', 'error');
@@ -482,7 +479,7 @@ export const AdminView: React.FC = () => {
     if (selectedMasterCatalogIds.length === 0) return;
     
     showConfirm(
-      `選択された ${selectedMasterCatalogIds.length} 件のワインをマスターから完全に削除しますか？`,
+      `選択された ${selectedMasterCatalogIds.length} 件 of ワインをマスターから完全に削除しますか？`,
       async () => {
         try {
           const CHUNK_SIZE = 450;
@@ -623,7 +620,7 @@ export const AdminView: React.FC = () => {
     );
   };
 
-  // 💡 修正の核心: CSV内に記載された全銘柄(新規・既存問わず)を完全にマージして一括上書き保存する
+  // 💡 修正の核心: CSVインポート時に新規追加・既存マージを完璧に行い、インポート行順に order を振り直して一括バッチコミット
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -638,7 +635,6 @@ export const AdminView: React.FC = () => {
       importedWines.forEach(w => uniqueMap.set(getWineDocId(w), w));
       const uniqueImportedWines = Array.from(uniqueMap.values());
 
-      // 全社共有のマスター側に存在しないものは新規インサート
       const newMasterWines = uniqueImportedWines.filter(wine => {
         const compositeId = getWineDocId(wine);
         return !wines.some(existingWine => getWineDocId(existingWine) === compositeId);
@@ -665,7 +661,6 @@ export const AdminView: React.FC = () => {
           
         winesToAdd = winesToAdd.filter(w => allowed.includes(String(w.supplier || 'PIEROTH').toUpperCase()));
 
-        // 既存リストにマージ(新規は追加、既存は最新のCSV内容で上書きアップデート)
         const updatedWinesList = [...selectedWines];
 
         winesToAdd.forEach((csvWine) => {
@@ -693,12 +688,11 @@ export const AdminView: React.FC = () => {
           }
         });
 
-        // インポート行順に基づき全体の order プロパティを完全に正規化
+        // 順番(order)を0から完全に振り直す
         updatedWinesList.forEach((w, idx) => {
           w.order = idx;
         });
 
-        // Firestore サブコレクションへ一括バッチ書込
         for (let i = 0; i < updatedWinesList.length; i += CHUNK_SIZE) {
           const chunk = updatedWinesList.slice(i, i + CHUNK_SIZE);
           const batch = writeBatch(db);
@@ -738,7 +732,7 @@ export const AdminView: React.FC = () => {
     <AnimatePresence>
       {isEditingMaster && editingMasterWine && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} className="bg-white rounded-[2rem] shadow-2xl w-full max-wxl overflow-hidden flex flex-col max-h-[90vh]">
+          <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} className="bg-white rounded-[2rem] shadow-2xl w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh]">
             <div className="p-8 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h3 className="serif text-2xl text-slate-900">マスター銘柄編集</h3>
@@ -772,7 +766,7 @@ export const AdminView: React.FC = () => {
                 </div>
                 <div className="md:col-span-1">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">Grape (English)</label>
-                  <input type="text" className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine" value={editMasterData.grape_en || ''} onChange={e => setEditMasterData({...editMasterData, grape_en: e.target.value})} />
+                  <input type="text" className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine" value={editMasterData.grape_en || ''} onChange={e => { setEditMasterData({...editMasterData, grape_en: e.target.value}); }} />
                 </div>
                 <div className="md:col-span-1">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">仕入れ価格 (税別)</label>
@@ -931,7 +925,7 @@ export const AdminView: React.FC = () => {
                     {isEditingStore ? (
                       <>
                         <button onClick={() => setIsEditingStore(false)} className="flex-1 py-2 text-xs font-bold uppercase tracking-widest text-slate-500 hover:bg-slate-50 rounded-xl transition-all">キャンセル</button>
-                        <button onClick={handleUpdateStore} className="flex-1 py-2 bg-brand-wine text-white text-xs font-bold uppercase tracking-widest rounded-xl hover:shadow-lg hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2"><Save className="w-3.5 h-3.5" /> 保存</button>
+                        <button onClick={handleSaveInventory} className="flex-1 py-2 bg-brand-wine text-white text-xs font-bold uppercase tracking-widest rounded-xl hover:shadow-lg hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2"><Save className="w-3.5 h-3.5" /> 保存</button>
                       </>
                     ) : (
                       <button onClick={() => { setEditStoreData(selectedStore || {}); setIsEditingStore(true); }} className="w-full py-2 bg-slate-100 text-brand-wine text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-brand-wine hover:text-white transition-all flex items-center justify-center gap-2"><Edit2 className="w-3.5 h-3.5" /> 店舗情報を編集</button>
