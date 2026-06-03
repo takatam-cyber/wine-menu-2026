@@ -1,7 +1,7 @@
 // src/components/admin/InventoryManager.tsx
 import React, { useState } from 'react';
 import { WineMaster, Store } from '../../types';
-import { Plus, Wine, Upload, Save, Sparkles, Trash2, Loader2, ArrowUp, ArrowDown, ArrowUpDown, Percent } from 'lucide-react';
+import { Plus, Wine, Upload, Save, Sparkles, Trash2, Loader2, ArrowUp, ArrowDown, ArrowUpDown, Percent, RotateCcw } from 'lucide-react';
 import { useWines } from '../../lib/WineContext';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -44,12 +44,11 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
   onLoadMoreWines,
   isOwner = false, 
 }) => {
-  const { showToast } = useWines();
+  // 💡 修正の核心: 安全なポップアップ確認のため showConfirm を Context から追加抽出
+  const { showToast, showConfirm } = useWines();
   
-  // 💡 新機能: 目標原価率の一括シミュレーション用ローカルステート
   const [bulkCostRatio, setBulkCostRatio] = useState<string>('');
 
-  // 💡 新機能: 全銘柄を対象とした原価率一括計算ロジック
   const handleApplyBulkCostRatio = () => {
     const ratio = parseFloat(bulkCostRatio);
     if (!ratio || ratio <= 0 || ratio > 100) {
@@ -60,17 +59,10 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
     const updatedWines = selectedWines.map(wine => {
       if (!wine.cost || wine.cost <= 0) return wine;
 
-      // 1. 原価率(%)に応じた希望販売価格（税別）を逆算
       const priceNet = wine.cost / (ratio / 100);
-
-      // 2. 消費税10%を課して販売価格（税込）を算出
       const priceTaxIn = priceNet * 1.1;
-
-      // 3. 10円の位を強制繰り上げ（下2桁を00円単位へ切り上げ処理）
-      // 例: 3,120円 → 3,200円 / 5,401円 → 5,500円 / 4,000円 → 4,000円
       const finalBottlePrice = Math.ceil(priceTaxIn / 100) * 100;
 
-      // 4. ボトル価格に連動してグラス価格も自動補正 (既存の杯数割ロジックを踏襲)
       const glasses = wine.glasses_per_bottle || 6;
       const finalGlassPrice = Math.round((finalBottlePrice / glasses) / 100) * 100;
 
@@ -83,6 +75,28 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
 
     setSelectedWines(updatedWines);
     showToast(`全銘柄に目標原価率 ${ratio}% (税込・10円位繰り上げ) を適用しました。「一括保存」で確定してください。`, 'success');
+  };
+
+  // 💡 新機能: ボトル＆グラス販売価格の全社一括クリアロジック
+  const handleResetAllPrices = () => {
+    if (selectedWines.length === 0) {
+      showToast('セラーに銘柄が登録されていません。', 'info');
+      return;
+    }
+
+    showConfirm(
+      'すべての銘柄の販売価格をリセットしますか？',
+      () => {
+        const updatedWines = selectedWines.map(wine => ({
+          ...wine,
+          price_bottle: 0,
+          price_glass: 0
+        }));
+        setSelectedWines(updatedWines);
+        showToast('セラー内の全商品のボトル・グラス価格をクリアしました。「一括保存」を押すと確定します。', 'success');
+      },
+      '※画面上のボトルおよびグラス価格が0円になります。この操作は「一括保存」を押すまでデータベースへは永続化されません。'
+    );
   };
 
   const applySort = (type: string) => {
@@ -153,7 +167,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
         
         <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
           
-          {/* 💡 新機能: 原価率一括設定シミュレーターフォーム */}
+          {/* 原価率一括設定フォーム */}
           <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-sm">
             <Percent className="w-4 h-4 text-slate-400" />
             <span className="text-xs font-bold text-slate-500 whitespace-nowrap">一括原価率:</span>
@@ -174,6 +188,16 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
               適用
             </button>
           </div>
+
+          {/* 💡 新機能: 価格一括リセットボタン */}
+          <button
+            onClick={handleResetAllPrices}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-red-50 text-red-600 border border-red-200 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-red-100 active:scale-95 transition-all shadow-sm"
+            title="ボトル・グラス価格をすべて0円にリセット"
+          >
+            <RotateCcw className="w-4 h-4 text-red-500" />
+            <span className="truncate">価格リセット</span>
+          </button>
 
           <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm">
             <ArrowUpDown className="w-4 h-4 text-slate-400" />
