@@ -68,7 +68,6 @@ export const AdminView: React.FC = () => {
   useEffect(() => {
     if (inventoryData?.inventory && selectedStoreId === inventoryData.store?.id) {
       if (dataLoadedForStore !== selectedStoreId) {
-        // 💡 データベースの order 順に忠実に初期描画を行う
         const sorted = [...inventoryData.inventory].sort((a: any, b: any) => (a.order || 0) - (b.order || 0));
         setSelectedWines(JSON.parse(JSON.stringify(sorted)));
         setInitialWines(JSON.parse(JSON.stringify(sorted)));
@@ -357,7 +356,6 @@ export const AdminView: React.FC = () => {
     }
   };
 
-  // 💡 修正の核心: 通信競合・順序破壊を防ぐため、純粋に画面の最新状態(selectedWines)をクリーンに一括コミットする形に完全一本化
   const handleSaveInventory = async () => {
     if (!selectedStoreId) return;
     setIsSaving(true);
@@ -479,7 +477,7 @@ export const AdminView: React.FC = () => {
     if (selectedMasterCatalogIds.length === 0) return;
     
     showConfirm(
-      `選択された ${selectedMasterCatalogIds.length} 件 of ワインをマスターから完全に削除しますか？`,
+      `選択された ${selectedMasterCatalogIds.length} 件のワインをマスターから完全に削除しますか？`,
       async () => {
         try {
           const CHUNK_SIZE = 450;
@@ -620,7 +618,7 @@ export const AdminView: React.FC = () => {
     );
   };
 
-  // 💡 修正の核心: CSVインポート時に新規追加・既存マージを完璧に行い、インポート行順に order を振り直して一括バッチコミット
+  // 💡 修正の核心: 同じIDがあった場合は、CSVに記載された最新データで大元のマスターも店舗セラーリストも確実に上書き更新する
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -635,18 +633,14 @@ export const AdminView: React.FC = () => {
       importedWines.forEach(w => uniqueMap.set(getWineDocId(w), w));
       const uniqueImportedWines = Array.from(uniqueMap.values());
 
-      const newMasterWines = uniqueImportedWines.filter(wine => {
-        const compositeId = getWineDocId(wine);
-        return !wines.some(existingWine => getWineDocId(existingWine) === compositeId);
-      });
-
-      if (newMasterWines.length > 0) {
-        for (let i = 0; i < newMasterWines.length; i += CHUNK_SIZE) {
-          const chunk = newMasterWines.slice(i, i + CHUNK_SIZE);
+      // 💡 修正: 新規・既存問わず、CSVに記載されたマスターデータを全件 winesMaster へ上書き(merge: true)更新
+      if (uniqueImportedWines.length > 0) {
+        for (let i = 0; i < uniqueImportedWines.length; i += CHUNK_SIZE) {
+          const chunk = uniqueImportedWines.slice(i, i + CHUNK_SIZE);
           const batch = writeBatch(db);
           chunk.forEach(wine => {
             const docId = getWineDocId(wine);
-            batch.set(doc(db, 'winesMaster', docId), { ...wine, id: docId, pureId: wine.pureId || wine.id });
+            batch.set(doc(db, 'winesMaster', docId), { ...wine, id: docId, pureId: wine.pureId || wine.id }, { merge: true });
           });
           await batch.commit();
         }
@@ -667,30 +661,34 @@ export const AdminView: React.FC = () => {
           const compositeId = getWineDocId(csvWine);
           const existingIdx = updatedWinesList.findIndex(sw => sw.id === compositeId);
 
+          // 💡 修正の核心: 後から取り込んだCSVのデータを絶対優先して上書きマージ
           const enrichedItem = {
             ...csvWine,
             id: compositeId,
             pureId: safeExtractPureId(csvWine.pureId || csvWine.id, csvWine.supplier).toUpperCase(),
             supplier: String(csvWine.supplier || 'PIEROTH').toUpperCase(),
-            price_bottle: csvWine.price_bottle || (existingIdx >= 0 ? updatedWinesList[existingIdx].price_bottle : (csvWine.cost * 3)),
-            price_glass: csvWine.price_glass || (existingIdx >= 0 ? updatedWinesList[existingIdx].price_glass : 0),
+            price_bottle: (csvWine.price_bottle && csvWine.price_bottle > 0) ? csvWine.price_bottle : (existingIdx >= 0 ? updatedWinesList[existingIdx].price_bottle : (csvWine.cost * 3)),
+            price_glass: (csvWine.price_glass && csvWine.price_glass > 0) ? csvWine.price_glass : (existingIdx >= 0 ? updatedWinesList[existingIdx].price_glass : 0),
             glasses_per_bottle: csvWine.glasses_per_bottle || (existingIdx >= 0 ? updatedWinesList[existingIdx].glasses_per_bottle : 6),
-            stock: csvWine.stock !== undefined ? csvWine.stock : (existingIdx >= 0 ? updatedWinesList[existingIdx].stock : 0),
+            stock: csvWine.stock !== undefined && csvWine.stock !== null ? csvWine.stock : (existingIdx >= 0 ? updatedWinesList[existingIdx].stock : 0),
             isActive: true,
             visible: csvWine.visible !== undefined ? csvWine.visible : (existingIdx >= 0 ? updatedWinesList[existingIdx].visible : true),
             updatedAt: new Date().toISOString()
           };
 
           if (existingIdx >= 0) {
+            // 既存オブジェクトに対してCSVの最新情報を全置換マージ
             updatedWinesList[existingIdx] = { ...updatedWinesList[existingIdx], ...enrichedItem };
           } else {
             updatedWinesList.push(enrichedItem as WineMaster);
           }
         });
 
-        // 順番(order)を0から完全に振り直す
+        // 順番(order)のインデックス値を綺麗に再割り当て
         updatedWinesList.forEach((w, idx) => {
-          w.order = idx;
+          if (w.order === undefined || w.order === null || w.order === 999999) {
+            w.order = idx;
+          }
         });
 
         for (let i = 0; i < updatedWinesList.length; i += CHUNK_SIZE) {
@@ -715,7 +713,7 @@ export const AdminView: React.FC = () => {
         queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
       }
 
-      showToast(`${uniqueImportedWines.length}件のCSV処理およびセラーリストへのマージ反映が正常完了しました。`, 'success');
+      showToast(`${uniqueImportedWines.length}件のCSVデータをもとに、既存IDの完全上書きと新規登録の反映を完了しました。`, 'success');
     } catch (error: any) {
       showToast(`インポートに失敗しました: ${error.message}`, 'error');
     } finally {
