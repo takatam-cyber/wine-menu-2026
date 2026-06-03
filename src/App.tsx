@@ -35,7 +35,6 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
           {(user.role === 'admin' || user.role === 'rep') && (
             <button
               onClick={() => {
-                // 【バグ修正】現在選択中の店舗IDをURLから取得して引き継ぐ
                 const urlParams = new URLSearchParams(window.location.search);
                 const storeId = urlParams.get('storeId');
                 let target = isOwnerView ? '/admin' : '/owner';
@@ -141,7 +140,8 @@ export default function App() {
       } />
 
       <Route path="/login" element={
-        user ? <Navigate to="/" replace /> : <LoginView />
+        // 💡 修正の核心: 一般顧客(customer)のみログイン画面の残存を許可し、無限リダイレクトループを完全に遮断
+        (user && user.role !== 'customer') ? <Navigate to="/" replace /> : <LoginView />
       } />
 
       <Route path="/menu/:storeId" element={
