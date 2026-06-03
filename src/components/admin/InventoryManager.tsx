@@ -44,7 +44,6 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
   onLoadMoreWines,
   isOwner = false, 
 }) => {
-  // 💡 修正の核心: 安全なポップアップ確認のため showConfirm を Context から追加抽出
   const { showToast, showConfirm } = useWines();
   
   const [bulkCostRatio, setBulkCostRatio] = useState<string>('');
@@ -77,25 +76,45 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
     showToast(`全銘柄に目標原価率 ${ratio}% (税込・10円位繰り上げ) を適用しました。「一括保存」で確定してください。`, 'success');
   };
 
-  // 💡 新機能: ボトル＆グラス販売価格の全社一括クリアロジック
-  const handleResetAllPrices = () => {
+  // 💡 新機能: ボトル販売価格のみを一括クリアするロジック
+  const handleResetBottlePrices = () => {
     if (selectedWines.length === 0) {
       showToast('セラーに銘柄が登録されていません。', 'info');
       return;
     }
 
     showConfirm(
-      'すべての銘柄の販売価格をリセットしますか？',
+      'すべての銘柄のボトル価格をリセットしますか？',
       () => {
         const updatedWines = selectedWines.map(wine => ({
           ...wine,
-          price_bottle: 0,
+          price_bottle: 0
+        }));
+        setSelectedWines(updatedWines);
+        showToast('セラー内の全商品のボトル価格をクリアしました。「一括保存」を押すと確定します。', 'success');
+      },
+      '※画面上のボトル価格のみが0円になります。「一括保存」を押すまでデータベースへは永続化されません。'
+    );
+  };
+
+  // 💡 新機能: グラス販売価格のみを一括クリアするロジック
+  const handleResetGlassPrices = () => {
+    if (selectedWines.length === 0) {
+      showToast('セラーに銘柄が登録されていません。', 'info');
+      return;
+    }
+
+    showConfirm(
+      'すべての銘柄のグラス価格をリセットしますか？',
+      () => {
+        const updatedWines = selectedWines.map(wine => ({
+          ...wine,
           price_glass: 0
         }));
         setSelectedWines(updatedWines);
-        showToast('セラー内の全商品のボトル・グラス価格をクリアしました。「一括保存」を押すと確定します。', 'success');
+        showToast('セラー内の全商品のグラス価格をクリアしました。「一括保存」を押すと確定します。', 'success');
       },
-      '※画面上のボトルおよびグラス価格が0円になります。この操作は「一括保存」を押すまでデータベースへは永続化されません。'
+      '※画面上のグラス価格のみが0円になります。「一括保存」を押すまでデータベースへは永続化されません。'
     );
   };
 
@@ -189,14 +208,23 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
             </button>
           </div>
 
-          {/* 💡 新機能: 価格一括リセットボタン */}
+          {/* 💡 修正の核心: 価格リセットボタンを「ボトル」と「グラス」に完全分離 */}
           <button
-            onClick={handleResetAllPrices}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-red-50 text-red-600 border border-red-200 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-red-100 active:scale-95 transition-all shadow-sm"
-            title="ボトル・グラス価格をすべて0円にリセット"
+            onClick={handleResetBottlePrices}
+            className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-red-50 text-red-600 border border-red-200 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-red-100 active:scale-95 transition-all shadow-sm"
+            title="ボトル価格をすべて0円にリセット"
           >
-            <RotateCcw className="w-4 h-4 text-red-500" />
-            <span className="truncate">価格リセット</span>
+            <RotateCcw className="w-3.5 h-3.5 text-red-500" />
+            <span className="truncate">ボトルリセット</span>
+          </button>
+
+          <button
+            onClick={handleResetGlassPrices}
+            className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-red-50 text-red-600 border border-red-200 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-red-100 active:scale-95 transition-all shadow-sm"
+            title="グラス価格をすべて0円にリセット"
+          >
+            <RotateCcw className="w-3.5 h-3.5 text-red-500" />
+            <span className="truncate">グラスリセット</span>
           </button>
 
           <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm">
