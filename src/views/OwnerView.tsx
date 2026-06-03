@@ -71,6 +71,7 @@ export const OwnerView: React.FC = () => {
   useEffect(() => {
     if (inventoryData?.inventory && selectedStoreId === inventoryData.store?.id) {
       if (dataLoadedForStore !== selectedStoreId) {
+        // 💡 データベースの order 順に忠実に初期描画を行う
         const sorted = [...inventoryData.inventory].sort((a: any, b: any) => (a.order || 0) - (b.order || 0));
         setSelectedWines(JSON.parse(JSON.stringify(sorted)));
         setInitialWines(JSON.parse(JSON.stringify(sorted)));
@@ -173,17 +174,16 @@ export const OwnerView: React.FC = () => {
     }
   };
 
-  // 💡 パフォーマンス対策・記憶機能: 引数で明示的な最新並び替え配列を受け取れるように拡張
-  const handleSaveInventory = async (winesToSave?: WineMaster[]) => {
+  // 💡 修正の核心: 通信競合・順序破壊を防ぐため、純粋に画面の最新状態(selectedWines)をクリーンに一括コミットする形に完全一本化
+  const handleSaveInventory = async () => {
     if (!sid) return;
     setIsSaving(true);
-    const targetWines = winesToSave || selectedWines;
     try {
       let totalWriteCount = 0;
       const CHUNK_SIZE = 450;
       
-      for (let i = 0; i < targetWines.length; i += CHUNK_SIZE) {
-        const chunk = targetWines.slice(i, i + CHUNK_SIZE);
+      for (let i = 0; i < selectedWines.length; i += CHUNK_SIZE) {
+        const chunk = selectedWines.slice(i, i + CHUNK_SIZE);
         const batch = writeBatch(db);
         let chunkWriteCount = 0;
         
@@ -212,7 +212,7 @@ export const OwnerView: React.FC = () => {
         if (chunkWriteCount > 0) await batch.commit();
       }
 
-      const richPublicMenu = targetWines
+      const richPublicMenu = selectedWines
         .filter(w => w.visible !== false && w.isActive !== false)
         .map(w => ({ ...w, id: getWineDocId(w) }));
 
@@ -225,11 +225,8 @@ export const OwnerView: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['publicMenu', sid] });
       queryClient.invalidateQueries({ queryKey: ['inventory', sid] });
       
-      setSelectedWines(JSON.parse(JSON.stringify(targetWines)));
-      setInitialWines(JSON.parse(JSON.stringify(targetWines)));
-      if (!winesToSave) {
-        showToast(`セラー情報を保存しました（更新: ${totalWriteCount}件）`, 'success');
-      }
+      setInitialWines(JSON.parse(JSON.stringify(selectedWines)));
+      showToast(`セラー情報を保存しました（更新: ${totalWriteCount}件）`, 'success');
     } catch (error) {
       console.error('一括保存に失敗しました:', error);
       showToast('一括保存に失敗しました。', 'error');
@@ -285,7 +282,7 @@ export const OwnerView: React.FC = () => {
   };
 
   const handleBulkAddWines = async () => {
-    if (!sid && selectedMasterIds.length === 0) return;
+    if (!sid || selectedMasterIds.length === 0) return;
     try {
       const winesToAdd = masterWines.filter(w => selectedMasterIds.includes(w.id));
       const CHUNK_SIZE = 450;
@@ -339,12 +336,13 @@ export const OwnerView: React.FC = () => {
         .map(w => ({ ...w, id: getWineDocId(w) }));
 
       await updateDoc(doc(db, 'stores', sid), { publicMenu: richPublicMenu, updatedAt: new Date().toISOString() });
+      
       fetch(`/api/menu/${sid}/invalidate`, { method: 'POST' }).catch(() => {});
       queryClient.invalidateQueries({ queryKey: ['publicMenu', sid] });
 
       setShowCatalogSelection(false);
       setSelectedMasterIds([]);
-      showToast(`${winesToAdd.length}件 of ワインを一括導入しました。`, 'success');
+      showToast(`${winesToAdd.length}件のワインを一括導入しました。`, 'success');
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `stores/${sid}/bulk`);
     }
@@ -410,7 +408,9 @@ export const OwnerView: React.FC = () => {
               </select>
             )}
           </div>
-          <p className="text-gray-400 text-xs uppercase tracking-widest font-bold mt-1">{store?.cuisine_type} • {store?.address}</p>
+          <p className="text-gray-400 text-xs uppercase tracking-widest font-bold mt-1">
+            {store?.cuisine_type} • {store?.address}
+          </p>
         </div>
       </header>
 
@@ -421,58 +421,124 @@ export const OwnerView: React.FC = () => {
         
         <div className="space-y-6">
           <div className="bg-black/40 p-6 rounded-3xl border border-brand-gold/20 shadow-luxury space-y-4">
-            <div className="flex items-center gap-2 mb-2"><Settings className="text-brand-gold w-5 h-5" /><h2 className="text-xs font-bold uppercase tracking-widest text-brand-gold-dark">基本情報・メニュー設定</h2></div>
+            <div className="flex items-center gap-2 mb-2">
+              <Settings className="text-brand-gold w-5 h-5" />
+              <h2 className="text-xs font-bold uppercase tracking-widest text-brand-gold-dark">基本情報・メニュー設定</h2>
+            </div>
+            
             <div>
               <label className="text-xs font-bold text-brand-gold/60 uppercase tracking-widest block mb-1">店名</label>
-              <div className="w-full bg-white/5 border border-brand-gold/20 rounded-xl px-4 py-2.5 text-sm text-brand-ivory font-sans opacity-70 bg-black/20">{store?.name || ''}</div>
+              <div className="w-full bg-white/5 border border-brand-gold/20 rounded-xl px-4 py-2.5 text-sm text-brand-ivory font-sans opacity-70 bg-black/20">
+                {store?.name || ''}
+              </div>
             </div>
+            
             <div>
               <label className="text-xs font-bold text-brand-gold/60 uppercase tracking-widest block mb-1">料理カテゴリー</label>
-              <div className="w-full bg-white/5 border border-brand-gold/20 rounded-xl px-4 py-2.5 text-sm text-brand-ivory font-sans opacity-70 bg-black/20">{store?.cuisine_type || ''}</div>
+              <div className="w-full bg-white/5 border border-brand-gold/20 rounded-xl px-4 py-2.5 text-sm text-brand-ivory font-sans opacity-70 bg-black/20">
+                {store?.cuisine_type || ''}
+              </div>
             </div>
+            
             <div>
               <label className="text-xs font-bold text-brand-gold/60 uppercase tracking-widest block mb-1">住所</label>
-              <div className="w-full bg-white/5 border border-brand-gold/20 rounded-xl px-4 py-2.5 text-sm text-brand-ivory font-sans opacity-70 bg-black/20">{store?.address || ''}</div>
+              <div className="w-full bg-white/5 border border-brand-gold/20 rounded-xl px-4 py-2.5 text-sm text-brand-ivory font-sans opacity-70 bg-black/20">
+                {store?.address || ''}
+              </div>
             </div>
+
             <div className="space-y-3 pt-3 border-t border-brand-gold/10">
               <div className="flex items-center justify-between p-2.5 bg-white/5 border border-brand-gold/10 rounded-xl">
                 <div className="flex flex-col">
                   <span className="text-[11px] font-bold text-brand-gold-dark uppercase tracking-wider">ペアリングフィルター非表示</span>
                   <span className="text-[9px] text-gray-500 uppercase">「お料理から選ぶ」を隠す</span>
                 </div>
-                <button onClick={() => handleUpdateStore()} className={`w-10 h-5 rounded-full transition-all relative ${ store?.hidePairingFilter ? 'bg-brand-gold' : 'bg-gray-700' }`}><div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${store?.hidePairingFilter ? 'left-5.5' : 'left-0.5'}`} /></button>
+                <button 
+                  onClick={() => handleUpdateStore()}
+                  className={`w-10 h-5 rounded-full transition-all relative ${
+                    store?.hidePairingFilter ? 'bg-brand-gold' : 'bg-gray-700'
+                  }`}
+                >
+                  <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${store?.hidePairingFilter ? 'left-5.5' : 'left-0.5'}`} />
+                </button>
               </div>
+
               <div className="flex items-center justify-between p-2.5 bg-white/5 border border-brand-gold/10 rounded-xl">
                 <div className="flex flex-col">
                   <span className="text-[11px] font-bold text-brand-gold-dark uppercase tracking-wider">マリアージュ詳細非表示</span>
                   <span className="text-[9px] text-gray-500 uppercase">「最高のマリアージュ」を隠す</span>
                 </div>
-                <button onClick={() => handleUpdateStore()} className={`w-10 h-5 rounded-full transition-all relative ${ store?.hideWinePairing ? 'bg-brand-gold' : 'bg-gray-700' }`}><div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${store?.hideWinePairing ? 'left-5.5' : 'left-0.5'}`} /></button>
+                <button 
+                  onClick={() => handleUpdateStore()}
+                  className={`w-10 h-5 rounded-full transition-all relative ${
+                    store?.hideWinePairing ? 'bg-brand-gold' : 'bg-gray-700'
+                  }`}
+                >
+                  <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${store?.hideWinePairing ? 'left-5.5' : 'left-0.5'}`} />
+                </button>
               </div>
+
               <div>
                 <label className="text-xs font-bold text-brand-gold/60 uppercase tracking-widest block mb-1">予算設定</label>
-                <div className="w-full bg-white/5 border border-brand-gold/20 rounded-lg px-3 py-2 text-brand-ivory text-sm font-sans opacity-70 bg-black/20">{Array.isArray(store?.budgetTiers) ? store!.budgetTiers.join(', ') : ''}</div>
+                <div className="w-full bg-white/5 border border-brand-gold/20 rounded-lg px-3 py-2 text-brand-ivory text-sm font-sans opacity-70 bg-black/20">
+                  {Array.isArray(store?.budgetTiers) ? store!.budgetTiers.join(', ') : ''}
+                </div>
               </div>
             </div>
           </div>
 
           <div className="bg-black/40 p-6 rounded-3xl border border-brand-gold/20 shadow-luxury space-y-4">
-            <div className="flex items-center gap-2 border-b border-brand-gold/10 pb-3"><QrCode className="text-brand-gold w-5 h-5" /><h2 className="text-xs font-bold uppercase tracking-widest text-brand-gold-dark">QRコード & お客様メニュー</h2></div>
+            <div className="flex items-center gap-2 border-b border-brand-gold/10 pb-3">
+              <QrCode className="text-brand-gold w-5 h-5" />
+              <h2 className="text-xs font-bold uppercase tracking-widest text-brand-gold-dark">QRコード & お客様メニュー</h2>
+            </div>
+            
             <div className="flex flex-col items-center gap-4 py-2">
               <div className="p-4 bg-white rounded-2xl flex items-center justify-center shadow-inner">
-                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(`${getBaseUrl() || window.location.origin}/menu/${sid}`)}`} alt="Store QR Code" className="w-36 h-36 object-contain" />
+                <img 
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(`${getBaseUrl() || window.location.origin}/menu/${sid}`)}`} 
+                  alt="Store QR Code" 
+                  className="w-36 h-36 object-contain"
+                />
               </div>
-              <p className="text-[11px] text-gray-400 text-center leading-relaxed">このQRコードを印刷して店内に掲示し、お客様がマイススマホでスキャンできるようにしてください。</p>
+              
+              <p className="text-[11px] text-gray-400 text-center leading-relaxed">
+                このQRコードを印刷して店内に掲示し、お客様がマイススマホでスキャンできるようにしてください。
+              </p>
+
               <div className="w-full flex flex-col gap-2">
-                <button onClick={() => window.open(`${getBaseUrl() || window.location.origin}/menu/${sid}`, '_blank')} className="w-full py-3 bg-brand-gold text-brand-wine text-xs font-bold uppercase tracking-widest rounded-xl hover:brightness-110 transition-all flex items-center justify-center gap-2 shadow-md"><ExternalLink className="w-4 h-4" /> お客用メニューを開く</button>
-                <div className="text-center"><span className="text-[9px] font-mono select-all break-all text-brand-gold/50 text-center block max-w-full overflow-hidden truncate">{`${getBaseUrl() || window.location.origin}/menu/${sid}`}</span></div>
+                <button 
+                  onClick={() => window.open(`${getBaseUrl() || window.location.origin}/menu/${sid}`, '_blank')}
+                  className="w-full py-3 bg-brand-gold text-brand-wine text-xs font-bold uppercase tracking-widest rounded-xl hover:brightness-110 transition-all flex items-center justify-center gap-2 shadow-md"
+                >
+                  <ExternalLink className="w-4 h-4" /> お客用メニューを開く
+                </button>
+                
+                <div className="text-center">
+                  <span className="text-[9px] font-mono select-all break-all text-brand-gold/50 text-center block max-w-full overflow-hidden truncate">
+                    {`${getBaseUrl() || window.location.origin}/menu/${sid}`}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      <CatalogSelector isOpen={showCatalogSelection} onClose={() => setShowCatalogSelection(false)} selectedStore={store || undefined} wines={masterWines} masterSearchTerm={masterSearchTerm} setMasterSearchTerm={setMasterSearchTerm} selectedWines={selectedWines} selectedMasterIds={selectedMasterIds} toggleMasterSelection={toggleMasterSelection} handleBulkAddWines={handleBulkAddWines} hasMoreWines={!!hasMoreWinesMaster} onLoadMoreWines={fetchNextWinesMaster} />
+      <CatalogSelector 
+        isOpen={showCatalogSelection}
+        onClose={() => setShowCatalogSelection(false)}
+        selectedStore={store || undefined}
+        wines={masterWines}
+        masterSearchTerm={masterSearchTerm}
+        setMasterSearchTerm={setMasterSearchTerm}
+        selectedWines={selectedWines}
+        selectedMasterIds={selectedMasterIds}
+        toggleMasterSelection={toggleMasterSelection}
+        handleBulkAddWines={handleBulkAddWines}
+        hasMoreWines={!!hasMoreWinesMaster}
+        onLoadMoreWines={fetchNextWinesMaster}
+      />
     </div>
   );
 };
