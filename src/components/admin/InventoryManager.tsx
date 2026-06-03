@@ -46,7 +46,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
 }) => {
   const { showToast, showConfirm } = useWines();
 
-  // 💡 自動ソート機能（orderプロパティを振り直す）
+  // 💡 修正の核心: 重複した非同期自動保存を全廃。UIのステート更新とorderのインデックス割り当てのみに集中し、保存ボタンが押された時に完璧に永続化する。
   const applySort = (type: string) => {
     if (!type) return;
     const newWines = [...selectedWines];
@@ -84,12 +84,11 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
       }
     });
 
-    // ソート順に基づいて order を再設定
     newWines.forEach((w, index) => { w.order = index; });
     setSelectedWines(newWines);
+    showToast('並び替えを仮適用しました。「一括保存」を押すと確定します。', 'info');
   };
 
-  // 💡 マニュアル並び替え（上へ移動し order を振り直す）
   const moveUp = (index: number) => {
     if (index === 0) return;
     const newWines = [...selectedWines];
@@ -98,7 +97,6 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
     setSelectedWines(newWines);
   };
 
-  // 💡 マニュアル並び替え（下へ移動し order を振り直す）
   const moveDown = (index: number) => {
     if (index === selectedWines.length - 1) return;
     const newWines = [...selectedWines];
@@ -111,16 +109,11 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
     <div className="bg-white rounded-3xl overflow-hidden flex flex-col shadow-sm border border-slate-200 relative pb-4">
       <div className="px-4 md:px-8 py-5 md:py-6 border-b border-slate-100 bg-slate-50 flex flex-col xl:flex-row justify-between items-center gap-6">
         <div className="flex items-center gap-3 self-start md:self-auto">
-          <div className="w-10 h-10 bg-brand-wine text-white rounded-xl flex items-center justify-center shadow-md shrink-0">
-            <Wine className="w-6 h-6" />
-          </div>
-          <h2 className="serif text-xl md:text-2xl text-slate-900">
-            セラー銘柄管理
-          </h2>
+          <div className="w-10 h-10 bg-brand-wine text-white rounded-xl flex items-center justify-center shadow-md shrink-0"><Wine className="w-6 h-6" /></div>
+          <h2 className="serif text-xl md:text-2xl text-slate-900">セラー銘柄管理</h2>
         </div>
         
         <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
-          {/* 並び替えドロップダウン */}
           <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm">
             <ArrowUpDown className="w-4 h-4 text-slate-400" />
             <select 
@@ -139,27 +132,17 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
             </select>
           </div>
 
-          <button
-            onClick={onSaveInventory}
-            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-green-600 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-green-500 transition-all shadow-md active:scale-95"
-          >
+          <button onClick={onSaveInventory} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-green-600 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-green-500 transition-all shadow-md active:scale-95">
             <Save className="w-4 h-4 shrink-0" /> <span className="truncate">一括保存</span>
           </button>
 
           {!isOwner && (
             <>
-              <button
-                onClick={onShowCatalogSelection}
-                className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-brand-wine text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:brightness-110 transition-all shadow-md active:scale-95"
-              >
+              <button onClick={onShowCatalogSelection} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-brand-wine text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:brightness-110 transition-all shadow-md active:scale-95">
                 <Plus className="w-5 h-5 shrink-0" /> <span className="truncate">銘柄を追加</span>
               </button>
-              
               <input type="file" ref={fileInputRef} onChange={onFileUpload} className="hidden" accept=".csv" />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="hidden md:flex flex-none items-center justify-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-700 transition-all shadow-md"
-              >
+              <button onClick={() => fileInputRef.current?.click()} className="hidden md:flex flex-none items-center justify-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-700 transition-all shadow-md">
                 <Upload className="w-4 h-4" /> CSV読込
               </button>
             </>
@@ -178,126 +161,45 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
 
           {selectedWines.map((wine, index) => {
             return (
-              <div
-                key={`${wine.id}-${index}`}
-                className={`bg-white px-6 py-4 rounded-2xl border border-slate-100 grid grid-cols-[2.5fr_3.5fr_1fr_1fr] items-center gap-4 transition-all shadow-sm group ${
-                  !wine.visible ? 'opacity-65 bg-slate-50/50' : 'hover:border-slate-300'
-                }`}
-              >
-                {/* ワイン銘柄 */}
+              <div key={`${wine.id}-${index}`} className={`bg-white px-6 py-4 rounded-2xl border border-slate-100 grid grid-cols-[2.5fr_3.5fr_1fr_1fr] items-center gap-4 transition-all shadow-sm group ${ !wine.visible ? 'opacity-65 bg-slate-50/50' : 'hover:border-slate-300' }`}>
                 <div className="flex items-center gap-4 min-w-0 pr-4">
-                  <button
-                    onClick={() => onUpdateWineItem(wine.id, { isFeatured: !wine.isFeatured }, true)}
-                    className={`p-2.5 rounded-xl transition-all border shrink-0 ${
-                      wine.isFeatured ? 'bg-amber-50 border-amber-300 text-amber-500 shadow-sm' : 'bg-slate-50 border-slate-200 text-slate-300'
-                    }`}
-                  >
-                    <Sparkles className={`w-4 h-4 ${wine.isFeatured ? 'fill-current' : ''}`} />
-                  </button>
+                  <button onClick={() => onUpdateWineItem(wine.id, { isFeatured: !wine.isFeatured }, true)} className={`p-2.5 rounded-xl transition-all border shrink-0 ${ wine.isFeatured ? 'bg-amber-50 border-amber-300 text-amber-500 shadow-sm' : 'bg-slate-50 border-slate-200 text-slate-300' }`}><Sparkles className={`w-4 h-4 ${wine.isFeatured ? 'fill-current' : ''}`} /></button>
                   <div className="min-w-0 flex flex-col justify-center">
-                    <span className="font-black text-slate-800 text-[15px] leading-tight line-clamp-2">
-                      {wine.name_jp || '名称未設定'}
-                    </span>
-                    <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest truncate mt-1 flex items-center gap-2">
-                      <span className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 font-mono">CODE: {wine.id}</span>
-                    </div>
+                    <span className="font-black text-slate-800 text-[15px] leading-tight line-clamp-2">{wine.name_jp || '名称未設定'}</span>
+                    <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest truncate mt-1 flex items-center gap-2"><span className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 font-mono">CODE: {wine.id}</span></div>
                   </div>
                 </div>
 
-                {/* 販売価格設定 */}
                 <div className="grid grid-cols-4 gap-2 items-center justify-center">
                   <div className="flex flex-col gap-1 items-center">
                     <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">仕入(税別)</span>
-                    <div className="relative w-full">
-                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-xs">¥</span>
-                      <input
-                        type="number"
-                        value={wine.cost === 0 ? 0 : (wine.cost || '')}
-                        onChange={(e) => onUpdateWineItem(wine.id, { cost: parseInt(e.target.value) || 0 }, false)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-6 pr-2 py-2 focus:border-brand-wine focus:bg-white outline-none font-mono text-slate-900 font-black text-center text-sm transition-all"
-                      />
-                    </div>
+                    <div className="relative w-full"><span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-xs">¥</span><input type="number" value={wine.cost === 0 ? 0 : (wine.cost || '')} onChange={(e) => onUpdateWineItem(wine.id, { cost: parseInt(e.target.value) || 0 }, false)} className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-6 pr-2 py-2 focus:border-brand-wine focus:bg-white outline-none font-mono text-slate-900 font-black text-center text-sm transition-all" /></div>
                   </div>
                   <div className="flex flex-col gap-1 items-center">
                     <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">ボトル</span>
-                    <div className="relative w-full">
-                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-xs">¥</span>
-                      <input
-                        type="number"
-                        value={wine.price_bottle === 0 ? 0 : (wine.price_bottle || '')}
-                        onChange={(e) => onUpdateWineItem(wine.id, { price_bottle: parseInt(e.target.value) || 0 }, false)}
-                        className="w-full bg-white border border-slate-300 rounded-xl pl-6 pr-2 py-2 focus:border-brand-wine outline-none font-mono text-slate-900 font-black text-center text-sm shadow-inner"
-                      />
-                    </div>
+                    <div className="relative w-full"><span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-xs">¥</span><input type="number" value={wine.price_bottle === 0 ? 0 : (wine.price_bottle || '')} onChange={(e) => onUpdateWineItem(wine.id, { price_bottle: parseInt(e.target.value) || 0 }, false)} className="w-full bg-white border border-slate-300 rounded-xl pl-6 pr-2 py-2 focus:border-brand-wine outline-none font-mono text-slate-900 font-black text-center text-sm shadow-inner" /></div>
                   </div>
                   <div className="flex flex-col gap-1 items-center">
                     <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">グラス</span>
-                    <div className="relative w-full">
-                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-xs">¥</span>
-                      <input
-                        type="number"
-                        value={wine.price_glass === 0 ? 0 : (wine.price_glass || '')}
-                        onChange={(e) => onUpdateWineItem(wine.id, { price_glass: parseInt(e.target.value) || 0 }, false)}
-                        className="w-full bg-white border border-slate-300 rounded-xl pl-6 pr-2 py-2 focus:border-brand-wine outline-none font-mono text-slate-900 font-black text-center text-sm shadow-inner"
-                      />
-                    </div>
+                    <div className="relative w-full"><span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-xs">¥</span><input type="number" value={wine.price_glass === 0 ? 0 : (wine.price_glass || '')} onChange={(e) => onUpdateWineItem(wine.id, { price_glass: parseInt(e.target.value) || 0 }, false)} className="w-full bg-white border border-slate-300 rounded-xl pl-6 pr-2 py-2 focus:border-brand-wine outline-none font-mono text-slate-900 font-black text-center text-sm shadow-inner" /></div>
                   </div>
                   <div className="flex flex-col gap-1 items-center">
                     <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">杯数</span>
-                    <div className="relative w-full">
-                      <input
-                        type="number"
-                        value={wine.glasses_per_bottle === 0 ? 0 : (wine.glasses_per_bottle || 6)}
-                        onChange={(e) => onUpdateWineItem(wine.id, { glasses_per_bottle: parseInt(e.target.value) || 6 }, false)}
-                        className="w-full bg-white border border-slate-300 rounded-xl px-2 py-2 focus:border-brand-wine outline-none font-mono text-slate-900 font-black text-center text-sm shadow-inner"
-                      />
-                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">杯</span>
-                    </div>
+                    <div className="relative w-full"><input type="number" value={wine.glasses_per_bottle === 0 ? 0 : (wine.glasses_per_bottle || 6)} onChange={(e) => onUpdateWineItem(wine.id, { glasses_per_bottle: parseInt(e.target.value) || 6 }, false)} className="w-full bg-white border border-slate-300 rounded-xl px-2 py-2 focus:border-brand-wine outline-none font-mono text-slate-900 font-black text-center text-sm shadow-inner" /><span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">杯</span></div>
                   </div>
                 </div>
 
-                {/* 公開スイッチ */}
                 <div className="flex items-center justify-center">
-                  <button
-                    onClick={() => onUpdateWineItem(wine.id, { visible: !wine.visible }, true)}
-                    className={`h-11 px-4 rounded-xl text-xs font-black uppercase tracking-widest border transition-all shrink-0 w-28 flex items-center justify-center ${
-                      wine.visible
-                        ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100 shadow-sm'
-                        : 'bg-slate-50 border-slate-200 text-slate-400 hover:bg-slate-100'
-                    }`}
-                  >
-                    {wine.visible ? '● 公開中' : '✕ 非表示'}
-                  </button>
+                  <button onClick={() => onUpdateWineItem(wine.id, { visible: !wine.visible }, true)} className={`h-11 px-4 rounded-xl text-xs font-black uppercase tracking-widest border transition-all shrink-0 w-28 flex items-center justify-center ${ wine.visible ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100 shadow-sm' : 'bg-slate-50 border-slate-200 text-slate-400 hover:bg-slate-100' }`}>{wine.visible ? '● 公開中' : '✕ 非表示'}</button>
                 </div>
 
-                {/* 並び替え・操作 */}
                 <div className="flex items-center justify-end gap-2">
                   <div className="flex flex-col gap-1">
-                    <button
-                      onClick={() => moveUp(index)}
-                      disabled={index === 0}
-                      className="p-1 text-slate-400 hover:text-brand-wine hover:bg-brand-wine/10 rounded transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                      title="上に移動"
-                    >
-                      <ArrowUp className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => moveDown(index)}
-                      disabled={index === selectedWines.length - 1}
-                      className="p-1 text-slate-400 hover:text-brand-wine hover:bg-brand-wine/10 rounded transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                      title="下に移動"
-                    >
-                      <ArrowDown className="w-4 h-4" />
-                    </button>
+                    <button onClick={() => moveUp(index)} disabled={index === 0} className="p-1 text-slate-400 hover:text-brand-wine hover:bg-brand-wine/10 rounded transition-all disabled:opacity-30 disabled:cursor-not-allowed" title="上に移動"><ArrowUp className="w-4 h-4" /></button>
+                    <button onClick={() => moveDown(index)} disabled={index === selectedWines.length - 1} className="p-1 text-slate-400 hover:text-brand-wine hover:bg-brand-wine/10 rounded transition-all disabled:opacity-30 disabled:cursor-not-allowed" title="下に移動"><ArrowDown className="w-4 h-4" /></button>
                   </div>
                   {!isOwner ? (
-                    <button
-                      onClick={() => onDeleteWine(wine.id)}
-                      className="p-2.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all border border-transparent hover:border-red-100 ml-2"
-                      title="メニューから削除"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <button onClick={() => onDeleteWine(wine.id)} className="p-2.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all border border-transparent hover:border-red-100 ml-2" title="メニューから削除"><Trash2 className="w-4 h-4" /></button>
                   ) : (
                     <div className="w-9 h-9 ml-2" />
                   )}
