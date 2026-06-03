@@ -2,45 +2,16 @@
 import { RequestHandler } from "express";
 import { dbAdmin } from "../lib/firebase-admin.js";
 
-interface CacheEntry {
-  data: any;
-  expiresAt: number;
-  hits: number;
-  lastAccessedAt: number;
-}
-
-const menuCache = new Map<string, CacheEntry>();
-const CACHE_TTL_MS = 15000; 
-const MAX_CACHE_SIZE = 500; 
-
-const performGC = () => {
-  const now = Date.now();
-  for (const [storeId, entry] of menuCache.entries()) {
-    if (entry.expiresAt < now) menuCache.delete(storeId);
-  }
-  if (menuCache.size > MAX_CACHE_SIZE) {
-    const entries = Array.from(menuCache.entries()).sort((a, b) => a[1].lastAccessedAt - b[1].lastAccessedAt);
-    const countToEvict = menuCache.size - MAX_CACHE_SIZE;
-    for (let i = 0; i < countToEvict; i++) menuCache.delete(entries[i][0]);
-  }
-};
-setInterval(performGC, 10 * 60 * 1000).unref();
-
+/**
+ * 💡 [Enterprise Architecture] getMenu
+ * APIを100%ステートレス化し、取引先側が書き込んだ `publicMenu` をSSOT(唯一の正)として一発取得。
+ * 高頻度なエンドユーザーからのアクセスは、HTTP/CDNキャッシュ層で完璧に堰き止める。
+ */
 export const getMenu: RequestHandler = async (req, res, next) => {
   try {
     const { storeId } = req.params;
-    const now = Date.now();
 
-    const cached = menuCache.get(storeId);
-    if (cached && cached.expiresAt > now) {
-      cached.hits++;
-      cached.lastAccessedAt = now;
-      res.setHeader("X-Cache", "HIT");
-      res.setHeader("Cache-Control", "public, max-age=15, s-maxage=15, stale-while-revalidate=30");
-      res.json(cached.data);
-      return;
-    }
-    
+    // 1. 信頼できる唯一の情報源(stores/{storeId})からドキュメントを取得
     const storeDoc = await dbAdmin.collection("stores").doc(storeId).get();
     if (!storeDoc.exists) {
       res.status(404).json({ error: "Store not found" });
@@ -60,87 +31,24 @@ export const getMenu: RequestHandler = async (req, res, next) => {
       budgetTiers: storeData.budgetTiers || null,
     };
 
-    let menu: any[] = storeData.publicMenu || [];
+    // 2. 管理画面側ですでに最適化・同期されている publicMenu 配列を利用
+    const menu: any[] = storeData.publicMenu || [];
 
-    if (menu.length === 0) {
-      const inventorySnap = await dbAdmin.collection("stores").doc(storeId).collection("inventory").get();
-      
-      if (!inventorySnap.empty) {
-        const inventoryItems = inventorySnap.docs.map(d => ({
-          ...d.data(),
-          id: d.id.toUpperCase()
-        }));
-
-        const masterIds = Array.from(new Set(inventoryItems.map(item => item.id).filter(id => id.trim().length > 0)));
-        const masterDataMap = new Map<string, any>();
-
-        const CHUNK_SIZE = 30;
-        const chunkPromises = [];
-
-        for (let i = 0; i < masterIds.length; i += CHUNK_SIZE) {
-          const chunk = masterIds.slice(i, i + CHUNK_SIZE);
-          if (chunk.length > 0) {
-            chunkPromises.push(
-              dbAdmin.collection("winesMaster").where("__name__", "in", chunk).get()
-            );
-          }
-        }
-
-        const masterSnapsArray = await Promise.all(chunkPromises);
-        masterSnapsArray.forEach(masterSnap => {
-          masterSnap.forEach(mDoc => {
-            masterDataMap.set(mDoc.id.toUpperCase(), mDoc.data());
-          });
-        });
-
-        inventoryItems.forEach((invItem: any) => {
-          const masterData = masterDataMap.get(invItem.id);
-          
-          if (masterData && invItem.isActive !== false && invItem.visible !== false) {
-            menu.push({
-              ...masterData,
-              id: invItem.id,
-              pureId: invItem.pureId || invItem.id,
-              price_bottle: invItem.price_bottle ?? masterData.price_bottle,
-              price_glass: invItem.price_glass ?? masterData.price_glass,
-              cost: invItem.cost ?? masterData.cost ?? 2000,
-              glasses_per_bottle: invItem.glasses_per_bottle ?? 6,
-              visible: true,
-              isFeatured: invItem.isFeatured ?? false,
-              promoLabel: invItem.promoLabel || '',
-              stock: invItem.stock ?? 0,
-              isActive: true
-            });
-          }
-        });
-
-        if (menu.length > 0) {
-          const updateData: Record<string, any> = {
-            publicMenu: menu,
-            updatedAt: new Date().toISOString()
-          };
-          await dbAdmin.collection("stores").doc(storeId).update(updateData);
-        }
-      }
-    }
-
-    const sortedMenu = menu.sort((a: any, b: any) => (a.name_jp || '').localeCompare(b.name_jp || ''));
+    // 3. 管理画面側で設定された `order` 順を厳格に評価。未定義のものは名称順でフォールバック
+    const sortedMenu = menu.sort((a: any, b: any) => {
+      const orderA = typeof a.order === "number" ? a.order : 999999;
+      const orderB = typeof b.order === "number" ? b.order : 999999;
+      if (orderA !== orderB) return orderA - orderB;
+      return (a.name_jp || '').localeCompare(b.name_jp || '');
+    });
 
     const responsePayload = {
       store: publicStoreData,
       menu: sortedMenu,
     };
 
-    if (menuCache.size >= MAX_CACHE_SIZE) performGC();
-    
-    menuCache.set(storeId, {
-      data: responsePayload,
-      expiresAt: now + CACHE_TTL_MS,
-      hits: 1,
-      lastAccessedAt: now,
-    });
-
-    res.setHeader("X-Cache", "MISS");
+    // 4. 魔法のHTTPキャッシュヘッダー (ロード時間0ms化 ＆ サーバー負荷激減)
+    res.setHeader("X-Cache-Strategy", "Stateless-Edge");
     res.setHeader("Cache-Control", "public, max-age=15, s-maxage=15, stale-while-revalidate=30");
     res.json(responsePayload);
   } catch (error: any) {
@@ -149,6 +57,23 @@ export const getMenu: RequestHandler = async (req, res, next) => {
   }
 };
 
+/**
+ * 💡 [Enterprise Architecture] invalidateMenuCache
+ * フロントエンド(storeRepository.ts等)からの破壊フェッチが残っているため、
+ * エンドポイントとしての互換性を維持するために残存。内部のメモリパージ処理は全廃。
+ */
+export const invalidateMenuCache: RequestHandler = async (req, res, next) => {
+  try {
+    res.json({ success: true, message: "Cache strategy delegated to stateless CDN layer." });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to invalidate cache" });
+  }
+};
+
+/**
+ * 💡 proxyImage
+ * Google Drive等の画像を安全にプロキシするセキュアレイヤー
+ */
 export const proxyImage: RequestHandler = async (req, res, next) => {
   try {
     const imageUrl = req.query.url as string;
@@ -176,99 +101,5 @@ export const proxyImage: RequestHandler = async (req, res, next) => {
     res.send(buffer);
   } catch (error) {
     res.status(500).send("External imaging failure");
-  }
-};
-
-export const invalidateMenuCache: RequestHandler = async (req, res, next) => {
-  try {
-    const { storeId } = req.params;
-    menuCache.delete(storeId);
-    res.json({ success: true, message: "Cache invalidated" });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to invalidate cache" });
-  }
-};
-
-export const placeOrder: RequestHandler = async (req, res, next) => {
-  try {
-    const { storeId } = req.params;
-    const { items, orderNotes } = req.body;
-    const callerUser = (req as any).user; 
-
-    if (!items || items.length === 0) {
-      res.status(400).json({ error: "発注アイテムが空です。" });
-      return;
-    }
-
-    const storeDoc = await dbAdmin.collection("stores").doc(storeId).get();
-    if (!storeDoc.exists) {
-      res.status(404).json({ error: "Store not found" });
-      return;
-    }
-    const storeData = storeDoc.data() || {};
-
-    const repEmail = storeData.sales_rep_email || "pieroth_order_desk@pieroth.jp"; 
-    const ownerEmail = (callerUser && callerUser.email) || storeData.owner_email || "unknown-owner@wine-menu.app"; 
-
-    let itemsText = "";
-    items.forEach((item: any) => {
-      itemsText += `■ 【商品名】 ${item.name}\n   【数量】   ${item.quantity} 本 （${Math.ceil(item.quantity / 6)} ケース）\n\n`;
-    });
-
-    const emailSubject = `【ピーロート発注控え】${storeData.name}様 よりワインのご注文（計 ${items.length} 銘柄）`;
-    const emailBody = `
-==================================================
-★ ピーロート・ジャパン ワイン発注完了通知 ★
-==================================================
-
-※このメールは、システムより自動送信されている【発注控え】です。
-スマホの画面での確認や、印刷して納品時のチェックリストとしてお使いください。
-
-【ご注文店舗名】
-${storeData.name} 様
-
-【お届け先住所】
-${storeData.address || "ご登録住所"}
-
---------------------------------------------------
-◆ ご注文内容
---------------------------------------------------
-${itemsText}
-【特記事項・メッセージ】
-${orderNotes || "特になし"}
-
---------------------------------------------------
-本発注は、担当の営業スタッフ（Rep）へリアルタイムに通知されました。
-商品の到着まで今しばらくお待ちください。
-
-発行元：ピーロート・スマートメニュー・エンジン v2.0
-    `;
-
-    console.log(`\n=== 📥 [MAIL TRANSMITTER ACTIVE] ===`);
-    console.log(`送信元(FROM) : no-reply@pieroth-smart-menu.app`);
-    console.log(`送信先(TO)   : ${repEmail} (ピーロート担当営業宛)`);
-    console.log(`控え送信(CC) : ${ownerEmail} (店舗オーナー宛控え)`);
-    console.log(`件名(SUBJECT): ${emailSubject}`);
-    console.log(`本文(BODY)   : ${emailBody}`);
-    console.log(`====================================\n`);
-
-    await dbAdmin.collection("orders").add({
-      storeId,
-      storeName: storeData.name,
-      ownerEmail,
-      repEmail,
-      items,
-      orderNotes: orderNotes || "",
-      createdAt: new Date().toISOString(),
-      status: "pending"
-    });
-
-    res.json({ 
-      success: true, 
-      message: "ピーロートへの発注が完了しました。ご登録のメールアドレスに控えをお送りしました。" 
-    });
-  } catch (error: any) {
-    console.error("Order Processing Error:", error);
-    res.status(500).json({ error: "発注処理に失敗しました。" });
   }
 };
