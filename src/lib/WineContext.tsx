@@ -39,27 +39,23 @@ export const WineProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   /**
    * 💡 [Enterprise Architecture] resolveUserProfile
-   * Expressサーバーへの往復フェッチ(sync-claims)を完全廃止。
-   * トークンに含まれる暗号化済みのカスタムクレーム(Claims)を直接フロントエンドでデコードし、
-   * ミリ秒単位で厳格な認可(Role判定)を確定させる。
+   * ディフェンシブ(防御型)セキュリティ設計。
+   * 暗号トークン(Claims)を最速解釈しつつ、万が一同期にタイムラグがある場合は、
+   * Firestoreのusers直値を参照してロールを強制確定。無限ループによるホワイトアウトを完全防御。
    */
   const resolveUserProfile = async (firebaseUser: any) => {
     try {
-      // 1. トークンからカスタムクレームを最高速で直接デコード (サーバー通信ゼロ)
       const tokenResult = await firebaseUser.getIdTokenResult();
       const claims = tokenResult.claims || {};
       
-      // バックエンド(authController.ts)がトークンに焼き付けたRoleを最優先で評価
       let role: Role = (claims.role as Role) || 'customer';
       let storeId: string | undefined = claims.storeId as string | undefined;
 
-      // 2. 特権ドメインを持つ営業担当(@pieroth.jp)かつ明示的なRoleがまだない場合はadminとして救済
       const email = firebaseUser.email || '';
       if (email.endsWith('@pieroth.jp') || email === 'takatam40725@gmail.com') {
         if (role === 'customer') role = 'admin';
       }
 
-      // 3. 基本情報をFirestoreのusersコレクションからバックグラウンドで補完
       const docRef = doc(db, 'users', firebaseUser.uid);
       const docSnap = await getDoc(docRef);
       let displayName = email ? email.split('@')[0] : 'Guest';
@@ -67,7 +63,11 @@ export const WineProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (docSnap.exists()) {
         const dbData = docSnap.data();
         displayName = dbData.name || displayName;
-        // トークンに書き込まれる前の最新のstoreIdがDBにあればフォールバック
+        
+        // 💡 修正の核心: トークン側への書き込みがコンマ数秒遅延していても、Firestoreの直値ロールを最優先適用して救済
+        if (role === 'customer' && dbData.role && dbData.role !== 'customer') {
+          role = dbData.role as Role;
+        }
         storeId = storeId || dbData.storeId;
       }
 
@@ -89,7 +89,6 @@ export const WineProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   useEffect(() => {
-    // 4. セッション監視リスナー。毎回の無駄な同期通信がなくなり、完全なリアクティブに。
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         await resolveUserProfile(firebaseUser);
@@ -112,7 +111,6 @@ export const WineProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     <WineContext.Provider value={contextValue}>
       {children}
 
-      {/* トースト通知コンポーネント (維持) */}
       <AnimatePresence>
         {toast && (
           <motion.div
@@ -137,7 +135,6 @@ export const WineProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         )}
       </AnimatePresence>
 
-      {/* 確認ダイアログコンポーネント (維持) */}
       <AnimatePresence>
         {confirm && (
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
