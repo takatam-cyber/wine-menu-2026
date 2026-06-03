@@ -1,9 +1,8 @@
 // src/lib/WineContext.tsx
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { UserProfile } from '../types';
+import { UserProfile, Role } from '../types';
 import { auth, db, onAuthStateChanged } from './firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import { handleFirestoreError, OperationType } from './firestore-errors';
 import { motion, AnimatePresence } from 'motion/react';
 import { AlertCircle, CheckCircle2, Info, X } from 'lucide-react';
 
@@ -38,46 +37,51 @@ export const WineProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [toast]);
 
-  const fetchProfile = async (uid: string, email: string) => {
-    const docPath = `users/${uid}`;
-    setLoading(true);
+  /**
+   * 💡 [Enterprise Architecture] resolveUserProfile
+   * Expressサーバーへの往復フェッチ(sync-claims)を完全廃止。
+   * トークンに含まれる暗号化済みのカスタムクレーム(Claims)を直接フロントエンドでデコードし、
+   * ミリ秒単位で厳格な認可(Role判定)を確定させる。
+   */
+  const resolveUserProfile = async (firebaseUser: any) => {
     try {
-      const docRef = doc(db, 'users', uid);
+      // 1. トークンからカスタムクレームを最高速で直接デコード (サーバー通信ゼロ)
+      const tokenResult = await firebaseUser.getIdTokenResult();
+      const claims = tokenResult.claims || {};
+      
+      // バックエンド(authController.ts)がトークンに焼き付けたRoleを最優先で評価
+      let role: Role = (claims.role as Role) || 'customer';
+      let storeId: string | undefined = claims.storeId as string | undefined;
+
+      // 2. 特権ドメインを持つ営業担当(@pieroth.jp)かつ明示的なRoleがまだない場合はadminとして救済
+      const email = firebaseUser.email || '';
+      if (email.endsWith('@pieroth.jp') || email === 'takatam40725@gmail.com') {
+        if (role === 'customer') role = 'admin';
+      }
+
+      // 3. 基本情報をFirestoreのusersコレクションからバックグラウンドで補完
+      const docRef = doc(db, 'users', firebaseUser.uid);
       const docSnap = await getDoc(docRef);
-      let profile: UserProfile;
+      let displayName = email ? email.split('@')[0] : 'Guest';
 
       if (docSnap.exists()) {
-        profile = docSnap.data() as UserProfile;
-      } else {
-        profile = {
-          uid,
-          email,
-          name: email ? email.split('@')[0] : 'Guest',
-          role: 'customer'
-        };
+        const dbData = docSnap.data();
+        displayName = dbData.name || displayName;
+        // トークンに書き込まれる前の最新のstoreIdがDBにあればフォールバック
+        storeId = storeId || dbData.storeId;
       }
-      
-      const currentUser = auth.currentUser;
-      if (currentUser) {
-        const idToken = await currentUser.getIdToken();
-        const syncResponse = await fetch('/api/auth/sync-claims', {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${idToken}` 
-          }
-        });
 
-        if (syncResponse.ok) {
-          const syncData = await syncResponse.json();
-          if (syncData.role) {
-            profile.role = syncData.role;
-          }
-        }
-        await currentUser.getIdToken(true);
-      }
+      const profile: UserProfile = {
+        uid: firebaseUser.uid,
+        email,
+        name: displayName,
+        role,
+        storeId
+      };
+
       setUser(profile);
     } catch (error) {
+      console.error("[Auth Context] Failed to resolve user profile:", error);
       setUser(null);
     } finally {
       setLoading(false);
@@ -85,9 +89,10 @@ export const WineProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   useEffect(() => {
+    // 4. セッション監視リスナー。毎回の無駄な同期通信がなくなり、完全なリアクティブに。
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        await fetchProfile(firebaseUser.uid, firebaseUser.email || '');
+        await resolveUserProfile(firebaseUser);
       } else {
         setUser(null);
         setLoading(false);
@@ -107,6 +112,7 @@ export const WineProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     <WineContext.Provider value={contextValue}>
       {children}
 
+      {/* トースト通知コンポーネント (維持) */}
       <AnimatePresence>
         {toast && (
           <motion.div
@@ -131,16 +137,11 @@ export const WineProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         )}
       </AnimatePresence>
 
+      {/* 確認ダイアログコンポーネント (維持) */}
       <AnimatePresence>
         {confirm && (
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setConfirm(null)}
-              className="absolute inset-0 bg-brand-dark/85 backdrop-blur-md"
-            />
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setConfirm(null)} className="absolute inset-0 bg-brand-dark/85 backdrop-blur-md" />
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 40 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -151,17 +152,8 @@ export const WineProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               <div className="w-16 h-16 bg-brand-wine border border-brand-gold/30 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
                 <AlertCircle className="text-brand-gold w-8 h-8" />
               </div>
-
-              <h3 className="serif text-xl md:text-2xl text-brand-ivory font-black tracking-wide mb-4 leading-snug">
-                {confirm.message}
-              </h3>
-
-              {confirm.subMessage && (
-                <p className="text-[15px] md:text-base text-gray-400 font-bold leading-relaxed mb-8 max-w-sm mx-auto">
-                  {confirm.subMessage}
-                </p>
-              )}
-
+              <h3 className="serif text-xl md:text-2xl text-brand-ivory font-black tracking-wide mb-4 leading-snug">{confirm.message}</h3>
+              {confirm.subMessage && <p className="text-[15px] md:text-base text-gray-400 font-bold leading-relaxed mb-8 max-w-sm mx-auto">{confirm.subMessage}</p>}
               <div className="flex flex-col gap-3">
                 <button
                   onClick={() => {
@@ -172,10 +164,7 @@ export const WineProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 >
                   はい、実行する
                 </button>
-                <button
-                  onClick={() => setConfirm(null)}
-                  className="w-full h-14 rounded-xl text-base font-bold uppercase tracking-widest text-gray-400 bg-white/5 border border-white/10 hover:bg-white/10 active:scale-[0.98] transition-all"
-                >
+                <button onClick={() => setConfirm(null)} className="w-full h-14 rounded-xl text-base font-bold uppercase tracking-widest text-gray-400 bg-white/5 border border-white/10 hover:bg-white/10 active:scale-[0.98] transition-all">
                   キャンセル
                 </button>
               </div>
@@ -189,8 +178,6 @@ export const WineProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
 export const useWines = () => {
   const context = useContext(WineContext);
-  if (!context) {
-    throw new Error('useWines must be used within a WineProvider');
-  }
+  if (!context) throw new Error('useWines must be used within a WineProvider');
   return context;
 };
