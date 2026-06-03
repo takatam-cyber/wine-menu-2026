@@ -40,7 +40,7 @@ const getWineDocId = (wine: any) => {
 export const OwnerView: React.FC = () => {
   const { user, showToast, showConfirm } = useWines();
   const queryClient = useQueryClient();
-  const [selectedStoreId, setSelectedStoreId] = useState(new URLSearchParams(window.location.search).get('storeId') || user?.storeId || '');
+  const [selectedStoreId, setSelectedStoreId] = useState(user?.storeId || '');
   
   const { data: storesData } = useStoresQuery(user);
   const stores = (storesData?.pages.flatMap(p => p.data) || []).filter(Boolean);
@@ -71,7 +71,6 @@ export const OwnerView: React.FC = () => {
   useEffect(() => {
     if (inventoryData?.inventory && selectedStoreId === inventoryData.store?.id) {
       if (dataLoadedForStore !== selectedStoreId) {
-        // 💡 データベースの order 順に忠実に初期描画を行う
         const sorted = [...inventoryData.inventory].sort((a: any, b: any) => (a.order || 0) - (b.order || 0));
         setSelectedWines(JSON.parse(JSON.stringify(sorted)));
         setInitialWines(JSON.parse(JSON.stringify(sorted)));
@@ -90,16 +89,31 @@ export const OwnerView: React.FC = () => {
     }
   }, [store]);
 
+  /**
+   * 💡 [Enterprise Security Guard] 初期店舗コミット・シーケンス
+   * ロールが店舗オーナー(owner)である場合、URLパラメータからの悪意あるインジェクションを100%シャットアウト。
+   * 自身の持つ user.storeId のみの閲覧・変更を強制し、鉄壁のマルチテナント分離(データ空間隔離)を確定させる。
+   */
   useEffect(() => {
+    if (!user) return;
+
+    if (user.role === 'owner') {
+      if (user.storeId && selectedStoreId !== user.storeId) {
+        setSelectedStoreId(user.storeId);
+      }
+      return;
+    }
+
+    // 試用・代行ログインを行う管理者(admin)や営業担当(rep)のみURLパラメータや店舗リストの走査を許可
     const urlSid = new URLSearchParams(window.location.search).get('storeId');
     if (urlSid) {
-      setSelectedStoreId(urlSid);
-    } else if (user?.storeId) {
-      setSelectedStoreId(user.storeId);
-    } else if (stores.length > 0 && (user?.role === 'admin' || user?.role === 'rep')) {
+      if (selectedStoreId !== urlSid) setSelectedStoreId(urlSid);
+    } else if (user.storeId) {
+      if (selectedStoreId !== user.storeId) setSelectedStoreId(user.storeId);
+    } else if (stores.length > 0 && (user.role === 'admin' || user.role === 'rep')) {
       if (!selectedStoreId) setSelectedStoreId(stores[0].id);
     }
-  }, [stores, user]);
+  }, [stores, user, selectedStoreId]);
 
   useEffect(() => {
     if (selectedStoreId) {
@@ -174,7 +188,6 @@ export const OwnerView: React.FC = () => {
     }
   };
 
-  // 💡 修正の核心: 通信競合・順序破壊を防ぐため、純粋に画面の最新状態(selectedWines)をクリーンに一括コミットする形に完全一本化
   const handleSaveInventory = async () => {
     if (!sid) return;
     setIsSaving(true);
@@ -336,7 +349,6 @@ export const OwnerView: React.FC = () => {
         .map(w => ({ ...w, id: getWineDocId(w) }));
 
       await updateDoc(doc(db, 'stores', sid), { publicMenu: richPublicMenu, updatedAt: new Date().toISOString() });
-      
       fetch(`/api/menu/${sid}/invalidate`, { method: 'POST' }).catch(() => {});
       queryClient.invalidateQueries({ queryKey: ['publicMenu', sid] });
 
@@ -394,19 +406,8 @@ export const OwnerView: React.FC = () => {
       <header className="flex flex-col md:flex-row md:items-start justify-between gap-6">
         <div className="flex-1">
           <div className="flex flex-col md:flex-row md:items-center gap-3">
+            {/* 💡 修正の核心: 他店舗に飛べてしまうセレクトボックス（タブ）をオーナー画面から完全に駆逐。純粋な店名テキスト表示のみに固定。 */}
             <h1 className="serif text-3xl text-brand-gold-dark">{store?.name || '店舗情報不明'}</h1>
-            {(user?.role === 'admin' || user?.role === 'rep') && (
-              <select 
-                className="bg-brand-gold-dark/10 border border-brand-gold-dark/30 text-brand-gold-dark rounded-full px-4 py-1 text-xs font-bold uppercase tracking-widest outline-none"
-                value={sid || ''}
-                onChange={(e) => window.location.href = `/owner?storeId=${e.target.value}`}
-              >
-                <option value="" disabled>店舗を切り替え</option>
-                {stores.map(s => (
-                  <option key={s.id} value={s.id} className="bg-brand-wine text-brand-gold-dark font-sans">{s.name}</option>
-                ))}
-              </select>
-            )}
           </div>
           <p className="text-gray-400 text-xs uppercase tracking-widest font-bold mt-1">
             {store?.cuisine_type} • {store?.address}
