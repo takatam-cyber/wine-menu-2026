@@ -1,3 +1,4 @@
+// src/components/LoginView.tsx
 import React, { useState } from 'react';
 import { signInWithGoogle, auth } from '../lib/firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
@@ -16,25 +17,16 @@ export const LoginView: React.FC = () => {
     setIsLoading(true);
     setError('');
     
-    // Auto-append domain if ID is used
     const emailToUse = ownerId.includes('@') ? ownerId : `${ownerId}@pieroth-stores.app`;
 
     try {
+      // 1. サインイン実行
       const userCredential = await signInWithEmailAndPassword(auth, emailToUse, ownerPassword);
       
-      // Force sync claims immediately after login for smooth redirection
-      const idToken = await userCredential.user.getIdToken();
-      await fetch('/api/auth/sync-claims', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}` 
-        }
-      });
-      // Force token refresh to pick up new claims
+      // 2. クラウド側の最新クレームを強制リフレッシュしてフロントへ高速適用 (無駄なAPIフェッチは全廃)
       await userCredential.user.getIdToken(true);
       
-      // Note: App.tsx will pick up the user change and redirect automatically
+      // Note: WineContextのonAuthStateChangedがこれを検知して自動で画面遷移を行います
     } catch (err: any) {
       console.error('Login error:', err);
       setError('ログインに失敗しました。IDまたはパスワードを確認してください。');
@@ -46,17 +38,10 @@ export const LoginView: React.FC = () => {
     setIsLoading(true);
     setError('');
     try {
+      // 1. Googleサインイン実行
       const userCredential = await signInWithGoogle();
       
-      // Force sync claims immediately
-      const idToken = await userCredential.user.getIdToken();
-      await fetch('/api/auth/sync-claims', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}` 
-        }
-      });
+      // 2. クラウド側の最新クレームを強制リフレッシュして高速適用
       await userCredential.user.getIdToken(true);
     } catch (err: any) {
       console.error('Google login error:', err);
@@ -67,7 +52,6 @@ export const LoginView: React.FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-brand-wine overflow-hidden relative">
-      {/* Animated Background Elements */}
       <div className="absolute inset-0 opacity-10">
         <div className="absolute top-0 -left-10 w-96 h-96 bg-brand-gold rounded-full filter blur-[100px] animate-pulse" />
         <div className="absolute bottom-0 -right-10 w-96 h-96 bg-brand-gold rounded-full filter blur-[100px] animate-pulse delay-1000" />
@@ -102,12 +86,7 @@ export const LoginView: React.FC = () => {
 
         <AnimatePresence mode="wait">
           {loginMethod === 'google' ? (
-            <motion.div
-              key="google"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-            >
+            <motion.div key="google" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
               <button 
                 onClick={handleGoogleLogin}
                 disabled={isLoading}
@@ -116,19 +95,10 @@ export const LoginView: React.FC = () => {
                 {isLoading ? <Sparkles className="w-4 h-4 animate-spin" /> : 'Googleアカウントでログイン'}
                 <Sparkles className="w-4 h-4" />
               </button>
-              <p className="mt-4 text-xs text-gray-500 leading-tight text-center">
-                ※ 指定された管理ドメインのアカウントが必要です。
-              </p>
+              <p className="mt-4 text-xs text-gray-500 leading-tight text-center">※ 指定された管理ドメインのアカウントが必要です。</p>
             </motion.div>
           ) : (
-            <motion.form
-              key="id"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              onSubmit={handleOwnerLogin}
-              className="space-y-4"
-            >
+            <motion.form key="id" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} onSubmit={handleOwnerLogin} className="space-y-4">
               <div>
                 <label className="text-xs font-bold text-brand-gold/60 uppercase tracking-widest block mb-2">ログイン ID</label>
                 <div className="relative">
@@ -190,9 +160,7 @@ export const LoginView: React.FC = () => {
            </div>
         </div>
 
-        <div className="mt-8 text-xs text-gray-500 uppercase tracking-widest font-bold text-center">
-           Secure Single Sign-On • Sommelier Cloud
-        </div>
+        <div className="mt-8 text-xs text-gray-500 uppercase tracking-widest font-bold text-center">Secure Single Sign-On • Sommelier Cloud</div>
       </motion.div>
     </div>
   );
