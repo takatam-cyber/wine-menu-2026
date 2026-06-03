@@ -1,5 +1,5 @@
 // src/views/CustomerView.tsx
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { WineMaster } from '../types';
 import { useWines } from '../lib/WineContext';
@@ -54,13 +54,17 @@ export const CustomerView: React.FC = () => {
   
   const [activeCuisine, setActiveCuisine] = useState<string | null>(null);
   const [activeColor, setActiveColor] = useState<string | null>(null);
-  const [activeBudget, setActiveBudget] = useState<string | null>(null);
+  const [activeBudget, setactiveBudget] = useState<string | null>(null);
   const [activeGlassOnly, setActiveGlassOnly] = useState<boolean>(false); 
 
   const [step1Color, setStep1Color] = useState<string | null>(null);
   const [step2Style, setStep2Style] = useState<string | null>(null);
   const [step3Budget, setStep3Budget] = useState<number | null>(null);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
+
+  // 💡 パフォーマンス対策: 通常銘柄の遅延表示用件数State
+  const [visibleStandardCount, setVisibleStandardCount] = useState(15);
+  const loadMoreTriggerRef = useRef<HTMLDivElement | null>(null);
 
   const translations = {
     ja: {
@@ -274,11 +278,11 @@ export const CustomerView: React.FC = () => {
   }, [inventory]);
 
   const getDynamicStyles = (color: string) => {
-    const isEn = currentLang === 'en';
+    const iSeN = currentLang === 'en';
     if (color === '赤') return [t.fullBody, t.mediumBody, t.lightBody];
     if (color === '白' || color === 'オレンジ' || color === 'ロゼ') return [t.dry, t.mediumDry, t.sweet];
     if (color === '泡' || color === 'スパークリング' || color === 'ロゼスパークリング') {
-      return [isEn ? 'Brut (Dry)' : '辛口 (Brut)', isEn ? 'Extra Dry' : '中辛口', isEn ? 'Demi-Sec (Sweet)' : '甘口 (Demi-Sec)'];
+      return [iSeN ? 'Brut (Dry)' : '辛口 (Brut)', iSeN ? 'Extra Dry' : '中辛口', iSeN ? 'Demi-Sec (Sweet)' : '甘口 (Demi-Sec)'];
     }
     return [t.dry, t.sweet];
   };
@@ -321,7 +325,7 @@ export const CustomerView: React.FC = () => {
     if (!step1Color || winesForStep1.length === 0) return [];
     
     const styles = new Set<string>();
-    const isEn = currentLang === 'en';
+    const iSeN = currentLang === 'en';
 
     if (step1Color === '赤') {
       const hasFull = winesForStep1.some(w => w.body >= 4);
@@ -336,9 +340,9 @@ export const CustomerView: React.FC = () => {
       const hasSweet = winesForStep1.some(w => w.sweetness >= 4);
 
       if (step1Color === '泡' || step1Color === 'スパークリング' || step1Color === 'ロゼスパークリング') {
-        if (hasDry) styles.add(isEn ? 'Brut (Dry)' : '辛口 (Brut)');
-        if (hasMediumDry) styles.add(isEn ? 'Extra Dry' : '中辛口');
-        if (hasSweet) styles.add(isEn ? 'Demi-Sec (Sweet)' : '甘口 (Demi-Sec)');
+        if (hasDry) styles.add(iSeN ? 'Brut (Dry)' : '辛口 (Brut)');
+        if (hasMediumDry) styles.add(iSeN ? 'Extra Dry' : '中辛口');
+        if (hasSweet) styles.add(iSeN ? 'Demi-Sec (Sweet)' : '甘口 (Demi-Sec)');
       } else {
         if (hasDry) styles.add(t.dry);
         if (hasMediumDry) styles.add(t.mediumDry);
@@ -379,8 +383,9 @@ export const CustomerView: React.FC = () => {
     });
   }, [step2Style, winesForStep2, conciergeBudgets]);
 
-  const displayedInventory = useMemo(() => {
-    let filtered = inventory.filter((wine: WineMaster) => {
+  // フィルター・ソート済みの全インベントリを計算
+  const filteredInventory = useMemo(() => {
+    return inventory.filter((wine: WineMaster) => {
       if (wine.visible === false) return false;
 
       const matchesSearch = 
@@ -430,17 +435,20 @@ export const CustomerView: React.FC = () => {
 
       return matchesSearch && categoryMatches;
     });
+  }, [inventory, searchTerm, selectedCategory, activeColor, activeGlassOnly, activeCuisine, activeBudget, step1Color, step2Style, step3Budget, conciergeBudgets, t, budgetFilters, cuisineFilters]);
 
-    // 💡 defaultの場合は管理画面で設定した order 順に従う
-    if (sortBy === 'default') {
-      return filtered.sort((a: any, b: any) => (a.order || 0) - (b.order || 0));
-    }
+  // 分割されたおすすめと通常銘柄のデータフロー
+  const featuredInventory = useMemo(() => {
+    const list = filteredInventory.filter(w => w.isFeatured);
+    return sortBy === 'default' ? list.sort((a: any, b: any) => (a.order || 0) - (b.order || 0)) : list;
+  }, [filteredInventory, sortBy]);
 
-    return filtered.sort((a, b) => {
+  const standardInventory = useMemo(() => {
+    const list = filteredInventory.filter(w => !w.isFeatured);
+    if (sortBy === 'default') return list.sort((a: any, b: any) => (a.order || 0) - (b.order || 0));
+    return list.sort((a, b) => {
       if (sortBy === 'priceAsc') return (a.price_bottle || 0) - (b.price_bottle || 0);
       if (sortBy === 'priceDesc') return (b.price_bottle || 0) - (a.price_bottle || 0);
-      if (sortBy === 'popular') return (b.isFeatured ? 1 : 0) - (a.isFeatured ? 1 : 0);
-      
       if (sortBy === 'type') {
         const getColorWeight = (color: string) => {
           const c = String(color || '').toLowerCase();
@@ -451,16 +459,39 @@ export const CustomerView: React.FC = () => {
           if (c.includes('オレンジ') || c.includes('orange')) return 5;
           return 99;
         };
-        const weightA = getColorWeight(a.color || '');
-        const weightB = getColorWeight(b.color || '');
-        if (weightA !== weightB) return weightA - weightB;
-        return (b.isFeatured ? 1 : 0) - (a.isFeatured ? 1 : 0);
+        return getColorWeight(a.color || '') - getColorWeight(b.color || '');
       }
       return 0;
     });
-  }, [inventory, searchTerm, selectedCategory, sortBy, activeColor, activeGlassOnly, activeCuisine, activeBudget, step1Color, step2Style, step3Budget, conciergeBudgets, t, cuisineFilters]);
+  }, [filteredInventory, sortBy]);
 
-  const hasNoResults = displayedInventory.length === 0;
+  // 💡 パフォーマンス対策: 検索条件やソートが変わったらスクロール件数を15件にリセット
+  useEffect(() => {
+    setVisibleStandardCount(15);
+  }, [searchTerm, selectedCategory, sortBy, activeColor, activeGlassOnly, activeCuisine, activeBudget, step1Color, step2Style, step3Budget]);
+
+  // 💡 パフォーマンス対策: 画面最下部到達時に15件ずつ段階描画を拡張するIntersectionObserver
+  useEffect(() => {
+    if (!loadMoreTriggerRef.current) return;
+
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) {
+        setVisibleStandardCount(prev => Math.min(prev + 15, standardInventory.length));
+      }
+    }, {
+      rootMargin: '300px' // ユーザーが到達する300px手前でフリクションなく先読み
+    });
+
+    observer.observe(loadMoreTriggerRef.current);
+    return () => observer.disconnect();
+  }, [standardInventory.length]);
+
+  // スライスされた実レンダリング用配列
+  const displayedStandardWines = useMemo(() => {
+    return standardInventory.slice(0, visibleStandardCount);
+  }, [standardInventory, visibleStandardCount]);
+
+  const hasNoResults = filteredInventory.length === 0;
 
   const SkeletonItem = () => (
     <div className="flex gap-5 p-4 rounded-[2rem] border border-brand-wine/5 animate-in fade-in duration-700">
@@ -513,12 +544,7 @@ export const CustomerView: React.FC = () => {
           <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-brand-gold/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
         </div>
 
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1.2, ease: "easeOut" }}
-          className="relative z-10"
-        >
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1.2, ease: "easeOut" }} className="relative z-10">
           <motion.div animate={{ scale: [1, 1.05, 1] }} transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }} className="mb-12 relative inline-block">
             <div className="absolute inset-0 bg-brand-gold/20 blur-2xl rounded-full scale-150 opacity-30" />
             <Wine className="w-20 h-20 text-brand-gold/40 relative z-10" strokeWidth={0.5} />
@@ -529,9 +555,7 @@ export const CustomerView: React.FC = () => {
 
           <div className="space-y-8">
             <div>
-              <h2 className="text-3xl md:text-4xl text-brand-gold-dark mb-2 tracking-[0.25em] font-black uppercase leading-snug">
-                {t.preparingTitle}
-              </h2>
+              <h2 className="text-3xl md:text-4xl text-brand-gold-dark mb-2 tracking-[0.25em] font-black uppercase leading-snug">{t.preparingTitle}</h2>
               <div className="flex items-center justify-center gap-4">
                 <div className="h-px w-8 bg-brand-gold/30" />
                 <span className="opacity-60 text-xs tracking-[0.3em] uppercase" style={{ fontFamily: HIRAGINO_GOTHIC }}>{t.preparingSubtitle}</span>
@@ -540,29 +564,17 @@ export const CustomerView: React.FC = () => {
             </div>
             
             <div className="space-y-4" style={{ fontFamily: HIRAGINO_GOTHIC }}>
-              <p className="text-xs text-brand-ivory/80 leading-relaxed max-w-[320px] mx-auto font-bold tracking-[0.15em] uppercase">
-                {t.preparingDesc1}
-              </p>
-              <p className="text-xs text-brand-gold/60 leading-relaxed max-w-[280px] mx-auto tracking-[0.1em]">
-                {t.preparingDesc2}
-              </p>
+              <p className="text-xs text-brand-ivory/80 leading-relaxed max-w-[320px] mx-auto font-bold tracking-[0.15em] uppercase">{t.preparingDesc1}</p>
+              <p className="text-xs text-brand-gold/60 leading-relaxed max-w-[280px] mx-auto tracking-[0.1em]">{t.preparingDesc2}</p>
             </div>
-
-            <div className="text-xs text-brand-gold/30 tracking-[0.4em] uppercase font-bold pt-4" style={{ fontFamily: HIRAGINO_GOTHIC }}>
-              {t.preparingTime}
-            </div>
+            <div className="text-xs text-brand-gold/30 tracking-[0.4em] uppercase font-bold pt-4" style={{ fontFamily: HIRAGINO_GOTHIC }}>{t.preparingTime}</div>
           </div>
 
           <div className="mt-20 flex flex-col gap-5 items-center" style={{ fontFamily: HIRAGINO_GOTHIC }}>
-             <button onClick={() => fetchStoreData()} className="px-14 py-4 bg-transparent border border-brand-gold/30 text-brand-gold-dark text-xs uppercase tracking-[0.4em] rounded-full hover:bg-brand-gold/10 hover:border-brand-gold/60 active:scale-95 transition-all font-bold backdrop-blur-md shadow-lg">
-                {t.refreshList}
-              </button>
-              
+             <button onClick={() => fetchStoreData()} className="px-14 py-4 bg-transparent border border-brand-gold/30 text-brand-gold-dark text-xs uppercase tracking-[0.4em] rounded-full hover:bg-brand-gold/10 hover:border-brand-gold/60 active:scale-95 transition-all font-bold backdrop-blur-md shadow-lg">{t.refreshList}</button>
               <div className="flex items-center gap-3 opacity-30">
                 <div className="w-1 h-1 rounded-full bg-brand-gold" />
-                <p className="text-xs text-brand-gold-dark uppercase tracking-[0.5em] font-mono">
-                  {store.name}
-                </p>
+                <p className="text-xs text-brand-gold-dark uppercase tracking-[0.5em] font-mono">{store.name}</p>
                 <div className="w-1 h-1 rounded-full bg-brand-gold" />
               </div>
           </div>
@@ -593,9 +605,7 @@ export const CustomerView: React.FC = () => {
             )}
           </div>
           <div className="flex-none text-center flex items-center gap-4">
-            <h1 className="text-brand-gold-dark font-extrabold text-xl md:text-2xl tracking-[0.3em] uppercase leading-tight" style={{ fontFamily: HIRAGINO_MINCHO }}>
-              {store.name}
-            </h1>
+            <h1 className="text-brand-gold-dark font-extrabold text-xl md:text-2xl tracking-[0.3em] uppercase leading-tight" style={{ fontFamily: HIRAGINO_MINCHO }}>{store.name}</h1>
             <div className="flex items-center gap-2">
               <div className="flex items-center bg-white/5 rounded-full p-1 border border-brand-gold/20 shadow-inner">
                 <button onClick={() => setCurrentLang('ja')} className={`px-3 py-1 rounded-full text-xs font-black transition-all ${currentLang === 'ja' ? 'bg-brand-gold-dark text-white' : 'text-brand-gold/40 hover:text-brand-gold/70'}`}>JP</button>
@@ -610,12 +620,11 @@ export const CustomerView: React.FC = () => {
       <div className="flex flex-col pt-16">
         <div className={`sticky top-[64px] z-[90] transition-all duration-500 border-b ${isScrolled ? 'bg-brand-ivory/95 backdrop-blur-md border-brand-gold/20 shadow-[0_4px_25px_rgba(0,0,0,0.1)]' : 'bg-brand-ivory border-brand-gold/10'}`}>
           <div className="flex overflow-x-auto no-scrollbar py-3.5 px-4 gap-2.5 items-center">
-            
             <button 
               onClick={() => {
                 setActiveColor(null);
                 setActiveCuisine(null);
-                setActiveBudget(null);
+                setactiveBudget(null);
                 setStep1Color(null);
                 setStep2Style(null);
                 setStep3Budget(null);
@@ -630,7 +639,6 @@ export const CustomerView: React.FC = () => {
             >
               {t.clear}
             </button>
-            
             <div className="w-px h-5 shrink-0 bg-brand-gold/20" />
             
             {activeColors.map(color => {
@@ -641,16 +649,11 @@ export const CustomerView: React.FC = () => {
                 color === 'オレンジ' ? t.orange : 
                 color === 'ロゼスパークリング' ? t.roseSparkling : 
                 (color === '泡' || color === 'スパークリング' ? t.sparkling : color);
-              
               return (
                 <button
                   key={color}
                   onClick={() => setActiveColor(activeColor === color ? null : color)}
-                  className={`px-4 py-2 rounded-full text-sm font-bold tracking-wider transition-all whitespace-nowrap border ${
-                    activeColor === color 
-                      ? 'bg-brand-gold-dark text-white border-brand-gold' 
-                      : 'bg-white border-brand-gold/20 text-brand-gold-dark'
-                  }`}
+                  className={`px-4 py-2 rounded-full text-sm font-bold tracking-wider transition-all whitespace-nowrap border ${activeColor === color ? 'bg-brand-gold-dark text-white border-brand-gold' : 'bg-white border-brand-gold/20 text-brand-gold-dark'}`}
                 >
                   {label}
                 </button>
@@ -660,11 +663,7 @@ export const CustomerView: React.FC = () => {
             {hasGlassWines && (
               <button
                 onClick={() => setActiveGlassOnly(!activeGlassOnly)}
-                className={`px-4 py-2 rounded-full text-sm font-bold tracking-wider transition-all whitespace-nowrap border ${
-                  activeGlassOnly 
-                    ? 'bg-brand-gold-dark text-white border-brand-gold shadow-inner' 
-                    : 'bg-white border-brand-gold/20 text-brand-gold-dark'
-                }`}
+                className={`px-4 py-2 rounded-full text-sm font-bold tracking-wider transition-all whitespace-nowrap border ${activeGlassOnly ? 'bg-brand-gold-dark text-white border-brand-gold shadow-inner' : 'bg-white border-brand-gold/20 text-brand-gold-dark'}`}
               >
                 {t.glassWine}
               </button>
@@ -676,11 +675,7 @@ export const CustomerView: React.FC = () => {
               <button
                 key={c.id}
                 onClick={() => setActiveCuisine(activeCuisine === c.id ? null : c.id)}
-                className={`px-4 py-2 rounded-full text-sm font-bold tracking-wider transition-all whitespace-nowrap border ${
-                  activeCuisine === c.id 
-                    ? 'bg-brand-gold-dark text-white border-brand-gold-dark' 
-                    : 'bg-white border-brand-gold/20 text-brand-gold-dark'
-                }`}
+                className={`px-4 py-2 rounded-full text-sm font-bold tracking-wider transition-all whitespace-nowrap border ${activeCuisine === c.id ? 'bg-brand-gold-dark text-white border-brand-gold-dark' : 'bg-white border-brand-gold/20 text-brand-gold-dark'}`}
               >
                 {c.label}
               </button>
@@ -691,12 +686,8 @@ export const CustomerView: React.FC = () => {
             {budgetFilters.map(b => (
               <button
                 key={b.id}
-                onClick={() => setActiveBudget(activeBudget === b.id ? null : b.id)}
-                className={`px-4 py-2 rounded-full text-sm font-bold tracking-wider transition-all whitespace-nowrap border ${
-                  activeBudget === b.id 
-                    ? 'bg-brand-gold-dark text-white border-brand-gold-dark'
-                    : 'bg-white border-brand-gold/20 text-brand-gold-dark'
-                }`}
+                onClick={() => setactiveBudget(activeBudget === b.id ? null : b.id)}
+                className={`px-4 py-2 rounded-full text-sm font-bold tracking-wider transition-all whitespace-nowrap border ${activeBudget === b.id ? 'bg-brand-gold-dark text-white border-brand-gold-dark' : 'bg-white border-brand-gold/20 text-brand-gold-dark'}`}
               >
                 {b.label}
               </button>
@@ -731,23 +722,15 @@ export const CustomerView: React.FC = () => {
             <div className="space-y-10">
               
               {hasNoResults && (
-                <motion.div 
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="mx-4 p-6 bg-brand-wine/5 border border-brand-gold/20 rounded-[2rem] text-center"
-                >
-                  <p className="text-base text-brand-wine font-bold leading-relaxed mb-1" style={{ fontFamily: HIRAGINO_MINCHO }}>
-                    {t.noResultsTitle}
-                  </p>
-                  <p className="text-sm text-brand-gold-dark font-bold uppercase tracking-widest opacity-60">
-                    {t.noResultsSubtitle}
-                  </p>
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mx-4 p-6 bg-brand-wine/5 border border-brand-gold/20 rounded-[2rem] text-center">
+                  <p className="text-base text-brand-wine font-bold leading-relaxed mb-1" style={{ fontFamily: HIRAGINO_MINCHO }}>{t.noResultsTitle}</p>
+                  <p className="text-sm text-brand-gold-dark font-bold uppercase tracking-widest opacity-60">{t.noResultsSubtitle}</p>
                 </motion.div>
               )}
               
               <div className="grid gap-8">
-                
-                {displayedInventory.some(w => w.isFeatured) && (
+                {/* ================= おすすめセクション ================= */}
+                {featuredInventory.length > 0 && (
                   <div className="space-y-6">
                     <div className="flex items-center gap-3 px-2">
                       <Sparkles className="w-5 h-5 text-brand-gold-dark" />
@@ -757,7 +740,7 @@ export const CustomerView: React.FC = () => {
                     
                     <div className="grid gap-8">
                       <AnimatePresence>
-                        {displayedInventory.filter(w => w.isFeatured).map(wine => (
+                        {featuredInventory.map(wine => (
                           <motion.div
                             key={wine.id}
                             id={`wine-${wine.id}`}
@@ -766,15 +749,12 @@ export const CustomerView: React.FC = () => {
                             whileTap={{ scale: 0.96 }}
                             onClick={() => setSelectedWine(wine)}
                             className="group cursor-pointer relative p-1 rounded-[3rem] overflow-hidden"
+                            // 💡 パフォーマンス対策: 画面外カードのレンダリング計算をスキップ
+                            style={{ contentVisibility: 'auto', containIntrinsicSize: '0 240px' } as React.CSSProperties}
                           >
                             <div className="absolute inset-0 bg-gradient-to-br from-brand-gold via-white to-brand-gold opacity-30 animate-pulse" />
                             <div className="absolute inset-[1px] bg-brand-ivory rounded-[3rem] z-0 overflow-hidden">
-                               <motion.div 
-                                 initial={{ x: "-100%" }}
-                                 animate={{ x: "200%" }}
-                                 transition={{ duration: 3, repeat: Infinity, ease: "linear", repeatDelay: 5 }}
-                                 className="absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-brand-gold/10 to-transparent skew-x-12 z-0"
-                               />
+                               <motion.div info-flow="shimmer" initial={{ x: "-100%" }} animate={{ x: "200%" }} transition={{ duration: 3, repeat: Infinity, ease: "linear", repeatDelay: 5 }} className="absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-brand-gold/10 to-transparent skew-x-12 z-0" />
                             </div>
                             
                             <div className="relative z-10 flex gap-5 p-6 rounded-[3rem] bg-brand-gold/[0.04] shadow-[0_20px_50px_rgba(212,175,55,0.25)] border border-brand-gold/30">
@@ -782,7 +762,7 @@ export const CustomerView: React.FC = () => {
                               
                               <div className="w-32 h-40 bg-white flex items-center justify-center p-4 rounded-[2rem] relative border border-brand-gold/20 shadow-xl group-hover:border-brand-gold/50 transition-all overflow-hidden shrink-0">
                                 <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]" />
-                                {wine.image_url && <img src={getProxyUrl(wine.image_url)} alt="" loading="lazy" className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-1000 ease-out drop-shadow-2xl" />}
+                                {wine.image_url && <img src={getProxyUrl(wine.image_url)} alt="" loading="lazy" decoding="async" className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-1000 ease-out drop-shadow-2xl" />}
                                 <div className="absolute top-2 left-2 flex flex-col gap-1">
                                     {(currentLang === 'ja' ? wine.pairing : (wine.pairing_en || wine.pairing))?.includes('肉') && <div className="p-1.5 bg-brand-wine/10 rounded-full text-brand-wine"><Beef className="w-3 h-3" /></div>}
                                     {(currentLang === 'ja' ? wine.pairing : (wine.pairing_en || wine.pairing))?.includes('魚') && <div className="p-1.5 bg-brand-wine/10 rounded-full text-brand-wine"><Fish className="w-3 h-3" /></div>}
@@ -792,8 +772,7 @@ export const CustomerView: React.FC = () => {
                               <div className="flex-1 flex flex-col justify-center gap-1.5 min-w-0">
                                 <div className="flex flex-wrap items-center gap-2 mb-1">
                                   <div className="px-2 py-1 bg-brand-wine text-brand-gold-dark text-xs font-bold rounded-full uppercase tracking-widest shrink-0 shadow-sm flex items-center gap-1">
-                                    <ChefHat className="w-2.5 h-2.5" />
-                                    {t.speciality}
+                                    <ChefHat className="w-2.5 h-2.5" />{t.speciality}
                                   </div>
                                   {wine.color && (
                                     <div className={`px-2 py-1 text-xs font-bold rounded-full uppercase tracking-widest shrink-0 ${
@@ -801,8 +780,7 @@ export const CustomerView: React.FC = () => {
                                       wine.color === '白' ? 'bg-brand-gold-dark text-white' : 
                                       wine.color === '泡' || wine.color === 'スパークリング' ? 'bg-[#717D7E] text-white' : 
                                       wine.color === 'ロゼ' || wine.color === 'ロゼスパークリング' ? 'bg-rose-400 text-white' :
-                                      wine.color === 'オレンジ' ? 'bg-orange-400 text-white' :
-                                      'bg-slate-500 text-white'
+                                      wine.color === 'オレンジ' ? 'bg-orange-400 text-white' : 'bg-slate-500 text-white'
                                     }`}>
                                       {currentLang === 'ja' 
                                         ? (wine.color === '泡' || wine.color === 'スパークリング' ? t.sparkling : wine.color === 'オレンジ' ? t.orange : wine.color === 'ロゼスパークリング' ? t.roseSparkling : wine.color === 'ロゼ' ? t.rose : wine.color) 
@@ -830,16 +808,14 @@ export const CustomerView: React.FC = () => {
                                 
                                 <div className="flex flex-wrap gap-1.5 mt-2">
                                   <div className="flex items-center gap-1 px-2.5 py-1 bg-slate-100 rounded-lg text-sm text-slate-600 font-medium">
-                                    <MapPin className="w-3.5 h-3.5" />
-                                    {currentLang === 'ja' ? `${wine.country} / ${wine.region}` : `${wine.country_en || wine.country} / ${wine.region_en || wine.region}`}
+                                    <MapPin className="w-3.5 h-3.5" />{currentLang === 'ja' ? `${wine.country} / ${wine.region}` : `${wine.country_en || wine.country} / ${wine.region_en || wine.region}`}
                                   </div>
                                   <div className="flex items-center gap-1 px-2.5 py-1 bg-brand-wine/10 rounded-lg text-sm text-brand-wine font-bold">
                                     {t.majorGrape}: <span style={{ fontFamily: HIRAGINO_MINCHO }}>{currentLang === 'ja' ? wine.grape : (wine.grape_en || wine.grape)}</span>
                                   </div>
                                   {(currentLang === 'ja' ? wine.tags : (wine.tags_en || wine.tags))?.split('、').map(tag => (
                                     <div key={tag} className="px-2.5 py-1 bg-brand-wine/5 rounded-lg text-xs md:text-sm text-brand-wine/70 font-medium tracking-wider flex items-center gap-1">
-                                      <Tag className="w-3 h-3" />
-                                      {tag.trim()}
+                                      <Tag className="w-3 h-3" />{tag.trim()}
                                     </div>
                                   ))}
                                 </div>
@@ -867,19 +843,19 @@ export const CustomerView: React.FC = () => {
                         ))}
                       </AnimatePresence>
                     </div>
-                    
                     <div className="h-px bg-brand-gold/10 mx-10" />
                   </div>
                 )}
 
-                {displayedInventory.some(w => !w.isFeatured) && (
+                {/* ================= 通常銘柄セクション (段階描画) ================= */}
+                {standardInventory.length > 0 && (
                   <div className="space-y-6">
                     <div className="px-2 pb-2">
                        <h3 className="text-base text-brand-wine/50 uppercase tracking-[0.3em] font-bold" style={{ fontFamily: HIRAGINO_MINCHO }}>{t.standardSelection}</h3>
                     </div>
                     <div className="grid gap-6">
                       <AnimatePresence>
-                        {displayedInventory.filter(w => !w.isFeatured).map(wine => (
+                        {displayedStandardWines.map(wine => (
                           <motion.div
                             key={wine.id}
                             id={`wine-${wine.id}`}
@@ -893,9 +869,11 @@ export const CustomerView: React.FC = () => {
                             transition={highlightedId === wine.id ? { duration: 0.8 } : {}}
                             onClick={() => setSelectedWine(wine)}
                             className="group cursor-pointer flex gap-5 border border-transparent border-b-brand-wine/5 p-4 hover:bg-brand-gold/[0.02] transition-all duration-300 relative overflow-hidden"
+                            // 💡 パフォーマンス対策: 画面外カードのレンダリング計算をスキップ
+                            style={{ contentVisibility: 'auto', containIntrinsicSize: '0 160px' } as React.CSSProperties}
                           >
                             <div className="w-24 h-28 bg-white/50 backdrop-blur-sm flex items-center justify-center p-3 rounded-2xl relative border border-brand-gold/10 shadow-sm group-hover:border-brand-gold/30 transition-all shrink-0">
-                              {wine.image_url && <img src={getProxyUrl(wine.image_url)} alt="" loading="lazy" className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-700" />}
+                              {wine.image_url && <img src={getProxyUrl(wine.image_url)} alt="" loading="lazy" decoding="async" className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-700" />}
                             </div>
                             
                             <div className="flex-1 flex flex-col justify-center gap-1 min-w-0">
@@ -905,8 +883,7 @@ export const CustomerView: React.FC = () => {
                                   wine.color === '白' ? 'bg-brand-gold-dark text-white' : 
                                   wine.color === '泡' || wine.color === 'スパークリング' ? 'bg-[#717D7E] text-white' : 
                                   wine.color === 'ロゼ' || wine.color === 'ロゼスパークリング' ? 'bg-rose-400 text-white' :
-                                  wine.color === 'オレンジ' ? 'bg-orange-400 text-white' :
-                                  'bg-slate-500 text-white'
+                                  wine.color === 'オレンジ' ? 'bg-orange-400 text-white' : 'bg-slate-500 text-white'
                                 }`}>
                                   {currentLang === 'ja' 
                                     ? (wine.color === '泡' || wine.color === 'スパークリング' ? t.sparkling : wine.color === 'オレンジ' ? t.orange : wine.color === 'ロゼスパークリング' ? t.roseSparkling : wine.color === 'ロゼ' ? t.rose : wine.color)
@@ -936,14 +913,10 @@ export const CustomerView: React.FC = () => {
                               <div className="flex flex-wrap gap-1 mt-1.5">
                                 <div className="flex items-center gap-1 text-sm text-slate-500 font-medium">
                                   <MapPin className="w-2.5 h-2.5" />
-                                  {currentLang === 'ja' 
-                                    ? `${wine.country} / ${wine.region}` 
-                                    : `${wine.country_en || wine.country} / ${wine.region_en || wine.region}`} / <span className="text-brand-wine font-bold">{t.majorGrape}: <span style={{ fontFamily: HIRAGINO_MINCHO }}>{currentLang === 'ja' ? wine.grape : (wine.grape_en || wine.grape)}</span></span>
+                                  {currentLang === 'ja' ? `${wine.country} / ${wine.region}` : `${wine.country_en || wine.country} / ${wine.region_en || wine.region}`} / <span className="text-brand-wine font-bold">{t.majorGrape}: <span style={{ fontFamily: HIRAGINO_MINCHO }}>{currentLang === 'ja' ? wine.grape : (wine.grape_en || wine.grape)}</span></span>
                                 </div>
                                 {(currentLang === 'ja' ? wine.tags : (wine.tags_en || wine.tags))?.split('、').map(tag => (
-                                  <div key={tag} className="px-1.5 py-0.5 bg-brand-wine/5 rounded text-xs text-brand-wine/40 font-medium tracking-wider">
-                                    #{tag.trim()}
-                                  </div>
+                                  <div key={tag} className="px-1.5 py-0.5 bg-brand-wine/5 rounded text-xs text-brand-wine/40 font-medium tracking-wider">#{tag.trim()}</div>
                                 ))}
                               </div>
 
@@ -967,6 +940,11 @@ export const CustomerView: React.FC = () => {
                         ))}
                       </AnimatePresence>
                     </div>
+
+                    {/* 💡 パフォーマンス対策: 段階描画拡張用インビジブル・トリガー要素 */}
+                    {visibleStandardCount < standardInventory.length && (
+                      <div ref={loadMoreTriggerRef} className="h-12 w-full flex items-center justify-center opacity-0 pointer-events-none" />
+                    )}
                   </div>
                 )}
               </div>
@@ -985,9 +963,7 @@ export const CustomerView: React.FC = () => {
             className="fixed bottom-24 right-6 z-[110] flex items-center bg-brand-gold-dark text-brand-ivory p-1.5 rounded-full shadow-[0_10px_40px_rgba(184,134,11,0.5)] border border-brand-gold/30 hover:scale-105 active:scale-95 transition-all group overflow-hidden"
           >
             <div className="flex items-center gap-0 group-hover:gap-2 transition-all px-2">
-              <span className="text-sm font-bold tracking-tighter whitespace-nowrap overflow-hidden max-w-0 group-hover:max-w-[120px] transition-all duration-500">
-                {t.concierge}
-              </span>
+              <span className="text-sm font-bold tracking-tighter whitespace-nowrap overflow-hidden max-w-0 group-hover:max-w-[120px] transition-all duration-500">{t.concierge}</span>
               <div className="w-10 h-10 rounded-full bg-brand-ivory text-brand-gold-dark flex items-center justify-center shadow-inner shrink-0 scale-100 group-hover:scale-90 transition-transform">
                 <Sparkles className="w-5 h-5" />
               </div>
@@ -1014,17 +990,13 @@ export const CustomerView: React.FC = () => {
                   <ChefHat className="w-6 h-6 text-brand-gold-dark" />
                   <h3 className="text-xl text-brand-wine font-extrabold tracking-widest uppercase" style={{ fontFamily: HIRAGINO_MINCHO }}>{t.concierge}</h3>
                 </div>
-                <button 
-                  onClick={() => setIsConciergeOpen(false)}
-                  className="w-8 h-8 rounded-full bg-brand-gold/10 flex items-center justify-center text-brand-gold-dark"
-                >{t.close}</button>
+                <button onClick={() => setIsConciergeOpen(false)} className="w-8 h-8 rounded-full bg-brand-gold/10 flex items-center justify-center text-brand-gold-dark">{t.close}</button>
               </div>
 
               <div className="space-y-10">
                 <div className="space-y-4">
                   <p className="text-sm text-brand-gold-dark font-bold uppercase tracking-[0.2em] flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold-dark flex items-center justify-center text-xs font-bold shadow-inner">1</span>
-                    {t.conciergeStep1}
+                    <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold-dark flex items-center justify-center text-xs font-bold shadow-inner">1</span>{t.conciergeStep1}
                   </p>
                   <div className="flex flex-wrap gap-2">
                       {activeColors.map(color => {
@@ -1035,7 +1007,6 @@ export const CustomerView: React.FC = () => {
                           color === 'オレンジ' ? t.orange : 
                           color === 'ロゼスパークリング' ? t.roseSparkling : 
                           (color === '泡' || color === 'スパークリング' ? t.sparkling : color);
-
                         return (
                           <button
                             key={color}
@@ -1044,11 +1015,7 @@ export const CustomerView: React.FC = () => {
                               setStep2Style(null);
                               setStep3Budget(null);
                             }}
-                            className={`px-8 py-3 rounded-full text-sm font-bold transition-all border ${
-                              step1Color === color 
-                                ? 'bg-brand-wine text-brand-gold-dark border-brand-gold shadow-lg font-bold' 
-                                : 'bg-white border-brand-gold/10 text-brand-wine/60'
-                            }`}
+                            className={`px-8 py-3 rounded-full text-sm font-bold transition-all border ${step1Color === color ? 'bg-brand-wine text-brand-gold-dark border-brand-gold shadow-lg font-bold' : 'bg-white border-brand-gold/10 text-brand-wine/60'}`}
                           >
                             {label}
                           </button>
@@ -1058,15 +1025,11 @@ export const CustomerView: React.FC = () => {
                 </div>
 
                 {step1Color && activeStylesForStep2.length > 0 && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                    className="space-y-4 pt-6 border-t border-brand-gold/10"
-                  >
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4 pt-6 border-t border-brand-gold/10">
                     <p className="text-sm text-brand-gold-dark font-bold uppercase tracking-[0.2em] flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold-dark flex items-center justify-center text-xs font-bold shadow-inner">2</span>
-                      {t.conciergeStep2}
+                      <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold-dark flex items-center justify-center text-xs font-bold shadow-inner">2</span>{t.conciergeStep2}
                     </p>
-                  <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2">
                       {activeStylesForStep2.map(style => {
                         return (
                           <button
@@ -1086,24 +1049,16 @@ export const CustomerView: React.FC = () => {
                 )}
 
                 {step2Style && activeBudgetsForStep3.length > 0 && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                    className="space-y-4 pt-6 border-t border-brand-gold/10"
-                  >
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4 pt-6 border-t border-brand-gold/10">
                     <p className="text-sm text-brand-gold-dark font-bold uppercase tracking-[0.2em] flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold-dark flex items-center justify-center text-xs font-bold shadow-inner">3</span>
-                      {t.conciergeStep3}
+                      <span className="w-5 h-5 rounded-full bg-brand-wine text-brand-gold-dark flex items-center justify-center text-xs font-bold shadow-inner">3</span>{t.conciergeStep3}
                     </p>
                     <div className="grid grid-cols-2 gap-2">
                       {activeBudgetsForStep3.map(budget => (
                         <button
                           key={budget.id}
                           onClick={() => setStep3Budget(budget.id)}
-                          className={`px-4 py-3 rounded-2xl text-xs font-bold transition-all border ${
-                            step3Budget === budget.id 
-                              ? 'bg-brand-wine text-brand-gold-dark border-brand-gold shadow-md' 
-                              : 'bg-white border-brand-gold/10 text-brand-wine/50'
-                          }`}
+                          className={`px-4 py-3 rounded-2xl text-xs font-bold transition-all border ${step3Budget === budget.id ? 'bg-brand-wine text-brand-gold-dark border-brand-gold shadow-md' : 'bg-white border-brand-gold/10 text-brand-wine/50'}`}
                         >
                           {budget.label}
                         </button>
@@ -1119,10 +1074,7 @@ export const CustomerView: React.FC = () => {
                       setTimeout(() => {
                         const resultsElement = document.getElementById('wine-list-results');
                         if (resultsElement) {
-                          resultsElement.scrollIntoView({ 
-                            behavior: 'smooth', 
-                            block: 'start' 
-                          });
+                          resultsElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
                         }
                       }, 400);
                     }}
@@ -1139,9 +1091,7 @@ export const CustomerView: React.FC = () => {
 
       <div className="fixed bottom-6 inset-x-6 z-40 flex justify-center pointer-events-none">
         <div className="bg-black/90 backdrop-blur-xl border border-brand-gold/30 px-8 py-3 rounded-full shadow-2xl animate-in slide-in-from-bottom duration-1000 pointer-events-auto">
-          <p className="text-sm md:text-base text-brand-gold-dark font-bold uppercase tracking-[0.1em] text-center">
-            {t.footerWarning}
-          </p>
+          <p className="text-sm md:text-base text-brand-gold-dark font-bold uppercase tracking-[0.1em] text-center">{t.footerWarning}</p>
         </div>
       </div>
 
@@ -1151,22 +1101,12 @@ export const CustomerView: React.FC = () => {
             initial={{ y: "100%", opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: "100%", opacity: 0 }}
-            transition={{ 
-              type: "spring", 
-              damping: 32, 
-              stiffness: 280,
-              mass: 1.2
-            }}
+            transition={{ type: "spring", damping: 32, stiffness: 280, mass: 1.2 }}
             className="fixed inset-0 z-[130] bg-black/98 backdrop-blur-3xl overflow-hidden flex flex-col h-[100dvh] md:h-auto md:bottom-0 md:top-12 md:rounded-t-[2.5rem] border-t border-brand-gold/30 shadow-[0_-20px_500px_rgba(0,0,0,1)]"
           >
             <div className="sticky top-0 z-[140] bg-black/95 backdrop-blur-md p-8 pb-4 flex justify-between items-center border-b border-white/5">
-              <span className="text-sm text-gray-400 font-bold uppercase tracking-[0.2em] opacity-60">
-                {t.vintage} {effectiveWine?.vintage || selectedWine?.vintage}
-              </span>
-              <button 
-                onClick={() => setSelectedWine(null)} 
-                className="w-10 h-10 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-brand-gold-dark text-xl hover:bg-white/20 transition-all font-light"
-              >✕</button>
+              <span className="text-sm text-gray-400 font-bold uppercase tracking-[0.2em] opacity-60">{t.vintage} {effectiveWine?.vintage || selectedWine?.vintage}</span>
+              <button onClick={() => setSelectedWine(null)} className="w-10 h-10 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-brand-gold-dark text-xl hover:bg-white/20 transition-all font-light">✕</button>
             </div>
             
             <div className="flex-1 overflow-y-auto overscroll-behavior-contain px-6 md:px-8 pb-10 space-y-10 custom-scrollbar scroll-smooth">
@@ -1179,9 +1119,7 @@ export const CustomerView: React.FC = () => {
                   {currentLang === 'ja' ? selectedWine?.name_jp : (selectedWine?.name_en || selectedWine?.name_jp)}
                 </h2>
                 {currentLang === 'ja' && selectedWine?.name_en && (
-                  <p className="text-sm md:text-base text-gray-400 tracking-[0.2em] uppercase font-bold mb-2">
-                    {selectedWine.name_en}
-                  </p>
+                  <p className="text-sm md:text-base text-gray-400 tracking-[0.2em] uppercase font-bold mb-2">{selectedWine.name_en}</p>
                 )}
                 <p className="text-sm md:text-base text-brand-gold-dark font-bold uppercase tracking-widest border-t border-brand-gold/20 pt-2 inline-block">
                   {t.majorGrape}: <span style={{ fontFamily: HIRAGINO_MINCHO }}>{currentLang === 'ja' ? selectedWine?.grape : (selectedWine?.grape_en || selectedWine?.grape)}</span>
@@ -1206,11 +1144,7 @@ export const CustomerView: React.FC = () => {
                   <div className="bg-brand-gold/5 p-6 pt-10 rounded-2xl border border-brand-gold/10 shadow-inner min-h-[200px] flex flex-col justify-center">
                     {isDetailLoading ? (
                       <div className="flex flex-col items-center justify-center p-12 gap-4">
-                        <motion.div
-                          animate={{ rotate: 360 }}
-                          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                          className="w-12 h-12 border-2 border-brand-gold/20 border-t-brand-gold rounded-full"
-                        />
+                        <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }} className="w-12 h-12 border-2 border-brand-gold/20 border-t-brand-gold rounded-full" />
                         <p className="text-xs text-brand-gold-dark/40 font-bold uppercase tracking-[0.2em] animate-pulse">Fetching sommelier notes...</p>
                       </div>
                     ) : (
@@ -1224,17 +1158,13 @@ export const CustomerView: React.FC = () => {
                         {(currentLang === 'ja' ? effectiveWine?.aroma_features : (effectiveWine?.aroma_features_en || effectiveWine?.aroma_features)) && (
                           <div className="pt-4 border-t border-brand-gold/10">
                             <p className="text-xs text-brand-gold-dark/40 font-black uppercase tracking-widest mb-2">{t.aroma}</p>
-                            <p className="text-sm md:text-base text-gray-300 leading-relaxed">
-                              {currentLang === 'ja' ? effectiveWine?.aroma_features : (effectiveWine?.aroma_features_en || effectiveWine?.aroma_features)}
-                            </p>
+                            <p className="text-sm md:text-base text-gray-300 leading-relaxed">{currentLang === 'ja' ? effectiveWine?.aroma_features : (effectiveWine?.aroma_features_en || effectiveWine?.aroma_features)}</p>
                           </div>
                         )}
 
                         <div className="flex flex-wrap gap-2 pt-4 border-t border-brand-gold/10">
                           {(currentLang === 'ja' ? selectedWine?.tags : (selectedWine?.tags_en || selectedWine?.tags))?.split('、').map(tag => (
-                            <span key={tag} className="px-3 py-1 bg-brand-gold/10 rounded-full text-xs md:text-sm text-brand-gold-dark font-bold tracking-widest whitespace-nowrap border border-brand-gold/20">
-                              #{tag.trim()}
-                            </span>
+                            <span key={tag} className="px-3 py-1 bg-brand-gold/10 rounded-full text-xs md:text-sm text-brand-gold-dark font-bold tracking-widest whitespace-nowrap border border-brand-gold/20">#{tag.trim()}</span>
                           ))}
                         </div>
                       </div>
@@ -1256,9 +1186,7 @@ export const CustomerView: React.FC = () => {
                       </div>
                     ) : (
                       (currentLang === 'ja' ? effectiveWine?.pairing : (effectiveWine?.pairing_en || effectiveWine?.pairing))?.split('、').map(p => (
-                        <span key={p} className="bg-brand-gold/10 border border-brand-gold/30 px-5 py-3 rounded-full text-sm md:text-base text-brand-gold-dark font-bold tracking-wider animate-in zoom-in-95 duration-500">
-                          {p.trim()}
-                        </span>
+                        <span key={p} className="bg-brand-gold/10 border border-brand-gold/30 px-5 py-3 rounded-full text-sm md:text-base text-brand-gold-dark font-bold tracking-wider animate-in zoom-in-95 duration-500">{p.trim()}</span>
                       ))
                     )}
                   </div>
@@ -1270,18 +1198,14 @@ export const CustomerView: React.FC = () => {
                 <div className={`flex items-center px-2 ${selectedWine?.price_glass && selectedWine.price_glass > 0 ? 'justify-between' : 'justify-center'}`}>
                   <div className={`flex flex-col ${!(selectedWine?.price_glass && selectedWine.price_glass > 0) ? 'items-center text-center' : ''}`}>
                     <span className="text-sm text-gray-500 uppercase font-bold tracking-widest mb-1">{t.bottle}</span>
-                    <span className="font-sans text-2xl md:text-3xl text-brand-gold-dark font-black tracking-tighter">
-                      {selectedWine?.price_bottle ? `¥${selectedWine.price_bottle.toLocaleString()}` : '-'}
-                    </span>
+                    <span className="font-sans text-2xl md:text-3xl text-brand-gold-dark font-black tracking-tighter">{selectedWine?.price_bottle ? `¥${selectedWine.price_bottle.toLocaleString()}` : '-'}</span>
                   </div>
                   {selectedWine?.price_glass && selectedWine.price_glass > 0 && (
                     <>
                       <div className="h-10 w-px bg-brand-gold/20" />
                       <div className="flex flex-col text-right">
                         <span className="text-sm text-gray-500 uppercase font-bold tracking-widest mb-1">{t.glass}</span>
-                        <span className="font-sans text-2xl md:text-3xl text-brand-gold-dark font-black tracking-tighter">
-                          ¥{selectedWine.price_glass.toLocaleString()}
-                        </span>
+                        <span className="font-sans text-2xl md:text-3xl text-brand-gold-dark font-black tracking-tighter">¥{selectedWine.price_glass.toLocaleString()}</span>
                       </div>
                     </>
                   )}
