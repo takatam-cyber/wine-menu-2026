@@ -17,16 +17,30 @@ export const LoginView: React.FC = () => {
     setIsLoading(true);
     setError('');
     
-    const emailToUse = ownerId.includes('@') ? ownerId : `${ownerId}@pieroth-stores.app`;
+    // 💡 修正の核心: 管理画面(AdminView.tsx)のアカウント発行ドメイン「@wine-menu.app」に厳格に統一
+    const emailToUse = ownerId.includes('@') ? ownerId : `${ownerId}@wine-menu.app`;
 
     try {
-      // 1. サインイン実行
+      // 1. Firebase Auth サインイン
       const userCredential = await signInWithEmailAndPassword(auth, emailToUse, ownerPassword);
       
-      // 2. クラウド側の最新クレームを強制リフレッシュしてフロントへ高速適用 (無駄なAPIフェッチは全廃)
+      // 2. 💡 修正の核心: ログインフェーズでのみ、シーケンシャルにバックエンドのClaims同期を完了させる
+      const idToken = await userCredential.user.getIdToken();
+      const syncResponse = await fetch('/api/auth/sync-claims', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}` 
+        }
+      });
+
+      if (!syncResponse.ok) {
+        throw new Error('認証クレームの同期に失敗しました。');
+      }
+
+      // 3. サーバーサイドで焼き付けられた特権クレームをフロントへ最速で強制適用
       await userCredential.user.getIdToken(true);
       
-      // Note: WineContextのonAuthStateChangedがこれを検知して自動で画面遷移を行います
     } catch (err: any) {
       console.error('Login error:', err);
       setError('ログインに失敗しました。IDまたはパスワードを確認してください。');
@@ -38,10 +52,24 @@ export const LoginView: React.FC = () => {
     setIsLoading(true);
     setError('');
     try {
-      // 1. Googleサインイン実行
+      // 1. Googleサインイン
       const userCredential = await signInWithGoogle();
       
-      // 2. クラウド側の最新クレームを強制リフレッシュして高速適用
+      // 2. 💡 修正の核心: 営業担当ログイン時も確実にサーバー側とClaimsを同期
+      const idToken = await userCredential.user.getIdToken();
+      const syncResponse = await fetch('/api/auth/sync-claims', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}` 
+        }
+      });
+
+      if (!syncResponse.ok) {
+        throw new Error('認証クレームの同期に失敗しました。');
+      }
+
+      // 3. 特権クレームを強制適用
       await userCredential.user.getIdToken(true);
     } catch (err: any) {
       console.error('Google login error:', err);
