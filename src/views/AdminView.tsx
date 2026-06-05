@@ -477,7 +477,7 @@ export const AdminView: React.FC = () => {
     if (selectedMasterCatalogIds.length === 0) return;
     
     showConfirm(
-      `選択された ${selectedMasterCatalogIds.length} 件のワインをマスターから完全に削除しますか？`,
+      `選択された ${selectedMasterCatalogIds.length} 件 of ワインをマスターから完全に削除しますか？`,
       async () => {
         try {
           const CHUNK_SIZE = 450;
@@ -618,7 +618,6 @@ export const AdminView: React.FC = () => {
     );
   };
 
-  // 💡 修正の核心: 同じIDがあった場合は、CSVに記載された最新データで大元のマスターも店舗セラーリストも確実に上書き更新する
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -633,7 +632,6 @@ export const AdminView: React.FC = () => {
       importedWines.forEach(w => uniqueMap.set(getWineDocId(w), w));
       const uniqueImportedWines = Array.from(uniqueMap.values());
 
-      // 💡 修正: 新規・既存問わず、CSVに記載されたマスターデータを全件 winesMaster へ上書き(merge: true)更新
       if (uniqueImportedWines.length > 0) {
         for (let i = 0; i < uniqueImportedWines.length; i += CHUNK_SIZE) {
           const chunk = uniqueImportedWines.slice(i, i + CHUNK_SIZE);
@@ -661,7 +659,6 @@ export const AdminView: React.FC = () => {
           const compositeId = getWineDocId(csvWine);
           const existingIdx = updatedWinesList.findIndex(sw => sw.id === compositeId);
 
-          // 💡 修正の核心: 後から取り込んだCSVのデータを絶対優先して上書きマージ
           const enrichedItem = {
             ...csvWine,
             id: compositeId,
@@ -677,14 +674,12 @@ export const AdminView: React.FC = () => {
           };
 
           if (existingIdx >= 0) {
-            // 既存オブジェクトに対してCSVの最新情報を全置換マージ
             updatedWinesList[existingIdx] = { ...updatedWinesList[existingIdx], ...enrichedItem };
           } else {
             updatedWinesList.push(enrichedItem as WineMaster);
           }
         });
 
-        // 順番(order)のインデックス値を綺麗に再割り当て
         updatedWinesList.forEach((w, idx) => {
           if (w.order === undefined || w.order === null || w.order === 999999) {
             w.order = idx;
@@ -764,7 +759,7 @@ export const AdminView: React.FC = () => {
                 </div>
                 <div className="md:col-span-1">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">Grape (English)</label>
-                  <input type="text" className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-brand-wine" value={editMasterData.grape_en || ''} onChange={e => { setEditMasterData({...editMasterData, grape_en: e.target.value}); }} />
+                  <input type="text" className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm text-slate-990 outline-none focus:border-brand-wine" value={editMasterData.grape_en || ''} onChange={e => { setEditMasterData({...editMasterData, grape_en: e.target.value}); }} />
                 </div>
                 <div className="md:col-span-1">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">仕入れ価格 (税別)</label>
@@ -923,7 +918,8 @@ export const AdminView: React.FC = () => {
                     {isEditingStore ? (
                       <>
                         <button onClick={() => setIsEditingStore(false)} className="flex-1 py-2 text-xs font-bold uppercase tracking-widest text-slate-500 hover:bg-slate-50 rounded-xl transition-all">キャンセル</button>
-                        <button onClick={handleSaveInventory} className="flex-1 py-2 bg-brand-wine text-white text-xs font-bold uppercase tracking-widest rounded-xl hover:shadow-lg hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2"><Save className="w-3.5 h-3.5" /> 保存</button>
+                        {/* 💡 [BUG FIX] `handleSaveInventory` だった箇所を `handleUpdateStore` へ修正完了 */}
+                        <button onClick={handleUpdateStore} className="flex-1 py-2 bg-brand-wine text-white text-xs font-bold uppercase tracking-widest rounded-xl hover:shadow-lg hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2"><Save className="w-3.5 h-3.5" /> 保存</button>
                       </>
                     ) : (
                       <button onClick={() => { setEditStoreData(selectedStore || {}); setIsEditingStore(true); }} className="w-full py-2 bg-slate-100 text-brand-wine text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-brand-wine hover:text-white transition-all flex items-center justify-center gap-2"><Edit2 className="w-3.5 h-3.5" /> 店舗情報を編集</button>
@@ -938,7 +934,7 @@ export const AdminView: React.FC = () => {
                       <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-center shadow-inner">
                         <img src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(`${getBaseUrl() || window.location.origin}/menu/${selectedStoreId}`)}`} alt="Store QR Code" className="w-36 h-36 object-contain" />
                       </div>
-                      <p className="text-[11px] text-slate-400 text-center leading-relaxed">このQRコードを印刷して店内に掲示し、お客様がマイスマホでスキャンできるようにしてください。</p>
+                      <p className="text-[11px] text-slate-400 text-center leading-relaxed">このQRコードを印刷して店内に掲示し、お客様がマイススマホでスキャンできるようにしてください。</p>
                       <div className="w-full flex flex-col gap-2">
                         <button onClick={() => window.open(`${getBaseUrl() || window.location.origin}/menu/${selectedStoreId}`, '_blank')} className="w-full py-3 bg-brand-wine text-white text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-brand-wine/90 hover:shadow-lg transition-all flex items-center justify-center gap-2"><ExternalLink className="w-4 h-4" /> お客用メニューを開く</button>
                         <div className="text-center"><span className="text-[9px] font-mono select-all break-all text-slate-400 text-center block max-w-full overflow-hidden truncate">{`${getBaseUrl() || window.location.origin}/menu/${selectedStoreId}`}</span></div>
