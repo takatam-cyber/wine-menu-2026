@@ -89,11 +89,6 @@ export const OwnerView: React.FC = () => {
     }
   }, [store]);
 
-  /**
-   * 💡 [Enterprise Security Guard] 初期店舗コミット・シーケンス
-   * ロールが店舗オーナー(owner)である場合、URLパラメータからの悪意あるインジェクションを100%シャットアウト。
-   * 自身の持つ user.storeId のみの閲覧・変更を強制し、鉄壁のマルチテナント分離(データ空間隔離)を確定させる。
-   */
   useEffect(() => {
     if (!user) return;
 
@@ -104,7 +99,6 @@ export const OwnerView: React.FC = () => {
       return;
     }
 
-    // 試用・代行ログインを行う管理者(admin)や営業担当(rep)のみURLパラメータや店舗リストの走査を許可
     const urlSid = new URLSearchParams(window.location.search).get('storeId');
     if (urlSid) {
       if (selectedStoreId !== urlSid) setSelectedStoreId(urlSid);
@@ -392,6 +386,43 @@ export const OwnerView: React.FC = () => {
     );
   };
 
+  // ★ 追加: 店舗内の一括削除処理（オーナー権限用）
+  const handleBulkDeleteInventoryWines = async (wineIds: string[]) => {
+    if (!sid || wineIds.length === 0) return;
+    showConfirm(
+      `選択された ${wineIds.length} 件のワインをメニューから削除しますか？`,
+      async () => {
+        try {
+          const CHUNK_SIZE = 450;
+          for (let i = 0; i < wineIds.length; i += CHUNK_SIZE) {
+            const chunk = wineIds.slice(i, i + CHUNK_SIZE);
+            const batch = writeBatch(db);
+            chunk.forEach(id => {
+              batch.delete(doc(db, 'stores', sid, 'inventory', id));
+            });
+            await batch.commit();
+          }
+
+          const filteredList = selectedWines.filter(w => !wineIds.includes(w.id));
+          setSelectedWines(filteredList);
+          setInitialWines(JSON.parse(JSON.stringify(filteredList)));
+          
+          const richPublicMenu = filteredList
+            .filter(w => w.visible !== false && w.isActive !== false)
+            .map(w => ({ ...w, id: getWineDocId(w) }));
+
+          await updateDoc(doc(db, 'stores', sid), { publicMenu: richPublicMenu, updatedAt: new Date().toISOString() });
+          fetch(`/api/menu/${sid}/invalidate`, { method: 'POST' }).catch(() => {});
+          queryClient.invalidateQueries({ queryKey: ['publicMenu', sid] });
+          showToast(`選択した ${wineIds.length} 件の銘柄を削除しました。`, 'success');
+        } catch (error) {
+          handleFirestoreError(error, OperationType.DELETE, `stores/${sid}/inventory`);
+        }
+      },
+      '削除すると、店舗のお客様用メニューからもリアルタイムに非表示になります。'
+    );
+  };
+
   if (inventoryLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-full py-24 gap-4">
@@ -406,7 +437,6 @@ export const OwnerView: React.FC = () => {
       <header className="flex flex-col md:flex-row md:items-start justify-between gap-6">
         <div className="flex-1">
           <div className="flex flex-col md:flex-row md:items-center gap-3">
-            {/* 💡 修正の核心: 他店舗に飛べてしまうセレクトボックス（タブ）をオーナー画面から完全に駆逐。純粋な店名テキスト表示のみに固定。 */}
             <h1 className="serif text-3xl text-brand-gold-dark">{store?.name || '店舗情報不明'}</h1>
           </div>
           <p className="text-gray-400 text-xs uppercase tracking-widest font-bold mt-1">
@@ -417,7 +447,26 @@ export const OwnerView: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
-          <InventoryManager selectedStore={store || undefined} selectedStoreId={sid as string} selectedWines={selectedWines} setSelectedWines={setSelectedWines} masterWines={masterWines} searchId={searchId} setSearchId={setSearchId} handleAddWine={handleAddWine} onShowCatalogSelection={() => setShowCatalogSelection(true)} onFileUpload={() => { showToast('オーナー権限での一括CSVインポートは現在制限されています。', 'info') }} onSaveInventory={handleSaveInventory} onDeleteWine={handleDeleteWine} fileInputRef={fileInputRef} hasMoreWines={!!hasMoreWinesMaster} onLoadMoreWines={fetchNextWinesMaster} onUpdateWineItem={handleUpdateWineItem} isOwner={true} />
+          <InventoryManager 
+            selectedStore={store || undefined} 
+            selectedStoreId={sid as string} 
+            selectedWines={selectedWines} 
+            setSelectedWines={setSelectedWines} 
+            masterWines={masterWines} 
+            searchId={searchId} 
+            setSearchId={setSearchId} 
+            handleAddWine={handleAddWine} 
+            onShowCatalogSelection={() => setShowCatalogSelection(true)} 
+            onFileUpload={() => { showToast('オーナー権限での一括CSVインポートは現在制限されています。', 'info') }} 
+            onSaveInventory={handleSaveInventory} 
+            onDeleteWine={handleDeleteWine} 
+            onBulkDeleteWines={handleBulkDeleteInventoryWines} // ★ プロップス渡し
+            fileInputRef={fileInputRef} 
+            hasMoreWines={!!hasMoreWinesMaster} 
+            onLoadMoreWines={fetchNextWinesMaster} 
+            onUpdateWineItem={handleUpdateWineItem} 
+            isOwner={true} 
+          />
         </div>
         
         <div className="space-y-6">
