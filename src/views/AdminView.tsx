@@ -620,7 +620,7 @@ export const AdminView: React.FC = () => {
     );
   };
 
-  // 💡 マスターへも店舗同等の"リッチデータ"として自動処理を適用し登録するように修正
+  // ▼ 【修正の核心】CSVを読み込んだ際、必ずマスター(winesMaster)にも完全なデータとして保存し、即座に画面へ反映させる
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -633,7 +633,7 @@ export const AdminView: React.FC = () => {
       
       const uniqueMap = new Map<string, WineMaster>();
       
-      // 1. マスターへ登録するための前処理（金額の自動計算やフラグの付与）をすべてここで行う
+      // 1. CSV生データから、マスターカタログ用の「完全なワインデータ」を生成
       importedWines.forEach(csvWine => {
         const compositeId = getWineDocId(csvWine);
         const enrichedMasterItem = {
@@ -641,6 +641,7 @@ export const AdminView: React.FC = () => {
           id: compositeId,
           pureId: safeExtractPureId(csvWine.pureId || csvWine.id, csvWine.supplier).toUpperCase(),
           supplier: String(csvWine.supplier || 'PIEROTH').toUpperCase(),
+          // 金額の自動計算や初期フラグをセット
           price_bottle: (csvWine.price_bottle && csvWine.price_bottle > 0) ? csvWine.price_bottle : (csvWine.cost * 3),
           price_glass: (csvWine.price_glass && csvWine.price_glass > 0) ? csvWine.price_glass : 0,
           glasses_per_bottle: csvWine.glasses_per_bottle || 6,
@@ -654,7 +655,7 @@ export const AdminView: React.FC = () => {
       
       const uniqueImportedWines = Array.from(uniqueMap.values());
 
-      // 2. マスターカタログへの一括保存
+      // 2. マスターカタログ (winesMaster) へ一括保存する
       if (uniqueImportedWines.length > 0) {
         for (let i = 0; i < uniqueImportedWines.length; i += CHUNK_SIZE) {
           const chunk = uniqueImportedWines.slice(i, i + CHUNK_SIZE);
@@ -664,17 +665,42 @@ export const AdminView: React.FC = () => {
           });
           await batch.commit();
         }
-        // 即座にマスターカタログの再フェッチを促す
-        await queryClient.invalidateQueries({ queryKey: ['winesMaster'] });
+
+        // 3. React Query のキャッシュを手動更新して、マスター画面のリストに「即時」表示させる
+        queryClient.setQueryData(['winesMaster'], (oldData: any) => {
+          if (!oldData || !oldData.pages || oldData.pages.length === 0) return oldData;
+          const newPages = [...oldData.pages];
+          
+          // 既存のIDを抽出
+          const existingIds = new Set();
+          newPages.forEach(page => {
+            page.data.forEach((w: any) => existingIds.add(w.id));
+          });
+
+          // キャッシュに無い新規追加分だけを最初のページの先頭にねじ込む
+          const newWines = uniqueImportedWines.filter(w => !existingIds.has(w.id));
+          
+          if (newWines.length > 0) {
+            newPages[0] = {
+              ...newPages[0],
+              data: [...newWines, ...newPages[0].data]
+            };
+          }
+          return { ...oldData, pages: newPages };
+        });
+
+        // 念のためバックグラウンドで最新データを再フェッチ
+        queryClient.invalidateQueries({ queryKey: ['winesMaster'] });
       }
 
-      // 3. 店舗が選択されている場合、その店舗のセラー在庫にも反映する
+      // 4. 店舗詳細画面で操作された場合は、その店舗のセラー在庫にも反映する
       if (selectedStoreId) {
         let winesToAdd = uniqueImportedWines;
         const allowed = Array.isArray(selectedStore?.allowedSuppliers) 
           ? selectedStore!.allowedSuppliers.map(s => String(s).toUpperCase())
           : ['PIEROTH'];
           
+        // 店舗ごとに許可されたサプライヤーのみ追加
         winesToAdd = winesToAdd.filter(w => allowed.includes(w.supplier));
 
         const updatedWinesList = [...selectedWines];
@@ -716,18 +742,15 @@ export const AdminView: React.FC = () => {
         queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
       }
 
-      showToast(`${uniqueImportedWines.length}件のCSVデータをもとに、マスターカタログと店舗のセラー在庫を更新しました。`, 'success');
+      showToast(`${uniqueImportedWines.length}件のCSVデータを、マスターカタログ${selectedStoreId ? 'と店舗セラー' : ''}へ完全に反映しました。`, 'success');
     } catch (error: any) {
       showToast(`インポートに失敗しました: ${error.message}`, 'error');
     } finally {
       setIsImporting(false);
+      // どちらの input から発火した場合でも正しくリセット
       if (fileInputRef.current) fileInputRef.current.value = '';
       if (masterFileInputRef.current) masterFileInputRef.current.value = ''; 
     }
-  };
-
-  const toggleMasterSelection = (id: string) => {
-    setSelectedMasterCatalogIds(prev => prev.includes(id) ? prev.filter(mid => mid !== id) : [...prev, id]);
   };
 
   const renderMasterEditModal = () => (
@@ -936,7 +959,7 @@ export const AdminView: React.FC = () => {
                 </div>
 
                 <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-                  <div className="flex items-center gap-2 border-b border-slate-100 pb-3"><QrCode className="text-brand-wine w-5 h-5" /><h2 className="text-xs font-bold uppercase tracking-widest text-slate-800">QRコード & お客様メニュー</h2></div>
+                  <div className="flex items-center gap-2 border-b border-slate-100 pb-3"><QrCode className="text-brand-wine w-5 h-5" /><h2 className="text-xs font-bold uppercase tracking-widest text-slate-800">QRコード &お客様メニュー</h2></div>
                   {selectedStoreId ? (
                     <div className="flex flex-col items-center gap-4 py-2">
                       <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-center shadow-inner">
