@@ -140,7 +140,9 @@ export const AdminView: React.FC = () => {
   const [editMasterData, setEditMasterData] = useState<Partial<WineMaster>>({});
   const [editStoreData, setEditStoreData] = useState<Partial<Store>>({});
   const [showCatalogSelection, setShowCatalogSelection] = useState(false);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const masterFileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSearchMaster = (term: string) => {
     setMasterSearchTerm(term);
@@ -618,6 +620,7 @@ export const AdminView: React.FC = () => {
     );
   };
 
+  // 💡 マスターへも店舗同等の"リッチデータ"として自動処理を適用し登録するように修正
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -629,54 +632,59 @@ export const AdminView: React.FC = () => {
       const CHUNK_SIZE = 450;
       
       const uniqueMap = new Map<string, WineMaster>();
-      importedWines.forEach(w => uniqueMap.set(getWineDocId(w), w));
+      
+      // 1. マスターへ登録するための前処理（金額の自動計算やフラグの付与）をすべてここで行う
+      importedWines.forEach(csvWine => {
+        const compositeId = getWineDocId(csvWine);
+        const enrichedMasterItem = {
+          ...csvWine,
+          id: compositeId,
+          pureId: safeExtractPureId(csvWine.pureId || csvWine.id, csvWine.supplier).toUpperCase(),
+          supplier: String(csvWine.supplier || 'PIEROTH').toUpperCase(),
+          price_bottle: (csvWine.price_bottle && csvWine.price_bottle > 0) ? csvWine.price_bottle : (csvWine.cost * 3),
+          price_glass: (csvWine.price_glass && csvWine.price_glass > 0) ? csvWine.price_glass : 0,
+          glasses_per_bottle: csvWine.glasses_per_bottle || 6,
+          stock: csvWine.stock || 0,
+          isActive: true,
+          visible: csvWine.visible !== undefined ? csvWine.visible : true,
+          updatedAt: new Date().toISOString()
+        };
+        uniqueMap.set(compositeId, enrichedMasterItem as WineMaster);
+      });
+      
       const uniqueImportedWines = Array.from(uniqueMap.values());
 
+      // 2. マスターカタログへの一括保存
       if (uniqueImportedWines.length > 0) {
         for (let i = 0; i < uniqueImportedWines.length; i += CHUNK_SIZE) {
           const chunk = uniqueImportedWines.slice(i, i + CHUNK_SIZE);
           const batch = writeBatch(db);
           chunk.forEach(wine => {
-            const docId = getWineDocId(wine);
-            batch.set(doc(db, 'winesMaster', docId), { ...wine, id: docId, pureId: wine.pureId || wine.id }, { merge: true });
+            batch.set(doc(db, 'winesMaster', wine.id), wine, { merge: true });
           });
           await batch.commit();
         }
-        queryClient.invalidateQueries({ queryKey: ['winesMaster'] });
+        // 即座にマスターカタログの再フェッチを促す
+        await queryClient.invalidateQueries({ queryKey: ['winesMaster'] });
       }
 
+      // 3. 店舗が選択されている場合、その店舗のセラー在庫にも反映する
       if (selectedStoreId) {
         let winesToAdd = uniqueImportedWines;
         const allowed = Array.isArray(selectedStore?.allowedSuppliers) 
           ? selectedStore!.allowedSuppliers.map(s => String(s).toUpperCase())
           : ['PIEROTH'];
           
-        winesToAdd = winesToAdd.filter(w => allowed.includes(String(w.supplier || 'PIEROTH').toUpperCase()));
+        winesToAdd = winesToAdd.filter(w => allowed.includes(w.supplier));
 
         const updatedWinesList = [...selectedWines];
 
-        winesToAdd.forEach((csvWine) => {
-          const compositeId = getWineDocId(csvWine);
-          const existingIdx = updatedWinesList.findIndex(sw => sw.id === compositeId);
-
-          const enrichedItem = {
-            ...csvWine,
-            id: compositeId,
-            pureId: safeExtractPureId(csvWine.pureId || csvWine.id, csvWine.supplier).toUpperCase(),
-            supplier: String(csvWine.supplier || 'PIEROTH').toUpperCase(),
-            price_bottle: (csvWine.price_bottle && csvWine.price_bottle > 0) ? csvWine.price_bottle : (existingIdx >= 0 ? updatedWinesList[existingIdx].price_bottle : (csvWine.cost * 3)),
-            price_glass: (csvWine.price_glass && csvWine.price_glass > 0) ? csvWine.price_glass : (existingIdx >= 0 ? updatedWinesList[existingIdx].price_glass : 0),
-            glasses_per_bottle: csvWine.glasses_per_bottle || (existingIdx >= 0 ? updatedWinesList[existingIdx].glasses_per_bottle : 6),
-            stock: csvWine.stock !== undefined && csvWine.stock !== null ? csvWine.stock : (existingIdx >= 0 ? updatedWinesList[existingIdx].stock : 0),
-            isActive: true,
-            visible: csvWine.visible !== undefined ? csvWine.visible : (existingIdx >= 0 ? updatedWinesList[existingIdx].visible : true),
-            updatedAt: new Date().toISOString()
-          };
-
+        winesToAdd.forEach((enrichedItem) => {
+          const existingIdx = updatedWinesList.findIndex(sw => sw.id === enrichedItem.id);
           if (existingIdx >= 0) {
             updatedWinesList[existingIdx] = { ...updatedWinesList[existingIdx], ...enrichedItem };
           } else {
-            updatedWinesList.push(enrichedItem as WineMaster);
+            updatedWinesList.push(enrichedItem);
           }
         });
 
@@ -708,12 +716,13 @@ export const AdminView: React.FC = () => {
         queryClient.invalidateQueries({ queryKey: ['inventory', selectedStoreId] });
       }
 
-      showToast(`${uniqueImportedWines.length}件のCSVデータをもとに、既存IDの完全上書きと新規登録の反映を完了しました。`, 'success');
+      showToast(`${uniqueImportedWines.length}件のCSVデータをもとに、マスターカタログと店舗のセラー在庫を更新しました。`, 'success');
     } catch (error: any) {
       showToast(`インポートに失敗しました: ${error.message}`, 'error');
     } finally {
       setIsImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
+      if (masterFileInputRef.current) masterFileInputRef.current.value = ''; 
     }
   };
 
@@ -805,8 +814,8 @@ export const AdminView: React.FC = () => {
             <button onClick={handleCreateStore} className="flex items-center justify-center gap-2 px-6 md:px-8 py-3 bg-brand-wine text-white rounded-full text-xs font-bold uppercase tracking-widest hover:scale-105 transition-all shadow-md active:scale-95 w-full sm:w-auto">
               <Plus className="w-5 h-5" />新規店舗を開拓
             </button>
-            <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".csv" className="hidden" />
-            <button onClick={() => fileInputRef.current?.click()} className="flex items-center justify-center gap-2 px-6 md:px-8 py-3 bg-white border-2 border-slate-200 rounded-full text-xs text-slate-600 font-bold uppercase tracking-widest hover:border-brand-wine hover:text-brand-wine transition-all shadow-sm w-full sm:w-auto">
+            <input type="file" ref={masterFileInputRef} onChange={handleFileUpload} accept=".csv" className="hidden" />
+            <button onClick={() => masterFileInputRef.current?.click()} className="flex items-center justify-center gap-2 px-6 md:px-8 py-3 bg-white border-2 border-slate-200 rounded-full text-xs text-slate-600 font-bold uppercase tracking-widest hover:border-brand-wine hover:text-brand-wine transition-all shadow-sm w-full sm:w-auto">
               <Upload className="w-5 h-5" />マスター更新
             </button>
           </div>
@@ -918,7 +927,6 @@ export const AdminView: React.FC = () => {
                     {isEditingStore ? (
                       <>
                         <button onClick={() => setIsEditingStore(false)} className="flex-1 py-2 text-xs font-bold uppercase tracking-widest text-slate-500 hover:bg-slate-50 rounded-xl transition-all">キャンセル</button>
-                        {/* 💡 [BUG FIX] `handleSaveInventory` だった箇所を `handleUpdateStore` へ修正完了 */}
                         <button onClick={handleUpdateStore} className="flex-1 py-2 bg-brand-wine text-white text-xs font-bold uppercase tracking-widest rounded-xl hover:shadow-lg hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2"><Save className="w-3.5 h-3.5" /> 保存</button>
                       </>
                     ) : (
