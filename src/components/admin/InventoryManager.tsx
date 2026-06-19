@@ -18,6 +18,7 @@ interface InventoryManagerProps {
   onFileUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onSaveInventory: () => void;
   onDeleteWine: (id: string) => void;
+  onBulkDeleteWines?: (ids: string[]) => void; // ★ 新規追加: 一括削除プロップス
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   hasMoreWines: boolean;
   onLoadMoreWines: () => void;
@@ -33,6 +34,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
   onFileUpload,
   onSaveInventory,
   onDeleteWine,
+  onBulkDeleteWines, // ★ 新規追加
   fileInputRef,
   onUpdateWineItem,
   setSelectedWines,
@@ -46,8 +48,29 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
 }) => {
   const { showToast, showConfirm } = useWines();
   const [bulkCostRatio, setBulkCostRatio] = useState<string>('');
+  
+  // ★ 一括選択用のステート
+  const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
 
-  // 💡 復活・洗練: 現在の原価(cost)をベースに、全銘柄の税込販売価格を10円位繰り上げで一括計算・適用。オーナー画面でも動作。
+  const toggleRow = (id: string) => {
+    setSelectedRowIds(prev => prev.includes(id) ? prev.filter(r => r !== id) : [...prev, id]);
+  };
+
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedRowIds(selectedWines.map(w => w.id));
+    } else {
+      setSelectedRowIds([]);
+    }
+  };
+
+  const executeBulkDelete = () => {
+    if (onBulkDeleteWines && selectedRowIds.length > 0) {
+      onBulkDeleteWines(selectedRowIds);
+      setSelectedRowIds([]); // 削除後に選択状態をクリア
+    }
+  };
+
   const handleApplyBulkCostRatio = () => {
     const ratio = parseFloat(bulkCostRatio);
     if (!ratio || ratio <= 0 || ratio > 100) {
@@ -57,15 +80,9 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
 
     const updatedWines = selectedWines.map(wine => {
       if (!wine.cost || wine.cost <= 0) return wine;
-
-      // 1. 現在の原価に応じた希望販売価格（税別）を逆算
       const priceNet = wine.cost / (ratio / 100);
-      // 2. 消費税10%を課して販売価格（税込）を算出
       const priceTaxIn = priceNet * 1.1;
-      // 3. 10円の位を強制繰り上げ（下2桁を00円単位へ切り上げ処理）
       const finalBottlePrice = Math.ceil(priceTaxIn / 100) * 100;
-
-      // 4. ボトル価格に連動してグラス価格も自動補正 (杯数割ロジック)
       const glasses = wine.glasses_per_bottle || 6;
       const finalGlassPrice = Math.round((finalBottlePrice / glasses) / 100) * 100;
 
@@ -77,55 +94,28 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
     });
 
     setSelectedWines(updatedWines);
-    showToast(`現在の原価をベースに、目標原価率 ${ratio}% (税込・10円位繰り上げ) を一括計算・適用しました。「一括保存」で確定してください。`, 'success');
+    showToast(`目標原価率 ${ratio}% (税込・10円位繰り上げ) を一括適用しました。「一括保存」で確定してください。`, 'success');
   };
 
-  // 💡 復活・解放: ボトル販売価格のみを一括クリア（オーナー画面でも共通で利用可能）
   const handleResetBottlePrices = () => {
-    if (selectedWines.length === 0) {
-      showToast('セラーに銘柄が登録されていません。', 'info');
-      return;
-    }
-
-    showConfirm(
-      'すべての銘柄のボトル価格をリセットしますか？',
-      () => {
-        const updatedWines = selectedWines.map(wine => ({
-          ...wine,
-          price_bottle: 0
-        }));
-        setSelectedWines(updatedWines);
-        showToast('セラー内の全商品のボトル価格をクリアしました。「一括保存」を押すと確定します。', 'success');
-      },
-      '※画面上のボトル価格のみが0円になります。「一括保存」を押すまでデータベースへは永続化されません。'
-    );
+    if (selectedWines.length === 0) return showToast('セラーに銘柄が登録されていません。', 'info');
+    showConfirm('すべての銘柄のボトル価格をリセットしますか？', () => {
+      setSelectedWines(selectedWines.map(wine => ({ ...wine, price_bottle: 0 })));
+      showToast('全商品のボトル価格をクリアしました。「一括保存」を押すと確定します。', 'success');
+    }, '※画面上のボトル価格のみが0円になります。');
   };
 
-  // 💡 復活・解放: グラス販売価格のみを一括クリア（オーナー画面でも共通で利用可能）
   const handleResetGlassPrices = () => {
-    if (selectedWines.length === 0) {
-      showToast('セラーに銘柄が登録されていません。', 'info');
-      return;
-    }
-
-    showConfirm(
-      'すべての銘柄のグラス価格をリセットしますか？',
-      () => {
-        const updatedWines = selectedWines.map(wine => ({
-          ...wine,
-          price_glass: 0
-        }));
-        setSelectedWines(updatedWines);
-        showToast('セラー内の全商品のグラス価格をクリアしました。「一括保存」を押すと確定します。', 'success');
-      },
-      '※画面上のグラス価格のみが0円になります。「一括保存」を押すまでデータベースへは永続化されません。'
-    );
+    if (selectedWines.length === 0) return showToast('セラーに銘柄が登録されていません。', 'info');
+    showConfirm('すべての銘柄のグラス価格をリセットしますか？', () => {
+      setSelectedWines(selectedWines.map(wine => ({ ...wine, price_glass: 0 })));
+      showToast('全商品のグラス価格をクリアしました。「一括保存」を押すと確定します。', 'success');
+    }, '※画面上のグラス価格のみが0円になります。');
   };
 
   const applySort = (type: string) => {
     if (!type) return;
     const newWines = [...selectedWines];
-    
     const getColorWeight = (color: string) => {
       const c = String(color || '').toLowerCase();
       if (c.includes('泡') || c.includes('スパークリング')) return 1;
@@ -182,7 +172,16 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
         
         <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
           
-          {/* 💡 復活・解放: オーナー画面であっても、現在の原価をベースに一括計算できるよう常時表示に切り替え */}
+          {selectedRowIds.length > 0 && (
+            <button
+              onClick={executeBulkDelete}
+              className="flex items-center justify-center gap-1.5 px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-black uppercase tracking-wider hover:bg-red-700 active:scale-95 transition-all shadow-md animate-in slide-in-from-left-4"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span className="truncate">選択した{selectedRowIds.length}件を削除</span>
+            </button>
+          )}
+
           <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-sm">
             <Percent className="w-4 h-4 text-slate-400" />
             <span className="text-xs font-bold text-slate-500 whitespace-nowrap">一括原価率:</span>
@@ -204,21 +203,12 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
             </button>
           </div>
 
-          {/* 💡 復活・解放: ボトルリセット・グラスリセットボタンもオーナー画面で100%利用可能 */}
-          <button
-            onClick={handleResetBottlePrices}
-            className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-red-50 text-red-600 border border-red-200 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-red-100 active:scale-95 transition-all shadow-sm"
-            title="ボトル価格をすべて0円にリセット"
-          >
+          <button onClick={handleResetBottlePrices} className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-red-50 text-red-600 border border-red-200 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-red-100 active:scale-95 transition-all shadow-sm" title="ボトル価格をすべて0円にリセット">
             <RotateCcw className="w-3.5 h-3.5 text-red-500" />
             <span className="truncate">ボトルリセット</span>
           </button>
 
-          <button
-            onClick={handleResetGlassPrices}
-            className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-red-50 text-red-600 border border-red-200 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-red-100 active:scale-95 transition-all shadow-sm"
-            title="グラス価格をすべて0円にリセット"
-          >
+          <button onClick={handleResetGlassPrices} className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-red-50 text-red-600 border border-red-200 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-red-100 active:scale-95 transition-all shadow-sm" title="グラス価格をすべて0円にリセット">
             <RotateCcw className="w-3.5 h-3.5 text-red-500" />
             <span className="truncate">グラスリセット</span>
           </button>
@@ -226,10 +216,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
           <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm">
             <ArrowUpDown className="w-4 h-4 text-slate-400" />
             <select 
-              onChange={(e) => {
-                applySort(e.target.value);
-                e.target.value = ''; 
-              }} 
+              onChange={(e) => { applySort(e.target.value); e.target.value = ''; }} 
               className="text-xs font-bold text-slate-700 outline-none bg-transparent cursor-pointer"
             >
               <option value="">一括並び替え...</option>
@@ -262,16 +249,31 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
       <div className="w-full overflow-x-auto pb-4">
         <div className="min-w-[1100px] p-4 md:p-6 space-y-4">
           <div className="grid grid-cols-[2.5fr_3.5fr_1fr_1fr] gap-4 px-6 py-3 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100">
-            <div>ワイン銘柄</div>
+            <div className="flex items-center gap-3">
+              <input 
+                type="checkbox" 
+                checked={selectedRowIds.length === selectedWines.length && selectedWines.length > 0} 
+                onChange={handleSelectAll} 
+                className="w-4 h-4 rounded border-slate-300 text-brand-wine focus:ring-brand-wine cursor-pointer"
+              />
+              ワイン銘柄
+            </div>
             <div className="text-center">価格設定 (仕入 / ボトル / グラス / 杯数)</div>
             <div className="text-center">メニュー公開</div>
             <div className="text-right">並び替え・操作</div>
           </div>
 
           {selectedWines.map((wine, index) => {
+            if (!wine) return null; // 安全装置
             return (
-              <div key={`${wine.id}-${index}`} className={`bg-white px-6 py-4 rounded-2xl border border-slate-100 grid grid-cols-[2.5fr_3.5fr_1fr_1fr] items-center gap-4 transition-all shadow-sm group ${ !wine.visible ? 'opacity-65 bg-slate-50/50' : 'hover:border-slate-300' }`}>
+              <div key={`${wine.id}-${index}`} className={`bg-white px-6 py-4 rounded-2xl border border-slate-100 grid grid-cols-[2.5fr_3.5fr_1fr_1fr] items-center gap-4 transition-all shadow-sm group ${ !wine.visible ? 'opacity-65 bg-slate-50/50' : 'hover:border-slate-300' } ${selectedRowIds.includes(wine.id) ? 'ring-2 ring-red-200 bg-red-50/20' : ''}`}>
                 <div className="flex items-center gap-4 min-w-0 pr-4">
+                  <input 
+                    type="checkbox" 
+                    checked={selectedRowIds.includes(wine.id)} 
+                    onChange={() => toggleRow(wine.id)}
+                    className="w-4 h-4 rounded border-slate-300 text-brand-wine focus:ring-brand-wine cursor-pointer shrink-0"
+                  />
                   <button onClick={() => onUpdateWineItem(wine.id, { isFeatured: !wine.isFeatured }, true)} className={`p-2.5 rounded-xl transition-all border shrink-0 ${ wine.isFeatured ? 'bg-amber-50 border-amber-300 text-amber-500 shadow-sm' : 'bg-slate-50 border-slate-200 text-slate-300' }`}><Sparkles className={`w-4 h-4 ${wine.isFeatured ? 'fill-current' : ''}`} /></button>
                   <div className="min-w-0 flex flex-col justify-center">
                     <span className="font-black text-slate-800 text-[15px] leading-tight line-clamp-2">{wine.name_jp || '名称未設定'}</span>
@@ -284,7 +286,6 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                     <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">仕入(税別)</span>
                     <div className="relative w-full">
                       <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-xs">¥</span>
-                      {/* 💡 鉄壁の防衛: 仕入れ価格のインプットは disabled ロックを維持し、店舗側からの直接編集は100%シャットアウト */}
                       <input 
                         type="number" 
                         value={wine.cost === 0 ? 0 : (wine.cost || '')} 
