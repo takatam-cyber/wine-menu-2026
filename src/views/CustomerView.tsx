@@ -436,7 +436,6 @@ export const CustomerView: React.FC = () => {
   }, [inventory, searchTerm, selectedCategory, activeColor, activeGlassOnly, activeCuisine, activeBudget, step1Color, step2Style, step3Budget, conciergeBudgets, t, budgetFilters, cuisineFilters]);
 
   const featuredInventory = useMemo(() => {
-    // 💡 修正の核心: デフォルト指定時は、管理画面でのマニュアルソート順（orderプロパティ）を最優先でリスペクトする
     const list = filteredInventory.filter(w => w.isFeatured);
     return sortBy === 'default' ? list.sort((a: any, b: any) => (a.order || 0) - (b.order || 0)) : list;
   }, [filteredInventory, sortBy]);
@@ -815,17 +814,19 @@ export const CustomerView: React.FC = () => {
                                 </div>
 
                                 <div className="flex items-end justify-between mt-4 pt-3 border-t border-brand-gold/20">
-                                  <div className="flex gap-5 text-sm font-sans">
+                                  <div className="flex gap-4 text-sm font-sans">
                                     {wine.price_glass && wine.price_glass > 0 ? (
                                       <div className="flex flex-col bg-brand-gold/10 px-3 py-1 rounded-xl border border-brand-gold/30">
                                         <span className="text-[11px] text-brand-gold-dark font-bold uppercase tracking-wider mb-0.5">{t.glass}</span>
                                         <span className="font-sans text-xl md:text-2xl text-brand-wine font-bold">¥{wine.price_glass.toLocaleString()}</span>
                                       </div>
                                     ) : null}
-                                    <div className="flex flex-col bg-slate-100 px-3 py-1 rounded-xl border border-slate-200">
-                                      <span className="text-[11px] text-gray-500 font-bold uppercase tracking-wider mb-0.5">{t.bottle}</span>
-                                      <span className="font-sans text-xl md:text-2xl text-brand-wine font-bold">¥{wine.price_bottle ? wine.price_bottle.toLocaleString() : '-'}</span>
-                                    </div>
+                                    {wine.price_bottle && wine.price_bottle > 0 ? (
+                                      <div className="flex flex-col bg-slate-100 px-3 py-1 rounded-xl border border-slate-200">
+                                        <span className="text-[11px] text-gray-500 font-bold uppercase tracking-wider mb-0.5">{t.bottle}</span>
+                                        <span className="font-sans text-xl md:text-2xl text-brand-wine font-bold">¥{wine.price_bottle.toLocaleString()}</span>
+                                      </div>
+                                    ) : null}
                                   </div>
                                   <div className="w-10 h-10 rounded-full border border-brand-gold/30 flex items-center justify-center text-brand-gold-dark group-hover:bg-brand-gold-dark group-hover:text-white transition-all shrink-0">
                                     <ChevronRight className="w-6 h-6" />
@@ -914,17 +915,19 @@ export const CustomerView: React.FC = () => {
                               </div>
 
                               <div className="flex items-end justify-between mt-3 pt-2 border-t border-brand-wine/5">
-                                <div className="flex gap-4 text-xs font-sans">
+                                <div className="flex gap-3 text-xs font-sans">
                                   {wine.price_glass && wine.price_glass > 0 ? (
                                     <div className="flex flex-col bg-brand-gold/5 px-2 py-0.5 rounded-lg border border-brand-gold/20">
                                       <span className="text-[10px] text-brand-gold-dark font-bold uppercase tracking-wider mb-0.5">{t.glass}</span>
                                       <span className="font-sans text-lg text-brand-wine font-bold">¥{wine.price_glass.toLocaleString()}</span>
                                     </div>
                                   ) : null}
-                                  <div className="flex flex-col bg-slate-50 px-2 py-0.5 rounded-lg border border-slate-200">
-                                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">{t.bottle}</span>
-                                    <span className="font-sans text-lg text-brand-wine font-bold">¥{wine.price_bottle ? wine.price_bottle.toLocaleString() : '-'}</span>
-                                  </div>
+                                  {wine.price_bottle && wine.price_bottle > 0 ? (
+                                    <div className="flex flex-col bg-slate-50 px-2 py-0.5 rounded-lg border border-slate-200">
+                                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">{t.bottle}</span>
+                                      <span className="font-sans text-lg text-brand-wine font-bold">¥{wine.price_bottle.toLocaleString()}</span>
+                                    </div>
+                                  ) : null}
                                 </div>
                                 <ChevronRight className="w-5 h-5 text-brand-gold-dark transition-all shrink-0" />
                               </div>
@@ -1187,20 +1190,28 @@ export const CustomerView: React.FC = () => {
             </div>
 
             <div className="sticky bottom-0 z-[140] p-6 md:p-8 pt-4 pb-[env(safe-area-inset-bottom,24px)] bg-black/95 backdrop-blur-2xl border-t border-brand-gold/20 flex flex-col gap-6 safe-bottom">
-                <div className={`flex items-center px-2 ${selectedWine?.price_glass && selectedWine.price_glass > 0 ? 'justify-between' : 'justify-center'}`}>
-                  <div className={`flex flex-col ${!(selectedWine?.price_glass && selectedWine.price_glass > 0) ? 'items-center text-center' : ''}`}>
-                    <span className="text-sm text-gray-500 uppercase font-bold tracking-widest mb-1">{t.bottle}</span>
-                    <span className="font-sans text-2xl md:text-3xl text-brand-gold-dark font-black tracking-tighter">{selectedWine?.price_bottle ? `¥${selectedWine.price_bottle.toLocaleString()}` : '-'}</span>
-                  </div>
-                  {selectedWine?.price_glass && selectedWine.price_glass > 0 && (
-                    <>
-                      <div className="h-10 w-px bg-brand-gold/20" />
-                      <div className="flex flex-col text-right">
-                        <span className="text-sm text-gray-500 uppercase font-bold tracking-widest mb-1">{t.glass}</span>
-                        <span className="font-sans text-2xl md:text-3xl text-brand-gold-dark font-black tracking-tighter">¥{selectedWine.price_glass.toLocaleString()}</span>
-                      </div>
-                    </>
-                  )}
+                <div className={`flex items-center px-4 ${
+                  (selectedWine?.price_bottle && selectedWine.price_bottle > 0) && (selectedWine?.price_glass && selectedWine.price_glass > 0) 
+                    ? 'justify-between' 
+                    : 'justify-center'
+                }`}>
+                  {selectedWine?.price_bottle && selectedWine.price_bottle > 0 ? (
+                    <div className={`flex flex-col ${!(selectedWine?.price_glass && selectedWine.price_glass > 0) ? 'items-center text-center' : 'items-start'}`}>
+                      <span className="text-sm text-gray-500 uppercase font-bold tracking-widest mb-1">{t.bottle}</span>
+                      <span className="font-sans text-2xl md:text-3xl text-brand-gold-dark font-black tracking-tighter">¥{selectedWine.price_bottle.toLocaleString()}</span>
+                    </div>
+                  ) : null}
+
+                  {(selectedWine?.price_bottle && selectedWine.price_bottle > 0) && (selectedWine?.price_glass && selectedWine.price_glass > 0) ? (
+                    <div className="h-10 w-px bg-brand-gold/20 mx-4" />
+                  ) : null}
+                  
+                  {selectedWine?.price_glass && selectedWine.price_glass > 0 ? (
+                    <div className={`flex flex-col ${!(selectedWine?.price_bottle && selectedWine.price_bottle > 0) ? 'items-center text-center' : 'items-end text-right'}`}>
+                      <span className="text-sm text-gray-500 uppercase font-bold tracking-widest mb-1">{t.glass}</span>
+                      <span className="font-sans text-2xl md:text-3xl text-brand-gold-dark font-black tracking-tighter">¥{selectedWine.price_glass.toLocaleString()}</span>
+                    </div>
+                  ) : null}
                 </div>
                <div className="text-center">
                  <p className="text-sm text-brand-gold-dark font-bold uppercase tracking-[0.2em] opacity-40">{t.ageNotice}</p>
