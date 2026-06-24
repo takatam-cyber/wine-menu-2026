@@ -1126,12 +1126,12 @@ export const CustomerView: React.FC = () => {
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
           >
-            <div className="sticky top-0 z-[140] bg-black/95 backdrop-blur-md p-8 pb-4 flex justify-between items-center border-b border-white/5">
-              <span className="text-sm text-gray-400 font-bold uppercase tracking-[0.2em] opacity-60">{t.vintage} {effectiveWine?.vintage || selectedWine?.vintage}</span>
-              <button onClick={() => setSelectedWine(null)} className="w-10 h-10 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-brand-gold-dark text-xl hover:bg-white/20 transition-all font-light">✕</button>
+            {/* 1. ヘッダーの専有幅を極限まで狭く */}
+            <div className="sticky top-0 z-[140] bg-black/95 backdrop-blur-md px-4 py-2 flex justify-between items-center border-b border-white/5">
+              <span className="text-xs text-gray-400 font-bold uppercase tracking-[0.2em] opacity-60">{t.vintage} {effectiveWine?.vintage || selectedWine?.vintage}</span>
+              <button onClick={() => setSelectedWine(null)} className="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-brand-gold-dark text-lg hover:bg-white/20 transition-all font-light">✕</button>
             </div>
             
-            {/* スワイプ時のフェード・ブラー演出のために AnimatePresence でラップ */}
             <AnimatePresence mode="wait">
               <motion.div 
                 key={selectedWine.id}
@@ -1143,13 +1143,28 @@ export const CustomerView: React.FC = () => {
               >
                 
                 {/* --- 🌟 ファーストビュー: 1画面にすべて収めるエリア --- */}
-                {/* ボトムシート(価格表示)の高さ分を確保し、中央に美しく配置されるように計算 */}
-                <div className="flex flex-col items-center justify-center min-h-[calc(100dvh-220px)] md:min-h-[600px] pt-4 pb-12 px-4 relative">
+                <div className="flex flex-col items-center justify-center min-h-[calc(100dvh-130px)] md:min-h-[600px] pt-4 pb-8 px-4 relative">
                   
-                  {/* Color Symbol */}
-                  <div className="flex items-center gap-2 mb-4">
+                  {/* 3. Menu Short (ソムリエの一言) - テキストを大きく */}
+                  {selectedWine?.menu_short && (
+                    <div className="mb-4 text-center max-w-sm px-2">
+                      <span className="text-lg md:text-xl font-extrabold text-brand-gold-dark italic leading-relaxed drop-shadow-md" style={{ fontFamily: HIRAGINO_MINCHO }}>
+                        {currentLang === 'ja' ? selectedWine.menu_short : (selectedWine.menu_short_en || selectedWine.menu_short)}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* 2. Wine Image (大きく) & Color Symbol (右上にかぶせる) */}
+                  <div className="w-[55%] max-w-[260px] aspect-[3/4] bg-brand-dark/40 border border-brand-gold/20 rounded-3xl mb-6 flex items-center justify-center p-4 relative shadow-inner group overflow-visible">
+                    {/* グラデーション背景 */}
+                    <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,rgba(184,134,11,0.25),transparent_70%)] rounded-3xl pointer-events-none" />
+                    
+                    {/* ボトル画像 */}
+                    {selectedWine?.image_url && <img src={getProxyUrl(selectedWine.image_url)} alt="" loading="lazy" className="h-full w-full object-contain relative z-10 transition-transform duration-2000 group-hover:scale-105" />}
+                    
+                    {/* カラーシンボル (絶対配置で右上にはみ出すように配置) */}
                     {selectedWine?.color && (
-                      <div className={`px-4 py-1.5 text-xs font-bold rounded-full uppercase tracking-widest shadow-md ${
+                      <div className={`absolute -top-3 -right-3 z-20 px-3 py-1.5 text-xs font-bold rounded-full uppercase tracking-widest shadow-lg ${
                         selectedWine.color === '赤' ? 'bg-[#641E16] text-white' : 
                         selectedWine.color === '白' ? 'bg-brand-gold-dark text-white' : 
                         selectedWine.color === '泡' || selectedWine.color === 'スパークリング' ? 'bg-[#717D7E] text-white' : 
@@ -1163,23 +1178,8 @@ export const CustomerView: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Menu Short (ソムリエの一言) */}
-                  {selectedWine?.menu_short && (
-                    <div className="mb-4 text-center max-w-sm px-2">
-                      <span className="text-sm md:text-base font-extrabold text-brand-gold-dark italic leading-relaxed drop-shadow-md" style={{ fontFamily: HIRAGINO_MINCHO }}>
-                        {currentLang === 'ja' ? selectedWine.menu_short : (selectedWine.menu_short_en || selectedWine.menu_short)}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Wine Image (高さを抑えて画面に収める) */}
-                  <div className="w-[45%] max-w-[200px] aspect-[3/4] bg-brand-dark/40 border border-brand-gold/20 rounded-3xl mb-6 flex items-center justify-center p-4 relative shadow-inner group overflow-hidden">
-                    <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,rgba(184,134,11,0.25),transparent_70%)]" />
-                    {selectedWine?.image_url && <img src={getProxyUrl(selectedWine.image_url)} alt="" loading="lazy" className="h-full w-full object-contain relative z-10 transition-transform duration-2000 group-hover:scale-105" />}
-                  </div>
-
-                  {/* Wine Name */}
-                  <div className="text-center px-4 w-full max-w-lg z-10">
+                  {/* Wine Name (大きさ維持) */}
+                  <div className="text-center px-4 w-full max-w-lg z-10 mb-2">
                     <h2 className="text-2xl md:text-3xl font-bold text-brand-gold-dark mb-1 tracking-tight leading-tight" style={{ fontFamily: HIRAGINO_MINCHO }}>
                       {currentLang === 'ja' ? selectedWine?.name_jp : (selectedWine?.name_en || selectedWine?.name_jp)}
                     </h2>
@@ -1188,9 +1188,9 @@ export const CustomerView: React.FC = () => {
                     )}
                   </div>
 
-                  {/* スクロール誘導ガイダンス */}
-                  <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex flex-col items-center opacity-70 animate-bounce pointer-events-none">
-                    <span className="text-[10px] text-brand-gold-dark uppercase tracking-[0.2em] mb-1">Scroll for more</span>
+                  {/* 5. スクロール誘導ガイダンス */}
+                  <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex flex-col items-center opacity-70 animate-bounce pointer-events-none">
+                    <span className="text-[10px] text-brand-gold-dark uppercase tracking-[0.2em] mb-0.5">Scroll for more</span>
                     <ChevronDown className="w-5 h-5 text-brand-gold-dark" />
                   </div>
                 </div>
@@ -1273,33 +1273,33 @@ export const CustomerView: React.FC = () => {
               </motion.div>
             </AnimatePresence>
 
-            {/* --- 値段表示 (固定フッター) --- */}
-            <div className="sticky bottom-0 z-[140] p-6 md:p-8 pt-4 pb-[env(safe-area-inset-bottom,24px)] bg-black/95 backdrop-blur-2xl border-t border-brand-gold/20 flex flex-col gap-6 safe-bottom">
-                <div className={`flex items-center px-4 ${
+            {/* 4. 値段表示 (固定フッター): 専有幅を限界まで狭く */}
+            <div className="sticky bottom-0 z-[140] px-4 py-2 pb-[calc(env(safe-area-inset-bottom,0px)+8px)] bg-black/95 backdrop-blur-2xl border-t border-brand-gold/20 flex flex-col gap-1 safe-bottom">
+                <div className={`flex items-center px-2 ${
                   (selectedWine?.price_bottle && selectedWine.price_bottle > 0) && (selectedWine?.price_glass && selectedWine.price_glass > 0) 
                     ? 'justify-between' 
                     : 'justify-center'
                 }`}>
                   {selectedWine?.price_bottle && selectedWine.price_bottle > 0 ? (
                     <div className={`flex flex-col ${!(selectedWine?.price_glass && selectedWine.price_glass > 0) ? 'items-center text-center' : 'items-start'}`}>
-                      <span className="text-sm text-gray-500 uppercase font-bold tracking-widest mb-1">{t.bottle}</span>
-                      <span className="font-sans text-2xl md:text-3xl text-brand-gold-dark font-black tracking-tighter">¥{selectedWine.price_bottle.toLocaleString()}</span>
+                      <span className="text-xs text-gray-500 uppercase font-bold tracking-widest leading-none mb-1">{t.bottle}</span>
+                      <span className="font-sans text-2xl md:text-3xl text-brand-gold-dark font-black tracking-tighter leading-none">¥{selectedWine.price_bottle.toLocaleString()}</span>
                     </div>
                   ) : null}
 
                   {(selectedWine?.price_bottle && selectedWine.price_bottle > 0) && (selectedWine?.price_glass && selectedWine.price_glass > 0) ? (
-                    <div className="h-10 w-px bg-brand-gold/20 mx-4" />
+                    <div className="h-8 w-px bg-brand-gold/20 mx-4" />
                   ) : null}
                   
                   {selectedWine?.price_glass && selectedWine.price_glass > 0 ? (
                     <div className={`flex flex-col ${!(selectedWine?.price_bottle && selectedWine.price_bottle > 0) ? 'items-center text-center' : 'items-end text-right'}`}>
-                      <span className="text-sm text-gray-500 uppercase font-bold tracking-widest mb-1">{t.glass}</span>
-                      <span className="font-sans text-2xl md:text-3xl text-brand-gold-dark font-black tracking-tighter">¥{selectedWine.price_glass.toLocaleString()}</span>
+                      <span className="text-xs text-gray-500 uppercase font-bold tracking-widest leading-none mb-1">{t.glass}</span>
+                      <span className="font-sans text-2xl md:text-3xl text-brand-gold-dark font-black tracking-tighter leading-none">¥{selectedWine.price_glass.toLocaleString()}</span>
                     </div>
                   ) : null}
                 </div>
-               <div className="text-center">
-                 <p className="text-sm text-brand-gold-dark font-bold uppercase tracking-[0.2em] opacity-40">{t.ageNotice}</p>
+               <div className="text-center pb-1">
+                 <p className="text-[10px] md:text-xs text-brand-gold-dark font-bold uppercase tracking-[0.2em] opacity-40 leading-none">{t.ageNotice}</p>
                </div>
             </div>
           </motion.div>
