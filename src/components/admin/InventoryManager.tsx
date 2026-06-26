@@ -18,7 +18,7 @@ interface InventoryManagerProps {
   onFileUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onSaveInventory: () => void;
   onDeleteWine: (id: string) => void;
-  onBulkDeleteWines?: (ids: string[]) => void; // ★ 新規追加: 一括削除プロップス
+  onBulkDeleteWines?: (ids: string[]) => void;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   hasMoreWines: boolean;
   onLoadMoreWines: () => void;
@@ -34,7 +34,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
   onFileUpload,
   onSaveInventory,
   onDeleteWine,
-  onBulkDeleteWines, // ★ 新規追加
+  onBulkDeleteWines,
   fileInputRef,
   onUpdateWineItem,
   setSelectedWines,
@@ -49,7 +49,6 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
   const { showToast, showConfirm } = useWines();
   const [bulkCostRatio, setBulkCostRatio] = useState<string>('');
   
-  // ★ 一括選択用のステート
   const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
 
   const toggleRow = (id: string) => {
@@ -67,7 +66,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
   const executeBulkDelete = () => {
     if (onBulkDeleteWines && selectedRowIds.length > 0) {
       onBulkDeleteWines(selectedRowIds);
-      setSelectedRowIds([]); // 削除後に選択状態をクリア
+      setSelectedRowIds([]);
     }
   };
 
@@ -264,7 +263,18 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
           </div>
 
           {selectedWines.map((wine, index) => {
-            if (!wine) return null; // 安全装置
+            if (!wine) return null;
+            
+            // 個別の原価率を計算
+            const bottleRatio = wine.price_bottle > 0 && wine.cost > 0 
+              ? ((wine.cost * 1.1 / wine.price_bottle) * 100).toFixed(1) 
+              : '-';
+
+            const glasses = wine.glasses_per_bottle || 6;
+            const glassRatio = wine.price_glass > 0 && wine.cost > 0 
+              ? (((wine.cost / glasses) * 1.1 / wine.price_glass) * 100).toFixed(1)
+              : '-';
+
             return (
               <div key={`${wine.id}-${index}`} className={`bg-white px-6 py-4 rounded-2xl border border-slate-100 grid grid-cols-[2.5fr_3.5fr_1fr_1fr] items-center gap-4 transition-all shadow-sm group ${ !wine.visible ? 'opacity-65 bg-slate-50/50' : 'hover:border-slate-300' } ${selectedRowIds.includes(wine.id) ? 'ring-2 ring-red-200 bg-red-50/20' : ''}`}>
                 <div className="flex items-center gap-4 min-w-0 pr-4">
@@ -281,31 +291,107 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-4 gap-2 items-center justify-center">
+                <div className="grid grid-cols-4 gap-2 items-start justify-center">
+                  {/* 仕入 */}
                   <div className="flex flex-col gap-1 items-center">
                     <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">仕入(税別)</span>
                     <div className="relative w-full">
                       <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-xs">¥</span>
                       <input 
                         type="number" 
-                        value={wine.cost === 0 ? 0 : (wine.cost || '')} 
+                        value={wine.cost === 0 ? '' : wine.cost} 
                         onChange={(e) => !isOwner && onUpdateWineItem(wine.id, { cost: parseInt(e.target.value) || 0 }, false)} 
                         disabled={isOwner}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-6 pr-2 py-2 focus:border-brand-wine focus:bg-white outline-none font-mono text-slate-900 font-black text-center text-sm transition-all disabled:opacity-70 disabled:bg-slate-100 disabled:cursor-not-allowed" 
                       />
                     </div>
+                    <div className="h-[22px]" />
                   </div>
+                  
+                  {/* ボトル */}
                   <div className="flex flex-col gap-1 items-center">
                     <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">ボトル</span>
-                    <div className="relative w-full"><span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-xs">¥</span><input type="number" value={wine.price_bottle === 0 ? 0 : (wine.price_bottle || '')} onChange={(e) => onUpdateWineItem(wine.id, { price_bottle: parseInt(e.target.value) || 0 }, false)} className="w-full bg-white border border-slate-300 rounded-xl pl-6 pr-2 py-2 focus:border-brand-wine outline-none font-mono text-slate-900 font-black text-center text-sm shadow-inner" /></div>
+                    <div className="relative w-full">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-xs">¥</span>
+                      <input 
+                        type="number" 
+                        value={wine.price_bottle === 0 ? '' : wine.price_bottle} 
+                        onChange={(e) => onUpdateWineItem(wine.id, { price_bottle: parseInt(e.target.value) || 0 }, false)} 
+                        className="w-full bg-white border border-slate-300 rounded-xl pl-6 pr-2 py-2 focus:border-brand-wine outline-none font-mono text-slate-900 font-black text-center text-sm shadow-inner" 
+                      />
+                    </div>
+                    {wine.cost > 0 ? (
+                      <div className="flex items-center gap-1 mt-0.5" title="原価率を入力してボトル価格を自動計算">
+                        <input 
+                          type="number"
+                          placeholder={bottleRatio}
+                          onBlur={(e) => {
+                            const ratio = parseFloat(e.target.value);
+                            if (ratio > 0) {
+                              const priceNet = wine.cost / (ratio / 100);
+                              const priceTaxIn = priceNet * 1.1;
+                              const finalPrice = Math.ceil(priceTaxIn / 100) * 100;
+                              onUpdateWineItem(wine.id, { price_bottle: finalPrice }, false);
+                            }
+                            e.target.value = '';
+                          }}
+                          onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                          className="w-12 text-[10px] font-mono text-center bg-brand-gold/10 border border-brand-gold/30 rounded text-brand-wine placeholder-brand-wine/60 outline-none focus:bg-white focus:border-brand-wine transition-all py-0.5"
+                        />
+                        <span className="text-[9px] font-bold text-slate-400">%</span>
+                      </div>
+                    ) : <div className="h-[22px]" />}
                   </div>
+
+                  {/* グラス */}
                   <div className="flex flex-col gap-1 items-center">
                     <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">グラス</span>
-                    <div className="relative w-full"><span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-xs">¥</span><input type="number" value={wine.price_glass === 0 ? 0 : (wine.price_glass || '')} onChange={(e) => onUpdateWineItem(wine.id, { price_glass: parseInt(e.target.value) || 0 }, false)} className="w-full bg-white border border-slate-300 rounded-xl pl-6 pr-2 py-2 focus:border-brand-wine outline-none font-mono text-slate-900 font-black text-center text-sm shadow-inner" /></div>
+                    <div className="relative w-full">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-xs">¥</span>
+                      <input 
+                        type="number" 
+                        value={wine.price_glass === 0 ? '' : wine.price_glass} 
+                        onChange={(e) => onUpdateWineItem(wine.id, { price_glass: parseInt(e.target.value) || 0 }, false)} 
+                        className="w-full bg-white border border-slate-300 rounded-xl pl-6 pr-2 py-2 focus:border-brand-wine outline-none font-mono text-slate-900 font-black text-center text-sm shadow-inner" 
+                      />
+                    </div>
+                    {wine.cost > 0 ? (
+                      <div className="flex items-center gap-1 mt-0.5" title="原価率を入力してグラス価格を自動計算">
+                        <input 
+                          type="number"
+                          placeholder={glassRatio}
+                          onBlur={(e) => {
+                            const ratio = parseFloat(e.target.value);
+                            if (ratio > 0) {
+                              const glassCost = wine.cost / glasses;
+                              const priceNet = glassCost / (ratio / 100);
+                              const priceTaxIn = priceNet * 1.1;
+                              const finalPrice = Math.round(priceTaxIn / 100) * 100;
+                              onUpdateWineItem(wine.id, { price_glass: finalPrice }, false);
+                            }
+                            e.target.value = '';
+                          }}
+                          onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                          className="w-12 text-[10px] font-mono text-center bg-brand-gold/10 border border-brand-gold/30 rounded text-brand-wine placeholder-brand-wine/60 outline-none focus:bg-white focus:border-brand-wine transition-all py-0.5"
+                        />
+                        <span className="text-[9px] font-bold text-slate-400">%</span>
+                      </div>
+                    ) : <div className="h-[22px]" />}
                   </div>
+
+                  {/* 杯数 */}
                   <div className="flex flex-col gap-1 items-center">
                     <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">杯数</span>
-                    <div className="relative w-full"><input type="number" value={wine.glasses_per_bottle === 0 ? 0 : (wine.glasses_per_bottle || 6)} onChange={(e) => onUpdateWineItem(wine.id, { glasses_per_bottle: parseInt(e.target.value) || 6 }, false)} className="w-full bg-white border border-slate-300 rounded-xl px-2 py-2 focus:border-brand-wine outline-none font-mono text-slate-900 font-black text-center text-sm shadow-inner" /><span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">杯</span></div>
+                    <div className="relative w-full">
+                      <input 
+                        type="number" 
+                        value={wine.glasses_per_bottle === 0 ? '' : (wine.glasses_per_bottle || 6)} 
+                        onChange={(e) => onUpdateWineItem(wine.id, { glasses_per_bottle: parseInt(e.target.value) || 6 }, false)} 
+                        className="w-full bg-white border border-slate-300 rounded-xl px-2 py-2 focus:border-brand-wine outline-none font-mono text-slate-900 font-black text-center text-sm shadow-inner" 
+                      />
+                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">杯</span>
+                    </div>
+                    <div className="h-[22px]" />
                   </div>
                 </div>
 
